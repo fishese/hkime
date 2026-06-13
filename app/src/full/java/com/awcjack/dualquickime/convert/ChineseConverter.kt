@@ -2,6 +2,7 @@ package com.awcjack.dualquickime.convert
 
 import android.util.Log
 import com.awcjack.dualquickime.BuildConfig
+import com.awcjack.dualquickime.util.CjkText
 import openccjava.OpenCC
 
 /**
@@ -19,6 +20,12 @@ object ChineseConverter {
 
     @Volatile private var s2hk: OpenCC? = null
     @Volatile private var hk2s: OpenCC? = null
+
+    // Serializes OpenCC.convert() calls: voice post-processing now runs on the
+    // recording thread AND the pseudo-streaming interim worker concurrently (plus
+    // the main-thread 簡⇄繁 button), and openccjava's per-instance thread-safety
+    // isn't guaranteed. Conversions are short, so a single lock is cheap insurance.
+    private val convLock = Any()
 
     fun isAvailable(): Boolean = true
 
@@ -67,37 +74,12 @@ object ChineseConverter {
 
     private fun convertCjkOnly(text: String, converter: OpenCC): String {
         return try {
-            val result = StringBuilder(text.length)
-            val segment = StringBuilder()
-            var inCjk = false
-            for (ch in text) {
-                val cjk = isCjkCharacter(ch)
-                if (cjk == inCjk) {
-                    segment.append(ch)
-                } else {
-                    if (segment.isNotEmpty()) {
-                        result.append(if (inCjk) converter.convert(segment.toString()) else segment)
-                        segment.clear()
-                    }
-                    segment.append(ch)
-                    inCjk = cjk
-                }
+            synchronized(convLock) {
+                CjkText.convertCjkOnly(text) { converter.convert(it) }
             }
-            if (segment.isNotEmpty()) {
-                result.append(if (inCjk) converter.convert(segment.toString()) else segment)
-            }
-            result.toString()
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) Log.w(TAG, "OpenCC conversion failed: ${e.message}")
             text
         }
-    }
-
-    private fun isCjkCharacter(ch: Char): Boolean {
-        val code = ch.code
-        return code in 0x4E00..0x9FFF || code in 0x3400..0x4DBF ||
-                code in 0x2E80..0x2FDF || code in 0x3000..0x303F ||
-                code in 0xF900..0xFAFF || code in 0xFE30..0xFE4F ||
-                code in 0xFF00..0xFFEF
     }
 }
