@@ -17,6 +17,7 @@ object ThemeManager {
     private const val KEY_VOICE_INPUT_ENABLED = "voice_input_enabled"
     private const val KEY_VOICE_MODEL_TYPE = "voice_model_type"
     private const val KEY_VOICE_NOISE_SUPPRESSION = "voice_noise_suppression"
+    private const val KEY_VOICE_DOWNLOAD_WIFI_ONLY = "voice_download_wifi_only"
     private const val KEY_RECENT_CANDIDATES_ENABLED = "recent_candidates_enabled"
     private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
     private const val KEY_DEFAULT_SKIN_TONE = "default_skin_tone"
@@ -44,6 +45,7 @@ object ThemeManager {
     private var cachedVoiceInputEnabled: Boolean? = null
     private var cachedVoiceModelType: String? = null
     private var cachedVoiceNoiseSuppression: Boolean? = null
+    private var cachedVoiceDownloadWifiOnly: Boolean? = null
     private var cachedRecentCandidatesEnabled: Boolean? = null
     private var cachedHapticFeedbackEnabled: Boolean? = null
     private var cachedDefaultSkinTone: Int = -1
@@ -147,6 +149,21 @@ object ThemeManager {
     fun setVoiceNoiseSuppressionEnabled(context: Context, enabled: Boolean) {
         cachedVoiceNoiseSuppression = enabled
         getPrefs(context).edit().putBoolean(KEY_VOICE_NOISE_SUPPRESSION, enabled).apply()
+    }
+
+    // Voice model download over unmetered networks only (default: true). Voice
+    // models are large (up to ~1 GB), so by default we don't spend cellular data
+    // on them; users can opt in to metered downloads here.
+    fun getVoiceDownloadWifiOnly(context: Context): Boolean {
+        if (cachedVoiceDownloadWifiOnly == null) {
+            cachedVoiceDownloadWifiOnly = getPrefs(context).getBoolean(KEY_VOICE_DOWNLOAD_WIFI_ONLY, true)
+        }
+        return cachedVoiceDownloadWifiOnly!!
+    }
+
+    fun setVoiceDownloadWifiOnly(context: Context, enabled: Boolean) {
+        cachedVoiceDownloadWifiOnly = enabled
+        getPrefs(context).edit().putBoolean(KEY_VOICE_DOWNLOAD_WIFI_ONLY, enabled).apply()
     }
 
     // Recent candidates settings (default: false to disable)

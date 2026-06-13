@@ -1,8 +1,11 @@
 package com.awcjack.dualquickime.voice
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.util.Log
 import com.awcjack.dualquickime.BuildConfig
+import com.awcjack.dualquickime.R
+import com.awcjack.dualquickime.theme.ThemeManager
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
@@ -10,11 +13,18 @@ import java.security.MessageDigest
 import kotlin.concurrent.thread
 
 /**
- * Manages downloading and extracting voice recognition models.
- * Supports multiple model types: SenseVoice and Whisper Cantonese.
+ * Manages downloading voice recognition models over HTTPS.
  *
- * Security: All downloaded files are verified using SHA-256 checksums
- * to prevent tampered model files from being loaded.
+ * Robustness / safety:
+ * - Downloads resume from a partial `.tmp` via HTTP Range, so a failed ~1 GB
+ *   transfer doesn't restart from zero.
+ * - Truncated transfers are rejected by comparing the final size to the model's
+ *   expected size.
+ * - A free-disk-space guard runs before writing, and an unmetered-network guard
+ *   (user-toggleable) avoids silently spending ~1 GB of cellular data.
+ * - Optional SHA-256 integrity verification is enforced per file when a real
+ *   checksum is provisioned (see [ModelFile.verify]); the presence check used on
+ *   hot UI paths ([isModelDownloaded]) is size-based only and never hashes.
  */
 object ModelDownloadManager {
 
@@ -58,12 +68,20 @@ object ModelDownloadManager {
     private const val U2PP_CONFORMER_YUE_VERSION = "v1"
 
     /**
-     * Data class for model file with size and SHA-256 checksum.
+     * Data class for a model file with its expected size and SHA-256 checksum.
+     *
+     * [verify] gates integrity checking: set it to true only once a REAL
+     * checksum has been provisioned for the file. While the checksums below are
+     * still placeholders it stays false, so downloads aren't rejected against a
+     * fake digest — but the gate is explicit per file rather than inferred from
+     * the checksum string (the previous heuristic both mis-parsed operator
+     * precedence and would silently skip real digests containing its markers).
      */
     private data class ModelFile(
         val filename: String,
         val expectedSize: Long,
-        val sha256: String  // SHA-256 checksum in lowercase hex
+        val sha256: String,  // SHA-256 checksum in lowercase hex
+        val verify: Boolean = false
     )
 
     /**
@@ -84,7 +102,19 @@ object ModelDownloadManager {
     private var lastUrlCheckTime: Long = 0
     private const val URL_CACHE_TTL = 24 * 60 * 60 * 1000L  // 24 hours
     private const val VERSION_FILE = ".version"
-    private const val CHECKSUM_FILE = ".checksums"
+
+    // Report download progress at most once per this many bytes. AudioRecord-
+    // sized 8 KB reads previously fired the callback ~120k times for a 942 MB
+    // model, flooding the UI thread with posts; 1 MB steps give smooth progress
+    // with ~1k posts.
+    private const val PROGRESS_REPORT_BYTES = 1_000_000L
+
+    // Slack on the PRESENCE/skip check (isModelDownloaded + the download skip).
+    // Several expectedSize values are approximate, rounded-up estimates, so this
+    // is intentionally loose — a file present at the final path only exists if a
+    // prior download passed downloadFile's authoritative Content-Length
+    // truncation check, so a too-loose presence bound can't admit a partial.
+    private const val SIZE_TOLERANCE = 0.90
 
     // GitHub URL for Silero VAD
     private const val VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
@@ -158,9 +188,14 @@ object ModelDownloadManager {
 
         val files = getModelFiles(modelType)
 
+        // Presence check is SIZE-BASED ONLY — it must never hash the files.
+        // This runs on hot UI paths (mic tap, settings model picker, speculative
+        // pre-bind); hashing a ~1 GB model here would block the main thread for
+        // seconds and ANR the IME. Integrity is enforced at download time
+        // (see downloadFile + ModelFile.verify).
         val modelReady = files.all { modelFile ->
             val file = File(modelDir, modelFile.filename)
-            file.exists() && isChecksumValid(modelDir, modelFile.filename)
+            file.exists() && file.length() >= (modelFile.expectedSize * SIZE_TOLERANCE).toLong()
         }
 
         // Check version for models that track it
@@ -174,7 +209,7 @@ object ModelDownloadManager {
 
         // Check VAD model file (shared)
         val vadFile = File(context.filesDir, VAD_MODEL_FILE)
-        val vadOk = vadFile.exists() && isChecksumValid(context.filesDir, VAD_MODEL_FILE)
+        val vadOk = vadFile.exists() && vadFile.length() >= (VAD_FILE.expectedSize * SIZE_TOLERANCE).toLong()
 
         return modelReady && versionOk && vadOk
     }
@@ -232,6 +267,14 @@ object ModelDownloadManager {
     fun downloadModel(context: Context, modelType: VoiceModelType, callback: DownloadCallback) {
         thread(name = "ModelDownloadThread") {
             try {
+                // Guard: don't silently spend ~1 GB of cellular data. The
+                // unmetered-only preference defaults to on; users can opt in to
+                // metered downloads in Settings.
+                if (ThemeManager.getVoiceDownloadWifiOnly(context) && isActiveNetworkMetered(context)) {
+                    callback.onError(context.getString(R.string.voice_download_metered_blocked))
+                    return@thread
+                }
+
                 val modelDir = File(context.filesDir, modelType.modelDir)
                 if (!modelDir.exists()) {
                     modelDir.mkdirs()
@@ -251,6 +294,14 @@ object ModelDownloadManager {
                     VoiceModelType.WHISPER_CANTONESE -> WHISPER_CANTONESE_TOTAL_SIZE
                     VoiceModelType.U2PP_CONFORMER_YUE -> U2PP_CONFORMER_YUE_TOTAL_SIZE
                     VoiceModelType.QWEN3_ASR -> QWEN3_ASR_TOTAL_SIZE
+                }
+
+                // Guard: ensure there's room before writing up to ~1 GB to
+                // internal storage. usableSpace == 0 (unknown) is not a failure.
+                val freeSpace = context.filesDir.usableSpace
+                if (freeSpace in 1 until totalSize) {
+                    callback.onError(context.getString(R.string.voice_download_insufficient_space))
+                    return@thread
                 }
 
                 // Check if model version is outdated and needs re-download.
@@ -285,10 +336,10 @@ object ModelDownloadManager {
                 for (modelFile in files) {
                     val targetFile = File(modelDir, modelFile.filename)
 
-                    // Skip if already downloaded with valid checksum AND version is current
+                    // Skip if already present at (approximately) the expected
+                    // size and the version is current. Size-only — no hashing.
                     if (!needsUpdate && targetFile.exists() &&
-                        targetFile.length() > modelFile.expectedSize * 0.9 &&
-                        isChecksumValid(modelDir, modelFile.filename)) {
+                        targetFile.length() >= (modelFile.expectedSize * SIZE_TOLERANCE).toLong()) {
                         totalDownloaded += targetFile.length()
                         callback.onProgress(totalDownloaded, totalSize, modelFile.filename)
                         continue
@@ -297,11 +348,12 @@ object ModelDownloadManager {
                     if (BuildConfig.DEBUG) {
                         Log.i(TAG, "Downloading ${modelType.id} ${modelFile.filename}...")
                     }
-                    totalDownloaded = downloadFileWithChecksum(
+                    totalDownloaded = downloadFile(
                         "$baseUrl/${modelFile.filename}",
                         targetFile,
+                        modelFile.expectedSize,
                         modelFile.sha256,
-                        modelDir,
+                        modelFile.verify,
                         totalDownloaded,
                         totalSize,
                         modelFile.filename,
@@ -311,16 +363,16 @@ object ModelDownloadManager {
 
                 // Download VAD model file (shared between models)
                 val vadFile = File(context.filesDir, VAD_MODEL_FILE)
-                if (!vadFile.exists() || vadFile.length() < VAD_FILE.expectedSize * 0.9 ||
-                    !isChecksumValid(context.filesDir, VAD_MODEL_FILE)) {
+                if (!vadFile.exists() || vadFile.length() < (VAD_FILE.expectedSize * SIZE_TOLERANCE).toLong()) {
                     if (BuildConfig.DEBUG) {
                         Log.i(TAG, "Downloading Silero VAD...")
                     }
-                    totalDownloaded = downloadFileWithChecksum(
+                    totalDownloaded = downloadFile(
                         VAD_URL,
                         vadFile,
+                        VAD_FILE.expectedSize,
                         VAD_FILE.sha256,
-                        context.filesDir,
+                        VAD_FILE.verify,
                         totalDownloaded,
                         totalSize,
                         VAD_MODEL_FILE,
@@ -454,136 +506,146 @@ object ModelDownloadManager {
     }
 
     /**
-     * Save checksum for a downloaded file.
+     * Download a single file with resume support, truncation rejection, throttled
+     * progress, and optional SHA-256 verification.
+     *
+     * Resume: if a partial `.tmp` exists, continue it with an HTTP Range request
+     * (falling back to a full re-download if the server doesn't honor Range), so a
+     * failed ~1 GB transfer doesn't restart from zero. Verification is enforced
+     * only when [verify] is true (a real checksum has been provisioned); otherwise
+     * the expected-size check is the integrity guard.
      */
-    private fun saveChecksum(directory: File, filename: String, checksum: String) {
-        val checksumFile = File(directory, CHECKSUM_FILE)
-        val checksums = loadChecksums(directory).toMutableMap()
-        checksums[filename] = checksum
-        checksumFile.writeText(checksums.entries.joinToString("\n") { "${it.key}=${it.value}" })
-    }
-
-    /**
-     * Load stored checksums from file.
-     */
-    private fun loadChecksums(directory: File): Map<String, String> {
-        val checksumFile = File(directory, CHECKSUM_FILE)
-        if (!checksumFile.exists()) return emptyMap()
-
-        return try {
-            checksumFile.readLines()
-                .filter { it.contains("=") }
-                .associate { line ->
-                    val (key, value) = line.split("=", limit = 2)
-                    key to value
-                }
-        } catch (e: Exception) {
-            emptyMap()
-        }
-    }
-
-    /**
-     * Check if a file's stored checksum matches its actual checksum.
-     */
-    private fun isChecksumValid(directory: File, filename: String): Boolean {
-        val file = File(directory, filename)
-        if (!file.exists()) return false
-
-        val storedChecksums = loadChecksums(directory)
-        val storedChecksum = storedChecksums[filename] ?: return false
-
-        return try {
-            val actualChecksum = calculateSha256(file)
-            actualChecksum == storedChecksum
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    /**
-     * Download a single file with progress reporting and SHA-256 verification.
-     */
-    private fun downloadFileWithChecksum(
+    private fun downloadFile(
         urlString: String,
         targetFile: File,
+        expectedSize: Long,
         expectedChecksum: String,
-        checksumDirectory: File,
+        verify: Boolean,
         currentTotal: Long,
         totalSize: Long,
         filename: String,
         callback: DownloadCallback
     ): Long {
-        var totalDownloaded = currentTotal
-
         // Ensure the parent directory exists. Required for nested paths like
-        // "tokenizer/merges.txt" where the immediate parent is a subdir of modelDir
-        // that the caller's single mkdirs() did not create.
+        // "tokenizer/merges.txt" whose parent the caller's single mkdirs() missed.
         targetFile.parentFile?.mkdirs()
+        val tempFile = File(targetFile.parent, "${targetFile.name}.tmp")
 
-        val url = URL(urlString)
-        val connection = url.openConnection() as HttpURLConnection
+        // Resume from a previous partial download if present.
+        var existing = if (tempFile.exists()) tempFile.length() else 0L
+
+        var connection = openConnection(urlString)
+        if (existing > 0) connection.setRequestProperty("Range", "bytes=$existing-")
+        var responseCode = connection.responseCode
+
+        val append: Boolean
+        when (responseCode) {
+            HttpURLConnection.HTTP_PARTIAL -> append = true                 // 206: server honored Range
+            HttpURLConnection.HTTP_OK -> { append = false; existing = 0 }    // 200: full body (Range ignored / fresh)
+            416 -> {                                                          // Range Not Satisfiable: stale .tmp
+                connection.disconnect()
+                tempFile.delete()
+                existing = 0
+                connection = openConnection(urlString)
+                responseCode = connection.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw IOException("HTTP error: $responseCode for $filename")
+                }
+                append = false
+            }
+            else -> throw IOException("HTTP error: $responseCode for $filename")
+        }
+
+        // Authoritative size the server will deliver in THIS response: for a 206
+        // it's the remaining range, for a 200 it's the whole file. -1 if unknown
+        // (e.g. chunked). Used for an exact truncation check below.
+        val contentLength = connection.contentLengthLong
+        val expectedFinalSize = if (contentLength > 0) {
+            if (append) existing + contentLength else contentLength
+        } else {
+            -1L
+        }
+
+        var totalDownloaded = currentTotal + existing
+        var lastReported = totalDownloaded
+
+        connection.inputStream.use { input ->
+            FileOutputStream(tempFile, append).use { output ->
+                val buffer = ByteArray(64 * 1024)
+                var bytesRead: Int
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    totalDownloaded += bytesRead
+                    // Throttle UI progress to ~1 MB steps (was every 8 KB).
+                    if (totalDownloaded - lastReported >= PROGRESS_REPORT_BYTES) {
+                        callback.onProgress(totalDownloaded, totalSize, filename)
+                        lastReported = totalDownloaded
+                    }
+                }
+            }
+        }
+        callback.onProgress(totalDownloaded, totalSize, filename)
+
+        // Reject truncated downloads (e.g. a dropped connection at 200/206).
+        // Prefer the server's Content-Length (exact); fall back to a coarse
+        // floor against the approximate hard-coded expectedSize only when the
+        // server didn't report a length, so a rounded-up estimate can't reject a
+        // genuinely complete file.
+        val actualLen = tempFile.length()
+        val truncated = when {
+            expectedFinalSize > 0 -> actualLen < expectedFinalSize
+            expectedSize > 0 -> actualLen < (expectedSize * 0.5).toLong()
+            else -> false
+        }
+        if (truncated) {
+            tempFile.delete()
+            throw IOException("Downloaded $filename is truncated ($actualLen bytes)")
+        }
+
+        // Optional integrity check against a pinned SHA-256.
+        if (verify) {
+            val actual = calculateSha256(tempFile)
+            if (actual != expectedChecksum) {
+                tempFile.delete()
+                throw SecurityException(
+                    "Checksum verification failed for $filename. " +
+                        "Expected: $expectedChecksum, Got: $actual. The file may have been tampered with."
+                )
+            }
+        }
+
+        if (targetFile.exists()) targetFile.delete()
+        if (!tempFile.renameTo(targetFile)) {
+            throw IOException("Failed to move downloaded file to final location")
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.i(TAG, "Downloaded $filename (${targetFile.length()} bytes, verify=$verify)")
+        }
+        return totalDownloaded
+    }
+
+    private fun openConnection(urlString: String): HttpURLConnection {
+        val connection = URL(urlString).openConnection() as HttpURLConnection
         connection.connectTimeout = 30000
         connection.readTimeout = 60000
         connection.requestMethod = "GET"
         connection.setRequestProperty("User-Agent", "DualQuickIME/1.0")
         connection.instanceFollowRedirects = true
+        return connection
+    }
 
-        val responseCode = connection.responseCode
-        if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw IOException("HTTP error: $responseCode for $filename")
+    /**
+     * Whether the active network is metered (cellular / metered hotspot).
+     * Best-effort — returns false if connectivity state can't be read.
+     */
+    private fun isActiveNetworkMetered(context: Context): Boolean {
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            cm?.isActiveNetworkMetered ?: false
+        } catch (e: Exception) {
+            false
         }
-
-        // Download to temp file first
-        val tempFile = File(targetFile.parent, "${targetFile.name}.tmp")
-
-        // Calculate checksum while downloading
-        val digest = MessageDigest.getInstance("SHA-256")
-
-        connection.inputStream.use { input ->
-            FileOutputStream(tempFile).use { output ->
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    digest.update(buffer, 0, bytesRead)
-                    totalDownloaded += bytesRead
-                    callback.onProgress(totalDownloaded, totalSize, filename)
-                }
-            }
-        }
-
-        // Verify checksum
-        val actualChecksum = digest.digest().joinToString("") { "%02x".format(it) }
-
-        // Note: Using placeholder checksums during development
-        // In production, replace placeholder checksums with actual values and enable strict verification
-        val isPlaceholderChecksum = expectedChecksum.matches(Regex("^[a-f0-9]{64}$")) &&
-            expectedChecksum.contains("a1b2c3") || expectedChecksum.contains("b8e52f") ||
-            expectedChecksum.contains("c2d3e4") || expectedChecksum.contains("d3e4f5")
-
-        if (!isPlaceholderChecksum && actualChecksum != expectedChecksum) {
-            tempFile.delete()
-            throw SecurityException(
-                "Checksum verification failed for $filename. " +
-                "Expected: $expectedChecksum, Got: $actualChecksum. " +
-                "The file may have been tampered with."
-            )
-        }
-
-        // Rename temp file to final name
-        if (!tempFile.renameTo(targetFile)) {
-            throw IOException("Failed to move downloaded file to final location")
-        }
-
-        // Save the actual checksum for future validation
-        saveChecksum(checksumDirectory, filename, actualChecksum)
-
-        if (BuildConfig.DEBUG) {
-            Log.i(TAG, "Downloaded $filename (${targetFile.length()} bytes, SHA-256: $actualChecksum)")
-        }
-
-        return totalDownloaded
     }
 
     /**

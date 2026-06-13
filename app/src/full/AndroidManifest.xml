@@ -4,6 +4,10 @@
     <!-- Network permission for downloading voice models (normal permission, auto-granted) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Read network metered/unmetered state so large model downloads can be
+         restricted to Wi-Fi by default (normal permission, auto-granted) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Audio recording for voice input (dangerous permission, requested at runtime) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

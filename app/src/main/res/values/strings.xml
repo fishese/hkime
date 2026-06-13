@@ -86,6 +86,10 @@
     <string name="settings_voice_enable_desc">Speak to type using offline recognition (Cantonese/Chinese/English)</string>
     <string name="settings_voice_noise_suppression">Noise suppression</string>
     <string name="settings_voice_noise_suppression_desc">Filter background noise for clearer recognition in noisy places</string>
+    <string name="settings_voice_download_wifi_only">Download on Wi-Fi only</string>
+    <string name="settings_voice_download_wifi_only_desc">Voice models are large (up to ~1 GB). Turn off to allow downloads over mobile data.</string>
+    <string name="voice_download_metered_blocked">Voice model download is set to Wi-Fi only. Connect to Wi-Fi, or allow mobile-data downloads in Settings.</string>
+    <string name="voice_download_insufficient_space">Not enough free storage to download the voice model.</string>
     <string name="settings_voice_select_model">Select voice model</string>
     <string name="settings_voice_selected_model">Selected model</string>
     <string name="settings_voice_download_model">Download voice model</string>
