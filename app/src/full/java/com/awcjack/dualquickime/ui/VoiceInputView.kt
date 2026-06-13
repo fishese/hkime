@@ -405,9 +405,20 @@ class VoiceInputView @JvmOverloads constructor(
         }
     }
 
-    fun setTranscript(text: String) {
+    fun setTranscript(text: String) = setTranscript(text, true)
+
+    /**
+     * Show the live transcript. Provisional (interim) text from pseudo-streaming
+     * is dimmed to signal it isn't finalized yet; committed text is fully opaque.
+     */
+    fun setTranscript(text: String, isFinal: Boolean) {
+        // Ignore provisional (interim) updates once we've left LISTENING — e.g. a
+        // late interim worker landing during PROCESSING/STOPPED must not overwrite
+        // the committed review transcript. Final updates always apply.
+        if (!isFinal && currentState != State.LISTENING) return
         currentTranscript = text
         transcriptText?.text = text
+        transcriptText?.alpha = if (isFinal) 1.0f else 0.6f
         transcriptText?.visibility = if (text.isNotEmpty()) View.VISIBLE else View.GONE
         updateButtonStates()
     }
@@ -427,6 +438,19 @@ class VoiceInputView @JvmOverloads constructor(
 
     fun setErrorMessage(message: String) {
         statusText?.text = message
+    }
+
+    /**
+     * Update only the status line while LISTENING (without touching buttons,
+     * the mic pulse or visibility) to flag that a captured segment is being
+     * transcribed. No-op in any other state, so it can't disturb the
+     * download / error / stopped UI.
+     */
+    fun setListeningStatus(processing: Boolean) {
+        if (currentState != State.LISTENING) return
+        statusText?.text = context.getString(
+            if (processing) R.string.voice_processing else R.string.voice_listening
+        )
     }
 
     private fun startPulseAnimation() {

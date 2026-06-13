@@ -34,9 +34,11 @@ class VoiceInputView @JvmOverloads constructor(
     fun setOnCommitListener(callback: (String) -> Unit) {}
     fun setState(state: State) {}
     fun setTranscript(text: String) {}
+    fun setTranscript(text: String, isFinal: Boolean) {}
     fun getTranscript(): String = ""
     fun clearTranscript() {}
     fun setDownloadProgress(progress: Int, statusMessage: String) {}
     fun setErrorMessage(message: String) {}
+    fun setListeningStatus(processing: Boolean) {}
     fun refreshTheme() {}
 }

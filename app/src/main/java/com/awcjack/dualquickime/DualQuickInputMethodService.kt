@@ -1043,10 +1043,12 @@ class DualQuickInputMethodService : InputMethodService() {
                         }
 
                         // Set up callbacks
-                        manager.setOnResultListener { text, _ ->
+                        manager.setOnResultListener { text, isFinal ->
                             mainHandler.post {
-                                // Only update the transcript display, don't auto-commit
-                                voiceInputView?.setTranscript(text)
+                                // Update the transcript display (don't auto-commit).
+                                // Interim (pseudo-streaming) results arrive with
+                                // isFinal=false and are shown dimmed.
+                                voiceInputView?.setTranscript(text, isFinal)
                             }
                         }
 
@@ -1054,6 +1056,16 @@ class DualQuickInputMethodService : InputMethodService() {
                             mainHandler.post {
                                 voiceInputView?.setState(VoiceInputView.State.ERROR)
                                 voiceInputView?.setErrorMessage(error)
+                            }
+                        }
+
+                        // Surface per-segment decode state as a "Transcribing…"
+                        // hint while still listening, so the gap between speech
+                        // end and text (several seconds for Qwen3-ASR) doesn't
+                        // look like a frozen keyboard.
+                        manager.setOnProcessingStateListener { processing ->
+                            mainHandler.post {
+                                voiceInputView?.setListeningStatus(processing)
                             }
                         }
 
@@ -1084,7 +1096,11 @@ class DualQuickInputMethodService : InputMethodService() {
      * Close voice input without committing any pending text.
      */
     private fun closeVoiceInput() {
-        voiceInputManager?.stopRecording()
+        // stopRecording() does a blocking join on the capture thread (which may
+        // be mid-decode for Qwen3-ASR); run it off the UI thread so Cancel never
+        // janks the keyboard. Hiding the overlay immediately keeps Cancel feeling
+        // instant.
+        voiceInputManager?.let { manager -> thread { manager.stopRecording() } }
         voiceInputView?.setState(VoiceInputView.State.HIDDEN)
         // Clear the start-debounce flag so the user can immediately retry if
         // they cancelled while we were still loading. The in-flight init
@@ -1137,8 +1153,13 @@ class DualQuickInputMethodService : InputMethodService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Release voice input resources
-        voiceInputManager?.release()
+        // Release voice input resources off the main thread: release() makes a
+        // synchronous cross-process releaseModel() Binder call that can block on
+        // the :voice recognizerLock for the length of an in-flight decode
+        // (several seconds for Qwen3-ASR). Doing it on the UI thread here would
+        // be an ANR-class teardown stall. The :voice process memory is reclaimed
+        // by the OS regardless.
+        voiceInputManager?.let { manager -> thread { manager.release() } }
         voiceInputManager = null
         // Unregister clipboard listener to avoid memory leaks
         clipboardManager?.removePrimaryClipChangedListener(clipboardListener)

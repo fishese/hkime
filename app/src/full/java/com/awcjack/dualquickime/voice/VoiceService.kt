@@ -79,9 +79,15 @@ class VoiceService : Service() {
             }
         }
 
-        override fun transcribe(pcm16le: ByteArray): String {
-            val rec = synchronized(recognizerLock) { recognizer } ?: return ""
-            return try {
+        override fun transcribe(pcm16le: ByteArray): String = synchronized(recognizerLock) {
+            // Hold recognizerLock for the ENTIRE decode, not just the field read.
+            // createStream/decode/getResult dereference the native recognizer;
+            // a concurrent releaseModel() (idle releaser or onDestroy, dispatched
+            // on a different Binder thread) that freed it mid-decode would be a
+            // native use-after-free (SIGSEGV). With the full body locked,
+            // releaseModel() blocks until the in-flight decode completes.
+            val rec = recognizer ?: return@synchronized ""
+            try {
                 // Unpack little-endian int16 bytes back to the float range
                 // Sherpa-ONNX wants. The IME packed these from its existing
                 // int16 AudioRecord samples, so the round-trip is lossless.

@@ -16,9 +16,10 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.awcjack.dualquickime.BuildConfig
+import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.theme.ThemeManager
+import com.awcjack.dualquickime.util.CjkText
 import com.k2fsa.sherpa.onnx.*
-import openccjava.OpenCC
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -26,6 +27,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlin.math.abs
 
 /**
  * Manages voice input using Sherpa-ONNX for offline speech recognition.
@@ -96,6 +98,26 @@ class VoiceInputManager(private val context: Context) {
         // APK in it, and call onServiceConnected. 5 s covers cold start on a
         // modest device.
         private const val SERVICE_BIND_TIMEOUT_SEC = 5L
+
+        // ── Pseudo-streaming (interim) decode tuning ──────────────────────────
+        // While a VAD segment is still in progress (no silence endpoint yet),
+        // we periodically re-decode the audio accumulated so far on a worker
+        // thread and show it as a provisional "interim" transcript, so text
+        // appears as the user speaks instead of only after they pause. Only the
+        // fast in-process recognizers do this; Qwen3-ASR (autoregressive, out of
+        // process) and Whisper (slower + repetition-prone) stay segment-only.
+        // How often to kick off an interim re-decode.
+        private const val INTERIM_INTERVAL_MS = 700L
+        // Don't bother decoding less than this much in-progress audio.
+        private const val INTERIM_MIN_SAMPLES = SAMPLE_RATE / 2          // 0.5 s
+        // Cap the in-progress buffer so it can't grow without bound (matches the
+        // 30 s VAD maxSpeechDuration force-split). Oldest audio is dropped past
+        // this; a normal utterance is committed by VAD long before reaching it.
+        private const val INTERIM_MAX_SAMPLES = SAMPLE_RATE * 30         // 30 s
+        // Per-chunk peak amplitude (in the −1..1 float domain) above which a
+        // chunk is treated as voiced. Gates interim decoding so we never decode
+        // pure pre-speech silence.
+        private const val INTERIM_VOICE_THRESHOLD = 0.02f
 
         // Punctuation conversion map (spoken words to symbols)
         // Supports Cantonese, Mandarin and English
@@ -227,6 +249,36 @@ class VoiceInputManager(private val context: Context) {
             "new line" to "\n",
             "newline" to "\n"
         )
+
+        /**
+         * Spoken-punctuation rules derived from [PUNCTUATION_MAP], sorted longest
+         * spoken form first so multi-word forms ("double quote") are applied
+         * before their suffixes ("quote"). ASCII/Latin forms match only on word
+         * boundaries so they never corrupt ordinary words (e.g. "comma" must not
+         * fire inside "command", "dash" not inside "dashboard"); CJK forms match
+         * as plain substrings since spoken Chinese has no word separators.
+         */
+        private val PUNCTUATION_RULES: List<PunctuationRule> by lazy {
+            PUNCTUATION_MAP.entries
+                .sortedByDescending { it.key.length }
+                .map { (spoken, symbol) ->
+                    if (spoken.all { it.code < 0x80 }) {
+                        PunctuationRule(
+                            Regex("\\b" + Regex.escape(spoken) + "\\b", RegexOption.IGNORE_CASE),
+                            null,
+                            symbol
+                        )
+                    } else {
+                        PunctuationRule(null, spoken, symbol)
+                    }
+                }
+        }
+
+        private class PunctuationRule(
+            val matcher: Regex?,
+            val literal: String?,
+            val symbol: String
+        )
     }
 
     // Current model type
@@ -238,12 +290,42 @@ class VoiceInputManager(private val context: Context) {
     // Silero VAD (shared across all model types via Sherpa-ONNX)
     private var vad: Vad? = null
 
-    // OpenCC converter for Simplified to Traditional Chinese (Hong Kong variant)
-    // Cached instance for performance - initialization has overhead
-    private var openccConverter: OpenCC? = null
-
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
+
+    // Serializes the AudioRecord / recordingThread lifecycle so a user "Cancel"
+    // (stopRecording) and a manual "Stop" (finishRecording) — or onDestroy's
+    // release() — can't both stop()/release() the same native AudioRecord. The
+    // first caller captures the references and nulls the fields under this lock;
+    // any racing caller then sees null and no-ops.
+    private val audioLock = Any()
+
+    // Guards the transcript accumulator, which is appended on the recording
+    // thread (handleSegment) while clearAccumulatedText() runs on the main
+    // thread (the "Reset" button, which clears while still recording).
+    private val textLock = Any()
+
+    // ── Pseudo-streaming (interim) state ──────────────────────────────────
+    // In-progress audio for the current (not-yet-endpointed) utterance, kept as
+    // a list of raw chunks + a running count. Guarded by [interimLock]; mutated
+    // on the recording thread and snapshotted by the interim worker.
+    private val interimLock = Any()
+    private val interimChunks = ArrayList<FloatArray>()
+    private var interimSampleCount = 0
+    private var interimVoiced = false
+    // Bumped whenever the in-progress buffer is cleared (a segment committed,
+    // or recording reset). An interim worker captures the generation at snapshot
+    // time and only publishes its result if it still matches — so a slow interim
+    // decode can't overwrite the committed transcript after its segment finalized.
+    @Volatile
+    private var interimGeneration = 0
+    // True while an interim decode is in flight; overlapping triggers are dropped.
+    private val interimInFlight = AtomicBoolean(false)
+    private var lastInterimMs = 0L
+    // Current provisional transcript for the in-progress utterance (guarded by
+    // [textLock]); shown after the committed text and cleared when the segment
+    // finalizes.
+    private var interimText = ""
 
     // Platform audio effects attached to the capture session to raise SNR
     // before audio reaches the VAD and recognizer. All three are optional and
@@ -383,12 +465,9 @@ class VoiceInputManager(private val context: Context) {
             val modelDir = File(context.filesDir, currentModelType.modelDir).absolutePath
             val vadModelPath = File(context.filesDir, ModelDownloadManager.VAD_MODEL_FILE).absolutePath
 
-            // Initialize OpenCC converter (Simplified to Hong Kong Traditional)
-            // s2hk: Simplified Chinese to Hong Kong Traditional Chinese
-            openccConverter = OpenCC("s2hk")
-            if (BuildConfig.DEBUG) {
-                Log.i(TAG, "OpenCC converter initialized for s2hk conversion")
-            }
+            // Simplified -> Hong Kong Traditional conversion is delegated to the
+            // shared ChineseConverter (lazy, cached s2hk instance), so we no
+            // longer build a per-manager OpenCC here.
 
             // Initialize Silero VAD
             val vadConfig = VadModelConfig(
@@ -860,7 +939,7 @@ class VoiceInputManager(private val context: Context) {
                 MediaRecorder.AudioSource.MIC
             }
 
-            audioRecord = AudioRecord(
+            val recorder = AudioRecord(
                 audioSource,
                 SAMPLE_RATE,
                 CHANNEL_CONFIG,
@@ -868,28 +947,36 @@ class VoiceInputManager(private val context: Context) {
                 minBufferSize * 2
             )
 
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                recorder.release()
                 onErrorCallback?.invoke("Failed to initialize audio recorder")
                 return false
             }
+            synchronized(audioLock) { audioRecord = recorder }
 
             if (noiseSuppressionEnabled) {
-                attachAudioEffects(audioRecord!!.audioSessionId)
+                attachAudioEffects(recorder.audioSessionId)
             }
 
             isRecording = true
-            lastRecognizedText = ""
-            accumulatedText.clear()
-            lastSegmentText = ""
+            synchronized(textLock) {
+                lastRecognizedText = ""
+                accumulatedText.clear()
+                lastSegmentText = ""
+                interimText = ""
+            }
+            clearInterimAudio()
+            lastInterimMs = 0L
 
             // Reset VAD state to clear any leftover segments from previous recordings
             vad?.reset()
 
-            audioRecord?.startRecording()
+            recorder.startRecording()
 
-            recordingThread = thread(name = "VoiceInputThread") {
+            val captureThread = thread(name = "VoiceInputThread") {
                 processAudioWithVad()
             }
+            synchronized(audioLock) { recordingThread = captureThread }
 
             if (BuildConfig.DEBUG) {
                 Log.i(TAG, "Recording started with ${currentModelType.id}")
@@ -910,11 +997,30 @@ class VoiceInputManager(private val context: Context) {
      */
     fun stopRecording() {
         isRecording = false
+        // Drop any in-progress interim audio; setting isRecording=false above
+        // also prevents in-flight interim workers from publishing stale text.
+        clearInterimAudio()
+
+        // Capture and null the lifecycle fields under audioLock so a racing
+        // finishRecording()/release() can't stop()/release() the same native
+        // AudioRecord. Whoever wins the lock owns the teardown; the loser sees
+        // null and no-ops.
+        val ar: AudioRecord?
+        val rt: Thread?
+        synchronized(audioLock) {
+            ar = audioRecord
+            audioRecord = null
+            rt = recordingThread
+            recordingThread = null
+        }
 
         try {
-            audioRecord?.stop()
-            audioRecord?.release()
-            audioRecord = null
+            // stop() unblocks the capture thread's in-flight read(); join BEFORE
+            // release() so the reader has exited its read loop and can't
+            // dereference a freed native AudioRecord (read-after-release).
+            ar?.stop()
+            rt?.join(1000)
+            ar?.release()
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
                 Log.e(TAG, "Error stopping audio record: ${e.message}")
@@ -922,9 +1028,6 @@ class VoiceInputManager(private val context: Context) {
         }
 
         releaseAudioEffects()
-
-        recordingThread?.join(1000)
-        recordingThread = null
 
         // Bump activity so the idle releaser holds the recognizer for the
         // QWEN3_ASR_IDLE_RELEASE_MS grace window after a session ends —
@@ -958,23 +1061,32 @@ class VoiceInputManager(private val context: Context) {
         }
         isRecording = false
         thread(name = "VoiceFinishThread") {
+            // Capture+null the lifecycle fields under audioLock so a racing
+            // stopRecording()/release() can't also stop/release this AudioRecord.
+            val ar: AudioRecord?
+            val rt: Thread?
+            synchronized(audioLock) {
+                ar = audioRecord
+                audioRecord = null
+                rt = recordingThread
+                recordingThread = null
+            }
             try {
                 // Stop the mic so the capture loop's blocking read() returns and
                 // the thread proceeds into its VAD-flush path.
                 try {
-                    audioRecord?.stop()
+                    ar?.stop()
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) Log.e(TAG, "Error stopping audio record: ${e.message}")
                 }
-                // Wait for the full flush + trailing-segment decode to finish.
-                recordingThread?.join(FINISH_FLUSH_TIMEOUT_MS)
-                recordingThread = null
+                // Wait for the full flush + trailing-segment decode to finish
+                // before releasing, so we never commit truncated text.
+                rt?.join(FINISH_FLUSH_TIMEOUT_MS)
                 try {
-                    audioRecord?.release()
+                    ar?.release()
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) Log.e(TAG, "Error releasing audio record: ${e.message}")
                 }
-                audioRecord = null
                 releaseAudioEffects()
                 markActivity()
             } finally {
@@ -1058,78 +1170,24 @@ class VoiceInputManager(private val context: Context) {
         unbindVoiceService()
         vad?.release()
         vad = null
-        openccConverter = null
         isInitialized = false
     }
 
     /**
-     * Convert spoken punctuation words to actual punctuation marks.
+     * Convert spoken punctuation words to actual punctuation marks. Rules are
+     * applied longest-spoken-form first (so "double quote" wins over "quote"),
+     * Latin forms on word boundaries only, CJK forms as plain substrings.
      */
     private fun convertPunctuation(text: String): String {
         var result = text
-        for ((spoken, symbol) in PUNCTUATION_MAP) {
-            // Replace whole word matches (case-insensitive for English)
-            result = result.replace(spoken, symbol, ignoreCase = true)
+        for (rule in PUNCTUATION_RULES) {
+            result = if (rule.matcher != null) {
+                rule.matcher.replace(result, Regex.escapeReplacement(rule.symbol))
+            } else {
+                result.replace(rule.literal!!, rule.symbol)
+            }
         }
         return result
-    }
-
-    /**
-     * Check if a character belongs to a CJK Unicode block that OpenCC should process.
-     * Covers the main CJK ranges:
-     * - 0x2E80..0x2FDF: CJK Radicals Supplement, Kangxi Radicals
-     * - 0x3000..0x303F: CJK Symbols and Punctuation
-     * - 0x3400..0x4DBF: CJK Unified Ideographs Extension A
-     * - 0x4E00..0x9FFF: CJK Unified Ideographs (main block)
-     * - 0xF900..0xFAFF: CJK Compatibility Ideographs
-     * - 0xFE30..0xFE4F: CJK Compatibility Forms
-     * - 0xFF00..0xFFEF: Halfwidth and Fullwidth Forms
-     */
-    private fun isCjkCharacter(ch: Char): Boolean {
-        return ch.code in 0x4E00..0x9FFF || ch.code in 0x3400..0x4DBF ||
-                ch.code in 0x2E80..0x2FDF || ch.code in 0x3000..0x303F ||
-                ch.code in 0xF900..0xFAFF || ch.code in 0xFE30..0xFE4F ||
-                ch.code in 0xFF00..0xFFEF
-    }
-
-    /**
-     * Convert Simplified Chinese to Traditional Chinese using OpenCC.
-     * Uses s2hk (Simplified to Hong Kong Traditional) for best Cantonese support.
-     * This is phrase-aware and handles context-dependent conversions.
-     * Only CJK characters are passed to OpenCC; non-CJK segments are preserved as-is.
-     */
-    private fun convertToTraditional(text: String): String {
-        return try {
-            val converter = openccConverter ?: return text
-            // Split text into CJK and non-CJK segments, apply OpenCC only to CJK portions
-            val result = StringBuilder()
-            val segment = StringBuilder()
-            var inCjk = false
-
-            for (ch in text) {
-                if (isCjkCharacter(ch) == inCjk) {
-                    segment.append(ch)
-                } else {
-                    // Flush the previous segment
-                    if (segment.isNotEmpty()) {
-                        result.append(if (inCjk) converter.convert(segment.toString()) else segment)
-                        segment.clear()
-                    }
-                    segment.append(ch)
-                    inCjk = !inCjk
-                }
-            }
-            // Flush remaining segment
-            if (segment.isNotEmpty()) {
-                result.append(if (inCjk) converter.convert(segment.toString()) else segment)
-            }
-            result.toString()
-        } catch (e: Exception) {
-            if (BuildConfig.DEBUG) {
-                Log.w(TAG, "OpenCC conversion failed, returning original text: ${e.message}")
-            }
-            text
-        }
     }
 
     /**
@@ -1140,7 +1198,7 @@ class VoiceInputManager(private val context: Context) {
     private fun lowercaseLatinCharacters(text: String): String {
         val result = StringBuilder(text.length)
         for (ch in text) {
-            result.append(if (ch.isUpperCase() && ch.isLetter() && !isCjkCharacter(ch)) ch.lowercaseChar() else ch)
+            result.append(if (ch.isUpperCase() && ch.isLetter() && !CjkText.isCjk(ch)) ch.lowercaseChar() else ch)
         }
         return result.toString()
     }
@@ -1171,8 +1229,9 @@ class VoiceInputManager(private val context: Context) {
         // Lowercase Latin characters first (voice models often output uppercase English)
         val lowered = lowercaseLatinCharacters(cleaned)
 
-        // Apply OpenCC conversion (only affects CJK characters)
-        val processed = convertToTraditional(lowered)
+        // Apply OpenCC conversion (only affects CJK characters); delegated to the
+        // shared, lazily-cached ChineseConverter (s2hk).
+        val processed = ChineseConverter.toTraditional(lowered)
 
         // Then convert spoken punctuation to symbols
         return convertPunctuation(processed)
@@ -1231,16 +1290,125 @@ class VoiceInputManager(private val context: Context) {
                 markActivity()
                 return text.trim()
             }
-            val rec = synchronized(recognizerLock) { recognizer } ?: return ""
-            val stream = rec.createStream()
-            stream.acceptWaveform(samples, SAMPLE_RATE)
-            rec.decode(stream)
-            val result = rec.getResult(stream)
-            stream.release()
+            val text = decodeInProcess(samples)
             markActivity()
-            return result.text.trim()
+            return text
         } finally {
             onProcessingStateCallback?.invoke(false)
+        }
+    }
+
+    /**
+     * Decode [samples] with the in-process Sherpa-ONNX recognizer, holding
+     * [recognizerLock] for the whole decode. The lock serializes the final
+     * (recording-thread) decode against the interim (worker-thread) decode so
+     * two concurrent createStream/decode calls never race on the same native
+     * recognizer. Returns "" if no recognizer is loaded.
+     */
+    private fun decodeInProcess(samples: FloatArray): String = synchronized(recognizerLock) {
+        val rec = recognizer ?: return@synchronized ""
+        val stream = rec.createStream()
+        stream.acceptWaveform(samples, SAMPLE_RATE)
+        rec.decode(stream)
+        val text = rec.getResult(stream).text.trim()
+        stream.release()
+        text
+    }
+
+    /**
+     * Whether the current model is fast enough to drive pseudo-streaming interim
+     * decodes. Only the in-process, low-latency recognizers qualify: Qwen3-ASR
+     * is autoregressive and out-of-process; Whisper is slower and prone to
+     * repetition on partial audio.
+     */
+    private fun supportsInterim(): Boolean =
+        currentModelType == VoiceModelType.SENSE_VOICE ||
+            currentModelType == VoiceModelType.U2PP_CONFORMER_YUE
+
+    /** Append a chunk to the in-progress interim buffer, dropping oldest audio past the cap. */
+    private fun appendInterimChunk(chunk: FloatArray, voiced: Boolean) {
+        synchronized(interimLock) {
+            interimChunks.add(chunk)
+            interimSampleCount += chunk.size
+            if (voiced) interimVoiced = true
+            while (interimSampleCount > INTERIM_MAX_SAMPLES && interimChunks.size > 1) {
+                interimSampleCount -= interimChunks.removeAt(0).size
+            }
+        }
+    }
+
+    /** Discard the in-progress interim buffer (a segment committed, or a reset). */
+    private fun clearInterimAudio() {
+        synchronized(interimLock) {
+            interimChunks.clear()
+            interimSampleCount = 0
+            interimVoiced = false
+            interimGeneration++
+        }
+    }
+
+    /**
+     * If enough time has passed and the in-progress buffer holds voiced audio,
+     * decode it on a worker thread and publish a provisional transcript. Drops
+     * the request if a previous interim decode is still running. Never throws
+     * into the caller — interim is best-effort and must not disturb the final path.
+     */
+    private fun maybeRunInterim(nowMs: Long) {
+        if (!supportsInterim() || !isRecording) return
+        if (nowMs - lastInterimMs < INTERIM_INTERVAL_MS) return
+
+        val snapshot: FloatArray
+        val gen: Int
+        synchronized(interimLock) {
+            if (!interimVoiced || interimSampleCount < INTERIM_MIN_SAMPLES) return
+            gen = interimGeneration
+            snapshot = FloatArray(interimSampleCount)
+            var offset = 0
+            for (chunk in interimChunks) {
+                chunk.copyInto(snapshot, offset)
+                offset += chunk.size
+            }
+        }
+        if (!interimInFlight.compareAndSet(false, true)) return
+        lastInterimMs = nowMs
+
+        thread(name = "VoiceInterimThread") {
+            try {
+                var text = decodeInProcess(snapshot)
+                if (text.isEmpty()) return@thread
+                text = processRecognizedText(text)
+                if (text.isEmpty()) return@thread
+
+                synchronized(textLock) {
+                    // Publish UNDER textLock so this interim can't be delivered
+                    // after a final commit for the same segment (handleSegment
+                    // also commits + posts under textLock, so the two are
+                    // mutually exclusive and the final always lands last).
+                    // Discard if the segment finalized (generation bumped) or
+                    // recording stopped while we were decoding.
+                    if (gen == interimGeneration && isRecording) {
+                        interimText = text
+                        lastRecognizedText = buildDisplayLocked()
+                        // Callback only does a non-blocking mainHandler.post and
+                        // the main thread never takes textLock, so this can't deadlock.
+                        onResultCallback?.invoke(lastRecognizedText, false)
+                    }
+                }
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.w(TAG, "Interim decode failed: ${e.message}")
+            } finally {
+                interimInFlight.set(false)
+            }
+        }
+    }
+
+    /** Build the displayed transcript (committed text + interim preview). Call under [textLock]. */
+    private fun buildDisplayLocked(): String {
+        val committed = accumulatedText.toString()
+        return when {
+            interimText.isEmpty() -> committed
+            committed.isEmpty() -> interimText
+            else -> "$committed $interimText"
         }
     }
 
@@ -1254,68 +1422,47 @@ class VoiceInputManager(private val context: Context) {
     }
 
     /**
-     * Remove repetition patterns from Whisper output.
-     * Whisper sometimes produces repeated text like "hellohellohello" or "早晨早晨早晨".
-     * This function detects and removes such repetitions.
+     * Collapse *hallucinated* repetition from Whisper output (e.g. a phrase
+     * looped many times) while preserving legitimate repetition.
      *
-     * Also handles the case where Whisper outputs the entire text twice (e.g., "hello worldhello world").
+     * Deliberately conservative — the previous implementation halved any string
+     * that happened to be a doubled sequence, which destroyed valid Cantonese
+     * reduplication (你好你好, 啱啱, 哈哈) and doubled words ("bye bye"). The rule
+     * here only collapses when the text is the *whole string* tiled by a single
+     * unit, AND:
+     *   - the unit is repeated >= 3 times (any unit >= 3 chars), or
+     *   - a long unit (>= 10 chars, ~a full clause) is repeated exactly twice.
+     * Units of 1-2 characters are never collapsed, so short reduplication
+     * survives. We only consider the smallest tiling unit (the fundamental
+     * period); if it doesn't meet the threshold, the text is returned unchanged.
      */
     private fun removeRepetition(text: String): String {
-        if (text.length < 2) return text
+        val n = text.length
+        if (n < 6) return text
 
-        // First check: is the text exactly the same thing repeated twice?
-        // This handles cases like "hello worldhello world" or "早晨早晨"
-        val halfLen = text.length / 2
-        if (text.length >= 2 && text.length % 2 == 0) {
-            val firstHalf = text.substring(0, halfLen)
-            val secondHalf = text.substring(halfLen)
-            if (firstHalf == secondHalf) {
-                if (BuildConfig.DEBUG) {
-                    Log.w(TAG, "Detected 2x duplication")
-                }
-                return firstHalf
-            }
-        }
-
-        // Check for 4x duplication (common Whisper pattern)
-        if (text.length >= 4 && text.length % 4 == 0) {
-            val quarterLen = text.length / 4
-            val quarter = text.substring(0, quarterLen)
-            if (text == quarter.repeat(4)) {
-                if (BuildConfig.DEBUG) {
-                    Log.w(TAG, "Detected 4x duplication")
-                }
-                return quarter
-            }
-        }
-
-        // Try to find repeating patterns of various lengths
-        for (patternLen in 1..minOf(text.length / 2, 20)) {
-            val pattern = text.substring(0, patternLen)
-            var isRepeating = true
-            var repeatCount = 1
-
-            // Check if the entire string is just this pattern repeated
-            for (i in patternLen until text.length step patternLen) {
-                val endIdx = minOf(i + patternLen, text.length)
-                val segment = text.substring(i, endIdx)
-                if (segment == pattern || (endIdx == text.length && pattern.startsWith(segment))) {
-                    repeatCount++
-                } else {
-                    isRepeating = false
+        for (unitLen in 2..n / 2) {
+            if (n % unitLen != 0) continue
+            var tiles = true
+            var i = unitLen
+            while (i < n) {
+                if (!text.regionMatches(i, text, 0, unitLen)) {
+                    tiles = false
                     break
                 }
+                i += unitLen
             }
+            if (!tiles) continue
 
-            // If we found a repeating pattern (2 or more times), return just one instance
-            if (isRepeating && repeatCount >= 2) {
-                if (BuildConfig.DEBUG) {
-                    Log.w(TAG, "Detected repetition pattern repeated $repeatCount times")
-                }
-                return pattern
+            // Smallest tiling unit found — decide once and stop (any larger
+            // tiling unit would just be a multiple of this one).
+            val repeat = n / unitLen
+            val collapse = (repeat >= 3 && unitLen >= 3) || (repeat == 2 && unitLen >= 10)
+            if (collapse) {
+                if (BuildConfig.DEBUG) Log.w(TAG, "Collapsed repetition: unit=$unitLen x$repeat")
+                return text.substring(0, unitLen)
             }
+            return text
         }
-
         return text
     }
 
@@ -1325,11 +1472,18 @@ class VoiceInputManager(private val context: Context) {
     fun getLastRecognizedText(): String = lastRecognizedText
 
     /**
-     * Clear the accumulated text buffer (for reset functionality).
+     * Clear the accumulated text buffer (for reset functionality). Also clears
+     * the last-segment marker so a phrase repeated after a Reset isn't dropped
+     * by the duplicate guard.
      */
     fun clearAccumulatedText() {
-        accumulatedText.clear()
-        lastRecognizedText = ""
+        synchronized(textLock) {
+            accumulatedText.clear()
+            lastSegmentText = ""
+            lastRecognizedText = ""
+            interimText = ""
+        }
+        clearInterimAudio()
     }
 
     /**
@@ -1341,6 +1495,8 @@ class VoiceInputManager(private val context: Context) {
         val bufferSize = 512  // Process in small chunks for responsive VAD
         val buffer = ShortArray(bufferSize)
 
+        val interim = supportsInterim()
+
         try {
             while (isRecording) {
                 val ret = audioRecord?.read(buffer, 0, buffer.size) ?: -1
@@ -1349,9 +1505,26 @@ class VoiceInputManager(private val context: Context) {
                     val samples = FloatArray(ret) { buffer[it] / 32768.0f }
                     vadInstance.acceptWaveform(samples)
 
+                    // Mirror the audio into the in-progress interim buffer for
+                    // pseudo-streaming previews (fast in-process models only).
+                    if (interim) {
+                        var peak = 0f
+                        for (s in samples) {
+                            val a = abs(s)
+                            if (a > peak) peak = a
+                        }
+                        appendInterimChunk(samples, peak >= INTERIM_VOICE_THRESHOLD)
+                    }
+
                     while (!vadInstance.empty()) {
                         val segment = vadInstance.front()
                         vadInstance.pop()
+
+                        // A completed segment (silence endpoint OR the 30 s
+                        // maxSpeechDuration force-split) commits as final and the
+                        // loop keeps running — a force-split must NOT end the
+                        // session. The in-progress preview buffer is consumed.
+                        if (interim) clearInterimAudio()
 
                         val segmentSamples = segment.samples
                         if (BuildConfig.DEBUG) {
@@ -1361,6 +1534,10 @@ class VoiceInputManager(private val context: Context) {
                             handleSegment(segmentSamples)
                         }
                     }
+
+                    // Periodically publish a provisional transcript for whatever
+                    // speech is still in progress.
+                    if (interim) maybeRunInterim(System.currentTimeMillis())
                 }
             }
 
@@ -1369,6 +1546,7 @@ class VoiceInputManager(private val context: Context) {
             while (!vadInstance.empty()) {
                 val segment = vadInstance.front()
                 vadInstance.pop()
+                if (interim) clearInterimAudio()
                 if (segment.samples.isNotEmpty()) {
                     handleSegment(segment.samples)
                 }
@@ -1392,17 +1570,28 @@ class VoiceInputManager(private val context: Context) {
         text = processRecognizedText(text)
         if (text.isEmpty()) return
 
-        // Skip VAD duplicate segments
-        if (text == lastSegmentText) {
-            if (BuildConfig.DEBUG) Log.w(TAG, "Skipping duplicate segment")
-            return
+        val snapshot: String
+        synchronized(textLock) {
+            // Skip VAD duplicate segments
+            if (text == lastSegmentText) {
+                if (BuildConfig.DEBUG) Log.w(TAG, "Skipping duplicate segment")
+                return
+            }
+            lastSegmentText = text
+
+            if (accumulatedText.isNotEmpty()) accumulatedText.append(" ")
+            accumulatedText.append(text)
+
+            // This segment is now committed, so drop any interim preview that
+            // was previewing it. (The interim audio buffer is cleared by the
+            // caller on segment pop; this clears the displayed preview text.)
+            interimText = ""
+
+            lastRecognizedText = accumulatedText.toString()
+            snapshot = lastRecognizedText
         }
-        lastSegmentText = text
-
-        if (accumulatedText.isNotEmpty()) accumulatedText.append(" ")
-        accumulatedText.append(text)
-
-        lastRecognizedText = accumulatedText.toString()
-        onResultCallback?.invoke(lastRecognizedText, true)
+        // Invoke the result callback outside the lock so a slow UI consumer
+        // can't stall the recording thread.
+        onResultCallback?.invoke(snapshot, true)
     }
 }
