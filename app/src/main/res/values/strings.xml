@@ -57,7 +57,7 @@
     <string name="settings_character_set">Character Set</string>
     <string name="settings_use_extended">Use extended character set</string>
     <string name="settings_use_extended_desc">Extended set includes 63,000+ characters including Cantonese. Standard set has 13,000 characters.</string>
-    <string name="settings_charset_extended">Extended (63,189 characters)</string>
+    <string name="settings_charset_extended">Extended (63,190 characters)</string>
     <string name="settings_charset_standard">Standard (13,193 characters)</string>
     <string name="settings_charset_restart_hint">Restart keyboard to apply changes</string>
 

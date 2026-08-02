@@ -150,7 +150,7 @@ cd DualQuickIME
 ## Data Source
 
 Character data from [OpenVanilla](https://github.com/openvanilla/openvanilla):
-- **simplex-ext.cin** - Extended set with 63,189 characters (default)
+- **simplex-ext.cin** - Extended set with 63,190 characters (default)
 - **simplex.cin** - Standard set with 13,193 characters
 
 ## Privacy

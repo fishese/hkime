@@ -57,7 +57,7 @@
     <string name="settings_character_set">字符集</string>
     <string name="settings_use_extended">使用扩展字符集</string>
     <string name="settings_use_extended_desc">扩展字符集包含 63,000+ 字符，包括粤语。标准字符集有 13,000 字符。</string>
-    <string name="settings_charset_extended">扩展（63,189 字符）</string>
+    <string name="settings_charset_extended">扩展（63,190 字符）</string>
     <string name="settings_charset_standard">标准（13,193 字符）</string>
     <string name="settings_charset_restart_hint">需重新启动键盘以应用更改</string>
 

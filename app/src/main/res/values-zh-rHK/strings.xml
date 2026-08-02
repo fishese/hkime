@@ -57,7 +57,7 @@
     <string name="settings_character_set">字元集</string>
     <string name="settings_use_extended">使用擴充字元集</string>
     <string name="settings_use_extended_desc">擴充字元集包含 63,000+ 字元，包括廣東話。標準字元集有 13,000 字元。</string>
-    <string name="settings_charset_extended">擴充（63,189 字元）</string>
+    <string name="settings_charset_extended">擴充（63,190 字元）</string>
     <string name="settings_charset_standard">標準（13,193 字元）</string>
     <string name="settings_charset_restart_hint">需重新啟動鍵盤以套用變更</string>
 
