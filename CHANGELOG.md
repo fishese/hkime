@@ -5,6 +5,18 @@ All notable changes to DualQuickIME will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-08-02
+### Added
+- **Live voice transcripts**: SenseVoice and U2pp-Conformer-Yue now show provisional text while you speak instead of waiting for a pause; slower models show a Transcribing indicator while processing
+- **Missing Cantonese Quick character**: Added `𨋢` to the extended character set under Quick code `jt`
+
+### Changed
+- Voice model downloads now default to Wi-Fi only, resume interrupted transfers, check available storage, and reject incomplete files
+
+### Fixed
+- Voice recognition is more stable when capture, decoding, and model cleanup overlap, and no longer removes legitimate repeated speech or replaces punctuation names inside ordinary words
+- Chinese conversion no longer treats fullwidth Latin letters and digits as CJK text, and concurrent OpenCC conversions are serialized safely
+
 ## [1.9.2] - 2026-06-08
 ### Added
 - **Manual "Stop" for voice input**: A Stop button now appears while listening so you can end capture yourself instead of waiting for automatic silence detection. In noisy places the recognizer often never hears a clear pause and would otherwise leave your speech untranscribed — tapping Stop flushes the buffered audio through the model and shows the result for review, ready to Commit or Reset
