@@ -38,6 +38,26 @@ def phrase_match(code, candidate, first_keys, full_codes, quick_final=False):
     return None
 
 
+def cangjie_prefix_guess(code, candidate, first_keys):
+    """A review hint, never a method assignment."""
+    if len(candidate) < 2 or not code or not is_han(candidate):
+        return None
+    compared = min(len(code), len(candidate))
+    matched = 0
+    while (matched < compared and
+           code[matched] in first_keys.get(candidate[matched], ())):
+        matched += 1
+    if matched == 0:
+        return None
+    detail = f"{matched}/{compared} leading Cangjie initials match"
+    if matched < compared:
+        expected = ",".join(sorted(first_keys.get(candidate[matched], ()))) or "unmapped"
+        detail += f"; position {matched + 1}: typed {code[matched]}, reference {expected}"
+    elif len(code) != len(candidate):
+        detail += "; code/phrase lengths differ"
+    return matched, compared, detail
+
+
 def main(membership_path, english_path, audit_path, output_dir):
     first_keys = defaultdict(set)
     full_codes = defaultdict(set)
@@ -67,13 +87,16 @@ def main(membership_path, english_path, audit_path, output_dir):
           (output / "method-attribution-categorized.tsv").open("w", encoding="utf-8") as categorized,
           (output / "method-attribution-remaining.tsv").open("w", encoding="utf-8") as remaining,
           (output / "method-attribution-remaining-shortlist.tsv").open("w", encoding="utf-8") as shortlist,
-          (output / "method-attribution-remaining-focus.tsv").open("w", encoding="utf-8") as focus):
-        header = source.readline().rstrip("\n") + "\tclassification\n"
-        categorized.write(header)
-        remaining.write(header)
-        shortlist.write(header)
-        focus.write(header)
-        for line in source:
+          (output / "method-attribution-remaining-focus.tsv").open("w", encoding="utf-8") as focus,
+          (output / "method-attribution-guesses.tsv").open("w", encoding="utf-8") as guesses):
+        base_header = source.readline().rstrip("\n") + "\tclassification"
+        review_header = (base_header + "\toriginal_order\tguess_method"
+                         "\tmatched_initials\tcompared_initials\tguess_evidence"
+                         "\tverified_method\treview_notes\n")
+        categorized.write(base_header + "\n")
+        for destination in (remaining, shortlist, focus, guesses):
+            destination.write(review_header)
+        for original_order, line in enumerate(source, start=1):
             code, candidate, reason, methods, rank = line.rstrip("\n").split("\t", 4)
             rank = int(rank)
             tags = []
@@ -94,9 +117,9 @@ def main(membership_path, english_path, audit_path, output_dir):
                 tags.append("user_confirmed_english")
             counts.update(tags)
             classification = ",".join(tags) if tags else "unclassified"
-            row = line.rstrip("\n") + "\t" + classification + "\n"
+            row = line.rstrip("\n") + "\t" + classification
             if tags:
-                categorized.write(row)
+                categorized.write(row + "\n")
             # Unique-code inference was already accounted for by the first audit.
             resolved = (reason == "inferred_unique_code" or
                         reason == "multiple_methods" or
@@ -106,13 +129,21 @@ def main(membership_path, english_path, audit_path, output_dir):
                         "cantonese_phrase_final_code" in tags or
                         "probable_english_first_candidate" in tags)
             if not resolved:
-                remaining.write(row)
+                guess = cangjie_prefix_guess(code, candidate, first_keys)
+                guess_method = "Cangjie (guess)" if guess else ""
+                matched, compared, evidence = guess if guess else ("", "", "")
+                review_row = (row + f"\t{original_order}\t{guess_method}\t{matched}"
+                              f"\t{compared}\t{evidence}\t\t\n")
+                remaining.write(review_row)
                 counts["remaining"] += 1
+                if guess:
+                    guesses.write(review_row)
+                    counts["cangjie_prefix_guesses"] += 1
                 if len(code) <= 5 and rank <= 3:
-                    shortlist.write(row)
+                    shortlist.write(review_row)
                     counts["remaining_shortlist"] += 1
                 if len(code) <= 3 and rank == 1:
-                    focus.write(row)
+                    focus.write(review_row)
                     counts["remaining_focus"] += 1
     for label, count in counts.most_common():
         print(f"{label}: {count:,}")
