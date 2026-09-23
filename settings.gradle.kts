@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "DualQuickIME"
+rootProject.name = "HK-IME"
 include(":app")

@@ -1,4 +1,4 @@
-# HK IME (prototype)
+# HK IME
 
 Download the latest test build: [HK IME 0.3.0 APK](releases/HK-IME-0.3.0-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
@@ -6,14 +6,18 @@ allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
 Mixed Chinese Keyboard Plus app.
 
-An offline Android IME prototype for Cantonese romanization, Cangjie/Quick,
-English, emoji, clipboard history, and reusable phrase shortcuts. It is a
-source-available rebuild based on DualQuickIME; it does not modify or depend on
-the supplied closed-source APK at runtime.
+HK IME is an independent Android keyboard for Cantonese romanization,
+Cangjie/Quick, English, emoji, clipboard history, and reusable phrase
+shortcuts. It builds on the open-source DualQuickIME codebase and public
+dictionary data, with its own mixed-input behavior and features. It is not an
+official DualQuickIME release, and it does not modify or depend on the supplied
+closed-source APK at runtime. See [Credits](#credits) and
+[third-party notices](THIRD_PARTY_NOTICES.md) for attribution.
 
-## Why DualQuickIME?
+## Why HK IME?
 
-Traditional IMEs force you to switch between Chinese and English modes. DualQuickIME eliminates this friction:
+HK IME keeps Chinese candidates available while English appears immediately in
+the target app. You can move between the two without switching keyboard modes:
 
 > **Type "我love你" in one fluid motion** - no mode switching, no interruption.
 
@@ -142,9 +146,9 @@ source tables are needed for reliable separation.
 
 ## Installation
 
-### From GitHub Releases
+### From this repository
 
-1. Download the latest APK from [Releases](https://github.com/awcjack/DualQuickIME/releases)
+1. Download the [current test APK](releases/HK-IME-0.3.0-debug.apk)
 2. Install the APK on your Android device
 3. Enable the keyboard in Settings
 
@@ -153,7 +157,7 @@ source tables are needed for reliable separation.
 1. Go to **Settings → System → Languages & Input**
 2. Tap **Virtual Keyboard** or **On-screen keyboard**
 3. Tap **Manage keyboards**
-4. Enable **Mixed Cantonese Keyboard**
+4. Enable **HK IME**
 5. Accept the security warning
 6. Switch keyboard: Long-press the globe/keyboard icon in any text field
 

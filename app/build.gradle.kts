@@ -17,8 +17,8 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        // Provisional standalone id so this prototype cannot overwrite the
-        // upstream DualQuickIME app or the supplied legacy keyboard.
+        // Keep this standalone app ID stable so existing HK IME test installs
+        // can be updated without overwriting DualQuickIME or the legacy app.
         applicationId = "dev.local.mixedchinesekeyboard"
         minSdk = 24
         targetSdk = 34

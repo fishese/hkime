@@ -1,8 +1,9 @@
 # Third-party notices
 
-This prototype is based on
+HK IME is an independent app derived from
 [DualQuickIME](https://github.com/awcjack/DualQuickIME), copyright 2024 awcjack,
-used under the MIT License included in `LICENSE`.
+used under the MIT License included in `LICENSE`. It is not an official
+DualQuickIME release.
 
 The bundled `app/src/main/assets/mck/mix_map_ext_*.cs2` dictionary shards and
 `app/src/main/assets/mck/phrases/phrase_*.cs2` related-word shards come
