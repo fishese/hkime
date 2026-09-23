@@ -59,10 +59,6 @@ class DualQuickInputMethodService : InputMethodService() {
     // Associated phrases mode: when true, candidate bar shows associated phrases
     private var isAssociatedPhrasesMode = false
     private var associatedPhrases = listOf<String>()
-    private var associatedPhrasesPage = 0
-    private var associatedPhrasesOffset = 0  // Actual start index for dynamic pagination
-    private var associatedPhrasesDisplayedCount = 0  // How many were displayed on current page
-    private var associatedPhrasesPreviousOffsets = mutableListOf<Int>()
     private var lastCommittedChar = ""
 
     // Track current keyboard mode
@@ -190,18 +186,6 @@ class DualQuickInputMethodService : InputMethodService() {
             }
             setOnPageIndicatorClickedListener {
                 handlePageIndicatorClicked()
-            }
-            setOnCandidateSwipeListener { forward ->
-                when {
-                    isEmailSuggestionsMode -> Unit
-                    isAssociatedPhrasesMode -> {
-                        if (forward) nextAssociatedPhrasesPage() else previousAssociatedPhrasesPage()
-                    }
-                    composition.hasCandidates -> {
-                        composition = if (forward) composition.nextPage() else composition.previousPage()
-                        updateCandidateView()
-                    }
-                }
             }
             setOnCandidateRefreshRequestedListener {
                 // Refresh candidate view when returning from symbol/emoji/clipboard/grid mode
@@ -676,10 +660,6 @@ class DualQuickInputMethodService : InputMethodService() {
         // Enter associated phrases mode
         isAssociatedPhrasesMode = true
         associatedPhrases = phrases
-        associatedPhrasesPage = 0
-        associatedPhrasesOffset = 0
-        associatedPhrasesDisplayedCount = 0
-        associatedPhrasesPreviousOffsets.clear()
         lastCommittedChar = character
 
         updateAssociatedPhrasesView()
@@ -691,43 +671,18 @@ class DualQuickInputMethodService : InputMethodService() {
     private fun clearAssociatedPhrases() {
         isAssociatedPhrasesMode = false
         associatedPhrases = emptyList()
-        associatedPhrasesPage = 0
-        associatedPhrasesOffset = 0
-        associatedPhrasesDisplayedCount = 0
-        associatedPhrasesPreviousOffsets.clear()
         lastCommittedChar = ""
         keyboardView?.clearCandidates()
     }
 
     /**
      * Update the candidate bar to show associated phrases.
-     * Uses dynamic pagination based on what fits on screen.
      */
     private fun updateAssociatedPhrasesView() {
-        val pageSize = ThemeManager.getCandidatesPerPage(this)
-        val totalPages = (associatedPhrases.size + pageSize - 1) / pageSize
-        // Use dynamic offset instead of fixed page calculation
-        val startIndex = associatedPhrasesOffset
-        val endIndex = minOf(startIndex + pageSize, associatedPhrases.size)
-        val currentPagePhrases = if (startIndex < associatedPhrases.size) {
-            associatedPhrases.subList(startIndex, endIndex)
-        } else {
-            emptyList()
-        }
-
         keyboardView?.let { view ->
             // Clear composition display since we're showing associated phrases
             view.setComposition("", "")
-
-            // Show associated phrases in candidate bar
-            val displayedCount = view.setCandidates(
-                candidates = currentPagePhrases,
-                currentPage = associatedPhrasesPage + 1,
-                totalCandidates = associatedPhrases.size,
-                startOffset = startIndex
-            )
-            // Track how many were actually displayed for dynamic pagination
-            associatedPhrasesDisplayedCount = displayedCount
+            view.setCandidates(associatedPhrases)
         }
     }
 
@@ -739,33 +694,6 @@ class DualQuickInputMethodService : InputMethodService() {
         // Show associated phrases for the last character of the selected phrase
         val lastChar = phrase.lastOrNull()?.toString() ?: ""
         showAssociatedPhrases(lastChar)
-    }
-
-    /**
-     * Navigate to the next page of associated phrases.
-     * Uses dynamic offset based on how many were actually displayed.
-     */
-    private fun nextAssociatedPhrasesPage() {
-        // Move offset by the number of phrases that were actually displayed
-        val nextOffset = associatedPhrasesOffset + associatedPhrasesDisplayedCount.coerceAtLeast(1)
-        if (nextOffset >= associatedPhrases.size) {
-            // Wrap to beginning
-            associatedPhrasesPage = 0
-            associatedPhrasesOffset = 0
-            associatedPhrasesPreviousOffsets.clear()
-        } else {
-            associatedPhrasesPreviousOffsets.add(associatedPhrasesOffset)
-            associatedPhrasesPage++
-            associatedPhrasesOffset = nextOffset
-        }
-        updateAssociatedPhrasesView()
-    }
-
-    private fun previousAssociatedPhrasesPage() {
-        if (associatedPhrasesPreviousOffsets.isEmpty()) return
-        associatedPhrasesOffset = associatedPhrasesPreviousOffsets.removeAt(associatedPhrasesPreviousOffsets.lastIndex)
-        associatedPhrasesPage = (associatedPhrasesPage - 1).coerceAtLeast(0)
-        updateAssociatedPhrasesView()
     }
 
     // ==================== EMAIL DOMAIN SUGGESTIONS ====================
@@ -795,12 +723,7 @@ class DualQuickInputMethodService : InputMethodService() {
         }
         keyboardView?.let { view ->
             view.setComposition("", "")
-            view.setCandidates(
-                candidates = filtered,
-                currentPage = 1,
-                totalCandidates = filtered.size,
-                startOffset = 0
-            )
+            view.setCandidates(filtered)
         }
     }
 
@@ -886,14 +809,7 @@ class DualQuickInputMethodService : InputMethodService() {
             )
 
             if (composition.hasCandidates) {
-                val displayedCount = view.setCandidates(
-                    candidates = composition.currentPageCandidates,
-                    currentPage = composition.currentPage + 1, // 1-based for display
-                    totalCandidates = composition.candidates.size,
-                    startOffset = composition.displayOffset
-                )
-                // Track how many candidates were actually displayed for dynamic pagination
-                composition = composition.withDisplayedCount(displayedCount)
+                view.setCandidates(composition.candidates)
             } else if (composition.rawKeys.isNotEmpty()) {
                 if (isPasswordField) {
                     // Password fields never display a no-match hint.

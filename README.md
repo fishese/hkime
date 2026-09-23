@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.0 APK](releases/HK-IME-0.3.0-debug.apk).
+Download the latest test build: [HK IME 0.3.1 APK](releases/HK-IME-0.3.1-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
 allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
@@ -36,7 +36,8 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Tap-to-select** - candidates appear instantly, tap to commit
 - **View-all grid** - tap page indicator for full-screen 7×5 candidate grid
 - **Learned candidates** - frequently selected characters rise for the same code (enabled by default)
-- **Swipe the candidate strip** left or right for more choices; tap the page count for the full grid
+- **Scroll the candidate strip continuously** for more choices; tap the x/y button for the full grid
+- **Stable candidate-bar height** keeps the editor from jumping when suggestions appear or disappear
 - **Space inserts a space** rather than selecting or paging candidates
 - **OpenVanilla compatible** - same character ordering as macOS
 
@@ -96,6 +97,7 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Symbol-mode util bar** - emoji, clipboard, 簡⇄繁, and voice buttons live above the number row for one-tap access
 - **Configurable candidate spacing** - tune pill padding (2–14 dp) to fit more candidates per row
 - **Keyboard size controls** - adjust key height and candidate text size, and show or hide Cangjie radical labels
+- **Full-cell key touch areas** - visible gaps remain, but touches in those gaps register on adjacent keys even at smaller sizes
 - **Cangjie radical preview** - independently show or hide the radical sequence in the candidate strip
 - **English correction toggle** - turn conservative spelling suggestions on or off
 - **Quick settings access** - long-press `123` on the letter keyboard
@@ -148,7 +150,7 @@ source tables are needed for reliable separation.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.0-debug.apk)
+1. Download the [current test APK](releases/HK-IME-0.3.1-debug.apk)
 2. Install the APK on your Android device
 3. Enable the keyboard in Settings
 

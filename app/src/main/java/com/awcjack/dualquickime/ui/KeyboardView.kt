@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Handler
 import android.os.Looper
@@ -13,8 +14,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup.MarginLayoutParams
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
@@ -40,7 +41,6 @@ class KeyboardView @JvmOverloads constructor(
     private var onCandidateSelected: ((String) -> Unit)? = null
     private var onEnglishSelected: ((String) -> Unit)? = null
     private var onPageIndicatorClicked: (() -> Unit)? = null
-    private var onCandidateSwipe: ((Boolean) -> Unit)? = null
     private var onCandidateRefreshRequested: (() -> Unit)? = null
     private var currentRawKeys: String = ""
     private var isShiftOn = false
@@ -72,10 +72,12 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
     private var showKeyRadicals = true
 
-    // Candidate bar components (embedded, Gboard-style) - now with fixed slots
+    // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null
     private var compositionText: TextView? = null
     private var candidateRow: LinearLayout? = null
+    private var candidateScroll: HorizontalScrollView? = null
+    private var displayedCandidates: List<String> = emptyList()
     private var pageIndicator: TextView? = null
     private val candidateSlots = mutableListOf<TextView>()
     private var englishPill: TextView? = null
@@ -307,6 +309,8 @@ class KeyboardView @JvmOverloads constructor(
         candidateContainer = null
         compositionText = null
         candidateRow = null
+        candidateScroll = null
+        displayedCandidates = emptyList()
         pageIndicator = null
         englishPill = null
         maskToggle = null
@@ -455,14 +459,19 @@ class KeyboardView @JvmOverloads constructor(
         englishPill = null
         maskToggle = null
 
-        // Use FrameLayout as wrapper to allow overlaying number row on candidate row
+        // Both overlays have the same fixed height, so composing never moves the editor.
+        val twoLineTextHeight = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            (candidateTextSizeSp * 2).toFloat(),
+            resources.displayMetrics
+        ).toInt()
+        val barHeight = maxOf(dpToPx(46), twoLineTextHeight + dpToPx(12))
         val wrapper = FrameLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
         }
 
-        candidateContainer = CandidateSwipeContainer(context).apply {
-            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            minimumHeight = dpToPx(maxOf(32, candidateTextSizeSp + 6))
+        candidateContainer = LinearLayout(context).apply {
+            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
@@ -503,25 +512,26 @@ class KeyboardView @JvmOverloads constructor(
         englishPill = createEnglishPillSlot()
         candidateContainer?.addView(englishPill)
 
-        // Candidate row with flexible width distribution
+        // The strip holds every choice in order. HorizontalScrollView handles
+        // pixel-by-pixel dragging/flinging instead of translating swipes to pages.
         candidateRow = LinearLayout(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-
-        // Create fixed number of candidate slots
-        for (i in 0 until candidatesPerPage) {
-            val slot = createCandidatePillSlot()
-            candidateSlots.add(slot)
-            candidateRow?.addView(slot)
+        candidateScroll = HorizontalScrollView(context).apply {
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = false
+            addView(candidateRow)
+            setOnScrollChangeListener { _, _, _, _, _ -> updateCandidatePosition() }
         }
-        candidateContainer?.addView(candidateRow)
+        candidateContainer?.addView(candidateScroll)
 
         // Page indicator (clickable to view all candidates)
         pageIndicator = TextView(context).apply {
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             setPadding(dpToPx(6), 0, dpToPx(6), 0)
             setTextColor(colors.pageIndicatorText)
             textSize = 11f
@@ -537,7 +547,7 @@ class KeyboardView @JvmOverloads constructor(
         wrapper.addView(candidateContainer)
 
         // Number row overlay (10 number keys with equal width)
-        numberRow = createNumberRowOverlay()
+        numberRow = createNumberRowOverlay(barHeight)
         wrapper.addView(numberRow)
 
         // Show number row by default when keyboard starts
@@ -546,52 +556,6 @@ class KeyboardView @JvmOverloads constructor(
         }
 
         return wrapper
-    }
-
-    /** Intercept horizontal drags without stealing ordinary candidate taps. */
-    private inner class CandidateSwipeContainer(context: Context) : LinearLayout(context) {
-        private var startX = 0f
-        private var startY = 0f
-        private var dragging = false
-
-        override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    startX = event.x
-                    startY = event.y
-                    dragging = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.x - startX
-                    val dy = event.y - startY
-                    if (kotlin.math.abs(dx) > dpToPx(22) && kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
-                        dragging = true
-                        return true
-                    }
-                }
-            }
-            return super.onInterceptTouchEvent(event)
-        }
-
-        override fun onTouchEvent(event: MotionEvent): Boolean {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    startX = event.x
-                    startY = event.y
-                    return true
-                }
-                MotionEvent.ACTION_UP -> {
-                    val dx = event.x - startX
-                    if (dragging || kotlin.math.abs(dx) > dpToPx(22)) {
-                        onCandidateSwipe?.invoke(dx < 0)
-                    }
-                    dragging = false
-                    return true
-                }
-                MotionEvent.ACTION_CANCEL -> dragging = false
-            }
-            return true
-        }
     }
 
     private fun createCandidatePillSlot(): TextView {
@@ -675,163 +639,66 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Set candidates to display in the candidate bar.
-     * Measures text width and only displays candidates that fit; remaining
-     * candidates roll forward to the next page via the returned displayed
-     * count, and the page indicator is updated with a corrected total based
-     * on what actually fit (the original totalPages argument is only an
-     * upper-bound estimate — overflow makes the real count larger).
-     *
-     * @param candidates List of candidates to display on this page
-     * @param currentPage Current page number (1-based for display)
-     * @param totalCandidates Total candidates across all pages (>= candidates.size + startOffset)
-     * @param startOffset Index in the full candidate list where [candidates] begins
-     * @return Number of candidates actually displayed (may be less than candidates.size if they don't fit)
-     */
-    fun setCandidates(
-        candidates: List<String>,
-        currentPage: Int,
-        totalCandidates: Int,
-        startOffset: Int
-    ): Int {
-        // Hide number row when showing candidates
+    /** Show all choices in a continuously scrollable strip. */
+    fun setCandidates(candidates: List<String>) {
         hideNumberRow()
-
-        // Pre-set page indicator text with a worst-case-width estimate so the
-        // width reservation below is enough even if the real total grows after
-        // overflow. We pick the larger of the naive estimate and currentPage+1
-        // so we always reserve at least 2 digits for the total.
-        val naiveTotalEstimate = if (candidates.isEmpty()) currentPage
-            else (totalCandidates + candidates.size - 1) / maxOf(candidates.size, 1)
-        val measurementTotal = maxOf(naiveTotalEstimate, currentPage + 1)
-        val showPageIndicator = totalCandidates > candidates.size || currentPage > 1
-        pageIndicator?.let { pi ->
-            if (showPageIndicator) {
-                pi.text = "$currentPage/$measurementTotal"
-                pi.visibility = View.VISIBLE
-            } else {
-                pi.visibility = View.GONE
-            }
-        }
-
-        val availableWidth = computeAvailableCandidateWidth(showPageIndicator)
-
-        var usedWidth = 0
-        var displayedCount = 0
-        val horizontalMargin = dpToPx(1) * 2   // slot left + right margin
-
-        candidateSlots.forEachIndexed { index, slot ->
-            if (index < candidates.size) {
-                val candidate = candidates[index]
-                slot.text = candidate
-                slot.setTextColor(colors.candidateText)
-                slot.measure(
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                )
-                val textWidth = slot.measuredWidth + horizontalMargin
-
-                // Fit check: always show at least one candidate, even if it's wider than the row,
-                // so the user can still page forward. Otherwise require the pill to fit fully;
-                // remaining candidates roll over to the next page via displayedCount.
-                if (displayedCount == 0 || usedWidth + textWidth <= availableWidth) {
-                    slot.visibility = View.VISIBLE
-                    slot.setOnClickListener {
-                        onCandidateSelected?.invoke(candidate)
-                    }
-                    usedWidth += textWidth
-                    displayedCount++
-                } else {
-                    slot.text = ""
-                    slot.visibility = View.INVISIBLE
-                    slot.setOnClickListener(null)
+        if (displayedCandidates != candidates) {
+            displayedCandidates = candidates.toList()
+            candidateRow?.removeAllViews()
+            candidateSlots.clear()
+            candidates.forEach { candidate ->
+                val slot = createCandidatePillSlot().apply {
+                    text = candidate
+                    visibility = View.VISIBLE
+                    setOnClickListener { onCandidateSelected?.invoke(candidate) }
                 }
-            } else {
-                slot.text = ""
-                slot.visibility = View.INVISIBLE
-                slot.setOnClickListener(null)
+                candidateSlots.add(slot)
+                candidateRow?.addView(slot)
             }
+            candidateScroll?.scrollTo(0, 0)
         }
-
-        // Now we know how many actually fit on this page — recompute the total
-        // page count using displayedCount as the per-page estimate for the
-        // remaining candidates. Without this, a page that overflowed would
-        // still show the original "1/2" even though the spillover plus future
-        // pages mean the real total is larger.
-        if (showPageIndicator) {
-            val remaining = (totalCandidates - startOffset - displayedCount).coerceAtLeast(0)
-            val perPage = displayedCount.coerceAtLeast(1)
-            val remainingPages = (remaining + perPage - 1) / perPage
-            val actualTotal = (currentPage + remainingPages).coerceAtLeast(currentPage)
-            pageIndicator?.text = "$currentPage/$actualTotal"
-        }
-
-        return displayedCount
+        pageIndicator?.visibility = if (candidates.size > 1) View.VISIBLE else View.GONE
+        updateCandidatePosition()
     }
 
-    /**
-     * Available width inside the candidate row. Computed from the candidate container minus
-     * the measured widths of its other visible children (composition text, english pill,
-     * page indicator) because candidateRow.width is stale immediately after setComposition()
-     * toggles sibling visibility — layout hasn't run yet, so the row still reports its old
-     * size and we'd overestimate space and let pills overflow past the right edge.
-     */
-    private fun computeAvailableCandidateWidth(pageIndicatorVisible: Boolean): Int {
-        val container = candidateContainer
-        val containerWidth = when {
-            container != null && container.width > 0 -> container.width
-            this.width > 0 -> this.width - paddingLeft - paddingRight
-            else -> context.resources.displayMetrics.widthPixels
+    private fun updateCandidatePosition() {
+        if (displayedCandidates.size <= 1) return
+        val scrollX = candidateScroll?.scrollX ?: 0
+        val firstVisible = candidateSlots.indexOfFirst { it.right > scrollX }.coerceAtLeast(0)
+        val pageSize = candidatesPerPage.coerceAtLeast(1)
+        val current = firstVisible / pageSize + 1
+        val total = (displayedCandidates.size + pageSize - 1) / pageSize
+        pageIndicator?.apply {
+            minWidth = (paint.measureText("$total/$total") + paddingLeft + paddingRight).toInt()
+            text = "$current/$total"
         }
-        var used = (container?.paddingLeft ?: 0) + (container?.paddingRight ?: 0)
+    }
 
-        fun addSibling(v: View?) {
-            val view = v ?: return
-            if (view.visibility != View.VISIBLE) return
-            view.measure(
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            )
-            val lp = view.layoutParams as? MarginLayoutParams
-            used += view.measuredWidth + (lp?.leftMargin ?: 0) + (lp?.rightMargin ?: 0)
-        }
-
-        addSibling(maskToggle)
-        addSibling(compositionText)
-        addSibling(englishPill)
-        if (pageIndicatorVisible) addSibling(pageIndicator)
-
-        // Small buffer to absorb rounding between measure and layout.
-        used += dpToPx(2)
-
-        return (containerWidth - used).coerceAtLeast(dpToPx(80))
+    private fun clearCandidateStrip() {
+        displayedCandidates = emptyList()
+        candidateRow?.removeAllViews()
+        candidateSlots.clear()
+        candidateScroll?.scrollTo(0, 0)
+        pageIndicator?.visibility = View.GONE
     }
 
     fun showNoMatch() {
         // Hide number row when showing no match message
         hideNumberRow()
 
-        // Clear all candidate slots
-        candidateSlots.forEach { slot ->
-            slot.text = ""
-            slot.visibility = View.INVISIBLE
-            slot.setOnClickListener(null)
-        }
-
-        // Show "無此字" in first slot
-        candidateSlots.firstOrNull()?.let { slot ->
+        clearCandidateStrip()
+        createCandidatePillSlot().let { slot ->
             slot.text = "無此字"
             slot.visibility = View.VISIBLE
             slot.setTextColor(colors.noMatchText)
-            slot.setOnClickListener(null)
+            candidateSlots.add(slot)
+            candidateRow?.addView(slot)
         }
-
-        pageIndicator?.visibility = View.GONE
     }
 
     fun clearCandidates() {
         currentRawKeys = ""
+        clearCandidateStrip()
 
         // Close candidate grid if open
         if (isCandidateGridMode) {
@@ -857,12 +724,11 @@ class KeyboardView @JvmOverloads constructor(
     /**
      * Create the number row overlay with 10 number keys (1-0) evenly distributed.
      */
-    private fun createNumberRowOverlay(): LinearLayout {
+    private fun createNumberRowOverlay(barHeight: Int): LinearLayout {
         val numbers = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
 
         return LinearLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            minimumHeight = dpToPx(maxOf(46, candidateTextSizeSp + 24))
+            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
@@ -936,9 +802,7 @@ class KeyboardView @JvmOverloads constructor(
         val radical = KeyMapping.getRadical(char) ?: ""
 
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
             orientation = VERTICAL
             gravity = Gravity.CENTER
             background = createKeyBackground(colors.keyBackground, colors.keyBackgroundPressed)
@@ -1067,9 +931,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpaceKey(): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 4f).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 4f)
             gravity = Gravity.CENTER
             text = "space"
             textSize = 14f
@@ -1083,9 +945,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpecialKey(label: String, weight: Float, onClick: () -> Unit): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight)
             gravity = Gravity.CENTER
             text = label
             textSize = 18f
@@ -1104,9 +964,7 @@ class KeyboardView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     private fun createSpecialKeyWithLongPress(defaultLabel: String, longPressChar: Char, weight: Float): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight)
             gravity = Gravity.CENTER
             text = defaultLabel
             textSize = 18f
@@ -1161,9 +1019,7 @@ class KeyboardView @JvmOverloads constructor(
      */
     private fun createShiftKey(onClick: () -> Unit): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.8f).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.8f)
             gravity = Gravity.CENTER
             text = "⇧"
             textSize = 22f
@@ -1176,7 +1032,7 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun createKeyBackground(normalColor: Int, pressedColor: Int): StateListDrawable {
+    private fun createKeyBackground(normalColor: Int, pressedColor: Int): InsetDrawable {
         val cornerRadiusPx = dpToPx(12).toFloat()  // More rounded for modern look
         val pressed = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -1188,10 +1044,12 @@ class KeyboardView @JvmOverloads constructor(
             cornerRadius = cornerRadiusPx
             setColor(normalColor)
         }
-        return StateListDrawable().apply {
+        val states = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_pressed), pressed)
             addState(intArrayOf(), normal)
         }
+        // Visual gaps no longer shrink the clickable view (especially at small key heights).
+        return InsetDrawable(states, dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
     }
 
     // ==================== SYMBOL/EMOJI KEYBOARD ====================
@@ -1233,9 +1091,7 @@ class KeyboardView @JvmOverloads constructor(
         } else {
             // Regular symbol key
             TextView(context).apply {
-                layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
-                    setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-                }
+                layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
                 gravity = Gravity.CENTER
                 text = char.toString()
                 textSize = 22f
@@ -1301,9 +1157,7 @@ class KeyboardView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     private fun createSymbolKeyWithLongPress(defaultChar: Char, longPressChar: Char): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
-                setMargins(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
-            }
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
             gravity = Gravity.CENTER
             text = defaultChar.toString()
             textSize = 22f
@@ -1460,10 +1314,6 @@ class KeyboardView @JvmOverloads constructor(
         onPageIndicatorClicked = listener
     }
 
-    fun setOnCandidateSwipeListener(listener: (forward: Boolean) -> Unit) {
-        onCandidateSwipe = listener
-    }
-
     fun setOnCandidateRefreshRequestedListener(listener: () -> Unit) {
         onCandidateRefreshRequested = listener
     }
@@ -1501,12 +1351,7 @@ class KeyboardView @JvmOverloads constructor(
      */
     fun clearCandidateSlotsOnly() {
         hideNumberRow()
-        candidateSlots.forEach { slot ->
-            slot.text = ""
-            slot.visibility = View.INVISIBLE
-            slot.setOnClickListener(null)
-        }
-        pageIndicator?.visibility = View.GONE
+        clearCandidateStrip()
     }
 
     /**
