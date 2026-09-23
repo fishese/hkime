@@ -40,6 +40,7 @@ class KeyboardView @JvmOverloads constructor(
     private var onCandidateSelected: ((String) -> Unit)? = null
     private var onEnglishSelected: ((String) -> Unit)? = null
     private var onPageIndicatorClicked: (() -> Unit)? = null
+    private var onCandidateSwipe: ((Boolean) -> Unit)? = null
     private var onCandidateRefreshRequested: (() -> Unit)? = null
     private var currentRawKeys: String = ""
     private var isShiftOn = false
@@ -67,6 +68,9 @@ class KeyboardView @JvmOverloads constructor(
     private var showComposition = true
     private var candidatesPerPage = 6
     private var candidatePillPaddingDp = 8  // Horizontal padding inside each candidate pill (dp)
+    private var keyHeightDp = ThemeManager.KEY_HEIGHT_DEFAULT
+    private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
+    private var showKeyRadicals = true
 
     // Candidate bar components (embedded, Gboard-style) - now with fixed slots
     private var candidateContainer: LinearLayout? = null
@@ -135,8 +139,11 @@ class KeyboardView @JvmOverloads constructor(
         showComposition = ThemeManager.getShowComposition(context)
         candidatesPerPage = ThemeManager.getCandidatesPerPage(context)
         candidatePillPaddingDp = ThemeManager.getCandidatePillPadding(context)
+        keyHeightDp = ThemeManager.getKeyHeight(context)
+        candidateTextSizeSp = ThemeManager.getCandidateTextSize(context)
+        showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
         setBackgroundColor(colors.keyboardBackground)
-        setPadding(dpToPx(3), dpToPx(6), dpToPx(3), dpToPx(8))
+        setPadding(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(8))
     }
 
     /**
@@ -453,13 +460,13 @@ class KeyboardView @JvmOverloads constructor(
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         }
 
-        candidateContainer = LinearLayout(context).apply {
+        candidateContainer = CandidateSwipeContainer(context).apply {
             layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            minimumHeight = dpToPx(46)
+            minimumHeight = dpToPx(maxOf(32, candidateTextSizeSp + 6))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
-            setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+            setPadding(dpToPx(2), 0, dpToPx(2), 0)
         }
 
         // Mask toggle button (leftmost, password mode only)
@@ -492,7 +499,7 @@ class KeyboardView @JvmOverloads constructor(
         }
         candidateContainer?.addView(compositionText)
 
-        // English pill (first slot, shows raw keys for English commit)
+        // Retained for layout compatibility but hidden while English is shown in the editor.
         englishPill = createEnglishPillSlot()
         candidateContainer?.addView(englishPill)
 
@@ -541,14 +548,61 @@ class KeyboardView @JvmOverloads constructor(
         return wrapper
     }
 
+    /** Intercept horizontal drags without stealing ordinary candidate taps. */
+    private inner class CandidateSwipeContainer(context: Context) : LinearLayout(context) {
+        private var startX = 0f
+        private var startY = 0f
+        private var dragging = false
+
+        override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.x
+                    startY = event.y
+                    dragging = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - startX
+                    val dy = event.y - startY
+                    if (kotlin.math.abs(dx) > dpToPx(22) && kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                        dragging = true
+                        return true
+                    }
+                }
+            }
+            return super.onInterceptTouchEvent(event)
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.x
+                    startY = event.y
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dx = event.x - startX
+                    if (dragging || kotlin.math.abs(dx) > dpToPx(22)) {
+                        onCandidateSwipe?.invoke(dx < 0)
+                    }
+                    dragging = false
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> dragging = false
+            }
+            return true
+        }
+    }
+
     private fun createCandidatePillSlot(): TextView {
         return TextView(context).apply {
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+                setMargins(dpToPx(1), 0, dpToPx(1), 0)
             }
             gravity = Gravity.CENTER
-            setPadding(dpToPx(candidatePillPaddingDp), dpToPx(4), dpToPx(candidatePillPaddingDp), dpToPx(4))
-            textSize = 18f
+            includeFontPadding = false
+            setPadding(dpToPx(candidatePillPaddingDp), dpToPx(1), dpToPx(candidatePillPaddingDp), dpToPx(1))
+            textSize = candidateTextSizeSp.toFloat()
             setTextColor(colors.candidateText)
             background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
             elevation = dpToPx(1).toFloat()
@@ -603,14 +657,11 @@ class KeyboardView @JvmOverloads constructor(
     fun setComposition(radicals: String, rawKeys: String) {
         currentRawKeys = rawKeys
 
-        // Update English pill
+        // English text is displayed at the editor cursor, not in this bar.
         englishPill?.let { pill ->
-            if (rawKeys.isNotEmpty()) {
-                pill.text = rawKeys
-                pill.visibility = View.VISIBLE
-            } else {
-                pill.visibility = View.GONE
-            }
+            // Latin letters are already shown at the editor cursor. Leaving
+            // this pill hidden gives Chinese candidates the full bar width.
+            pill.visibility = View.GONE
         }
 
         // Update composition text (only if showComposition is enabled)
@@ -668,12 +719,13 @@ class KeyboardView @JvmOverloads constructor(
 
         var usedWidth = 0
         var displayedCount = 0
-        val horizontalMargin = dpToPx(2) * 2   // slot left + right margin
+        val horizontalMargin = dpToPx(1) * 2   // slot left + right margin
 
         candidateSlots.forEachIndexed { index, slot ->
             if (index < candidates.size) {
                 val candidate = candidates[index]
                 slot.text = candidate
+                slot.setTextColor(colors.candidateText)
                 slot.measure(
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -810,7 +862,7 @@ class KeyboardView @JvmOverloads constructor(
 
         return LinearLayout(context).apply {
             layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            minimumHeight = dpToPx(46)
+            minimumHeight = dpToPx(maxOf(46, candidateTextSizeSp + 24))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
@@ -829,10 +881,7 @@ class KeyboardView @JvmOverloads constructor(
                     background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
                     elevation = dpToPx(1).toFloat()
                     text = digit.toString()
-
-                    setOnClickListener {
-                        onKeyPress?.invoke(KeyEvent.Number(digit.digitToInt()))
-                    }
+                    setupNumberKey(this, digit.digitToInt())
                 }
                 numberSlots.add(slot)
                 addView(slot)
@@ -863,7 +912,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createKeyRow(keys: List<Char>, leftPadding: Float = 0f): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -895,26 +944,34 @@ class KeyboardView @JvmOverloads constructor(
             background = createKeyBackground(colors.keyBackground, colors.keyBackgroundPressed)
             elevation = dpToPx(2).toFloat()
 
-            // Chinese radical (primary, larger)
-            addView(TextView(context).apply {
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
-                gravity = Gravity.CENTER or Gravity.BOTTOM
-                text = radical
-                textSize = 20f
-                setTextColor(colors.keyTextPrimary)
-                typeface = Typeface.DEFAULT_BOLD
-                includeFontPadding = false
-            })
-
-            // English letter (secondary, smaller)
-            addView(TextView(context).apply {
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 0.65f)
-                gravity = Gravity.CENTER or Gravity.TOP
-                text = char.uppercaseChar().toString()
-                textSize = 12f
-                setTextColor(colors.keyTextSecondary)
-                includeFontPadding = false
-            })
+            if (showKeyRadicals) {
+                addView(TextView(context).apply {
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
+                    gravity = Gravity.CENTER or Gravity.BOTTOM
+                    text = radical
+                    textSize = 20f
+                    setTextColor(colors.keyTextPrimary)
+                    typeface = Typeface.DEFAULT_BOLD
+                    includeFontPadding = false
+                })
+                addView(TextView(context).apply {
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 0.65f)
+                    gravity = Gravity.CENTER or Gravity.TOP
+                    text = char.uppercaseChar().toString()
+                    textSize = 12f
+                    setTextColor(colors.keyTextSecondary)
+                    includeFontPadding = false
+                })
+            } else {
+                addView(TextView(context).apply {
+                    layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+                    gravity = Gravity.CENTER
+                    text = char.uppercaseChar().toString()
+                    textSize = 24f
+                    setTextColor(colors.keyTextPrimary)
+                    includeFontPadding = false
+                })
+            }
 
             setOnClickListener {
                 val letter = if (isShiftOn || isCapsLock) char.uppercaseChar() else char
@@ -930,7 +987,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpecialRow3(): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -969,7 +1026,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createBottomRow(): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -982,6 +1039,10 @@ class KeyboardView @JvmOverloads constructor(
                 symbolPage = 0
                 onModeChange?.invoke(true)
                 buildKeyboard()
+            }
+            modeToggleKey?.setOnLongClickListener {
+                onKeyPress?.invoke(KeyEvent.OpenSettings)
+                true
             }
             addView(modeToggleKey)
 
@@ -1137,7 +1198,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSymbolRow(chars: List<Char>, leftPadding: Float = 0f): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -1182,13 +1243,53 @@ class KeyboardView @JvmOverloads constructor(
                 background = createKeyBackground(colors.keyBackground, colors.keyBackgroundPressed)
                 elevation = dpToPx(2).toFloat()
 
-                setOnClickListener {
-                    if (char.isDigit()) {
-                        onKeyPress?.invoke(KeyEvent.Number(char.digitToInt()))
-                    } else {
-                        onKeyPress?.invoke(KeyEvent.Symbol(char))
-                    }
+                if (char.isDigit()) {
+                    setupNumberKey(this, char.digitToInt())
+                } else {
+                    setOnClickListener { onKeyPress?.invoke(KeyEvent.Symbol(char)) }
                 }
+            }
+        }
+    }
+
+    /** Tap types the number; long-press expands its user-configured phrase. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupNumberKey(view: View, digit: Int) {
+        view.setOnTouchListener { touched, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    touched.isPressed = true
+                    longPressTriggered = false
+                    longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+                    val runnable = Runnable {
+                        longPressTriggered = true
+                        onKeyPress?.invoke(KeyEvent.ShortcutPhrase(digit))
+                        if (ThemeManager.getHapticFeedbackEnabled(context)) {
+                            touched.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                        }
+                    }
+                    longPressRunnable = runnable
+                    longPressHandler.postDelayed(runnable, LONG_PRESS_DELAY)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    touched.isPressed = false
+                    longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+                    if (!longPressTriggered) onKeyPress?.invoke(KeyEvent.Number(digit))
+                    longPressRunnable = null
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    touched.isPressed = false
+                    longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+                    longPressRunnable = null
+                    true
+                }
+                // Keep ownership of the gesture while the pointer is held. Android
+                // commonly emits ACTION_MOVE even when the finger has barely moved;
+                // returning false here cancels an otherwise valid long-press.
+                MotionEvent.ACTION_MOVE -> true
+                else -> true
             }
         }
     }
@@ -1255,7 +1356,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSymbolSpecialRow3(chars: List<Char>): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -1281,7 +1382,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSymbolBottomRow(): LinearLayout {
         return LinearLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(58))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(keyHeightDp))
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
@@ -1357,6 +1458,10 @@ class KeyboardView @JvmOverloads constructor(
 
     fun setOnPageIndicatorClickedListener(listener: () -> Unit) {
         onPageIndicatorClicked = listener
+    }
+
+    fun setOnCandidateSwipeListener(listener: (forward: Boolean) -> Unit) {
+        onCandidateSwipe = listener
     }
 
     fun setOnCandidateRefreshRequestedListener(listener: () -> Unit) {
@@ -1515,6 +1620,7 @@ class KeyboardView @JvmOverloads constructor(
     sealed class KeyEvent {
         data class Letter(val char: Char) : KeyEvent()
         data class Number(val digit: Int) : KeyEvent()
+        data class ShortcutPhrase(val digit: Int) : KeyEvent()
         data class Symbol(val char: Char) : KeyEvent()
         data class Emoji(val emoji: String) : KeyEvent()
         data class ClipboardPaste(val text: String) : KeyEvent()
@@ -1522,6 +1628,7 @@ class KeyboardView @JvmOverloads constructor(
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
         object VoiceInput : KeyEvent()
+        object OpenSettings : KeyEvent()
         // Tap = AUTO (detect from content). Long-press popup lets the user
         // force a specific direction regardless of what the text looks like.
         data class ConvertChinese(val direction: ConvertDirection = ConvertDirection.AUTO) : KeyEvent()

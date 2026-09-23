@@ -1,5 +1,6 @@
 # Gradle
 .gradle/
+.gradle-user-home/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
@@ -11,6 +12,7 @@ local.properties
 # APK files
 *.apk
 *.aab
+!releases/*.apk
 
 # Large library files (downloaded during CI/local setup)
 app/libs/*.aar
@@ -30,3 +32,4 @@ Thumbs.db
 
 # Test outputs
 app/build/
+build-artifacts/

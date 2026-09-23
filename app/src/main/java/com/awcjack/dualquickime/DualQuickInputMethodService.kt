@@ -15,12 +15,17 @@ import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.AssociatedPhrasesParser
+import com.awcjack.dualquickime.data.MckRelatedPhrases
+import com.awcjack.dualquickime.data.EnglishSuggestions
+import com.awcjack.dualquickime.data.UnicodeWordSuggestions
 import com.awcjack.dualquickime.data.AssociatedPhrasesTable
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
 import com.awcjack.dualquickime.data.CompositionState
+import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.RecentCandidateManager
 import com.awcjack.dualquickime.data.SimplexTable
+import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.ui.KeyboardView
 import com.awcjack.dualquickime.ui.VoiceInputView
@@ -35,8 +40,8 @@ import kotlin.concurrent.thread
  * Supports dual-mode Chinese/English input:
  * - TAP on candidate pill to commit Chinese character
  * - SPACE to navigate candidate pages
- * - Type 3rd letter key to commit previous as English and start new composition
- * - ENTER to commit composition as English
+ * - Full Cantonese/Cangjie/Quick codes remain in one composition buffer
+ * - English stays available as a candidate; ENTER commits it before the editor action
  * - Numbers commit composition as English first, then the number
  *
  * Uses embedded Gboard-style candidate bar (not system candidates view).
@@ -44,7 +49,9 @@ import kotlin.concurrent.thread
 class DualQuickInputMethodService : InputMethodService() {
 
     private lateinit var simplexTable: SimplexTable
+    private lateinit var mixedDictionary: MixedDictionary
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
+    private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
 
     private var keyboardView: KeyboardView? = null
@@ -55,6 +62,7 @@ class DualQuickInputMethodService : InputMethodService() {
     private var associatedPhrasesPage = 0
     private var associatedPhrasesOffset = 0  // Actual start index for dynamic pagination
     private var associatedPhrasesDisplayedCount = 0  // How many were displayed on current page
+    private var associatedPhrasesPreviousOffsets = mutableListOf<Int>()
     private var lastCommittedChar = ""
 
     // Track current keyboard mode
@@ -92,6 +100,8 @@ class DualQuickInputMethodService : InputMethodService() {
         super.onCreate()
         // Load simplex data based on user setting (extended by default)
         loadSimplexTable()
+        mixedDictionary = MixedDictionary(assets)
+        mckRelatedPhrases = MckRelatedPhrases(assets)
         // Load associated phrases table
         loadAssociatedPhrasesTable()
 
@@ -169,39 +179,29 @@ class DualQuickInputMethodService : InputMethodService() {
                     // User TAPPED an associated phrase - commit it
                     handleAssociatedPhraseSelected(candidate)
                 } else {
-                    // User TAPPED a Chinese candidate pill - commit Chinese character
-                    // Consume only the active segment (first 1-2 chars) from the buffer
-                    val consumed = composition.activeKeyLength
-                    val remaining = composition.rawKeys.drop(consumed)
-                    val remainingCases = letterCases.drop(consumed).toMutableList()
-
-                    // Record recent candidate usage before composition state changes
-                    val lookupCode = composition.rawKeys.take(consumed)
-                    if (ThemeManager.getRecentCandidatesEnabled(this@DualQuickInputMethodService) && lookupCode.isNotEmpty()) {
-                        RecentCandidateManager.recordUsage(this@DualQuickInputMethodService, lookupCode, candidate)
-                    }
-
-                    if (remaining.isNotEmpty()) {
-                        // Commit character and continue with remaining buffer
-                        commitText(candidate)
-                        letterCases = remainingCases
-                        // Close candidate grid if open so it doesn't show stale candidates
-                        keyboardView?.closeCandidateGrid()
-                        updateComposition(remaining)
-                    } else {
-                        // Buffer fully consumed - commit and show associated phrases
-                        clearComposition()
-                        commitChinese(candidate)
-                    }
+                    // The typed Latin code is already visible as composing text.
+                    // Committing the candidate replaces that span in the editor.
+                    commitChinese(candidate)
                 }
             }
             setOnEnglishSelectedListener { _ ->
-                // User TAPPED the English pill - commit as English with preserved case
-                commitEnglishPreservingCase(composition.rawKeys, letterCases)
-                clearComposition()
+                // Switching keyboard pages accepts the visible Latin text.
+                finishEnglishComposition()
             }
             setOnPageIndicatorClickedListener {
                 handlePageIndicatorClicked()
+            }
+            setOnCandidateSwipeListener { forward ->
+                when {
+                    isEmailSuggestionsMode -> Unit
+                    isAssociatedPhrasesMode -> {
+                        if (forward) nextAssociatedPhrasesPage() else previousAssociatedPhrasesPage()
+                    }
+                    composition.hasCandidates -> {
+                        composition = if (forward) composition.nextPage() else composition.previousPage()
+                        updateCandidateView()
+                    }
+                }
             }
             setOnCandidateRefreshRequestedListener {
                 // Refresh candidate view when returning from symbol/emoji/clipboard/grid mode
@@ -319,6 +319,7 @@ class DualQuickInputMethodService : InputMethodService() {
         when (event) {
             is KeyboardView.KeyEvent.Letter -> handleLetter(event.char)
             is KeyboardView.KeyEvent.Number -> handleNumber(event.digit)
+            is KeyboardView.KeyEvent.ShortcutPhrase -> handleShortcutPhrase(event.digit)
             is KeyboardView.KeyEvent.Symbol -> handleSymbol(event.char)
             is KeyboardView.KeyEvent.Emoji -> handleEmoji(event.emoji)
             is KeyboardView.KeyEvent.ClipboardPaste -> handleClipboardPaste(event.text)
@@ -326,6 +327,10 @@ class DualQuickInputMethodService : InputMethodService() {
             KeyboardView.KeyEvent.Backspace -> handleBackspace()
             KeyboardView.KeyEvent.Enter -> handleEnter()
             KeyboardView.KeyEvent.VoiceInput -> handleVoiceInput()
+            KeyboardView.KeyEvent.OpenSettings -> {
+                finishEnglishComposition()
+                startActivity(Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
             is KeyboardView.KeyEvent.ConvertChinese -> handleConvertChinese(event.direction)
         }
     }
@@ -341,10 +346,7 @@ class DualQuickInputMethodService : InputMethodService() {
         if (!ChineseConverter.isAvailable()) return
 
         // Commit any pending composition first so it isn't lost.
-        if (composition.rawKeys.isNotEmpty()) {
-            commitEnglish(composition.rawKeys)
-            clearComposition()
-        }
+        finishEnglishComposition()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         if (isEmailSuggestionsMode) clearEmailSuggestions()
 
@@ -418,9 +420,9 @@ class DualQuickInputMethodService : InputMethodService() {
         val lowerChar = char.lowercaseChar()
         val newRawKeys = composition.rawKeys + lowerChar
 
-        // Accumulate all letters in the buffer without auto-committing.
-        // Candidates are shown for the first 1-2 chars of the buffer.
+        // Keep the Latin text visible in the app while Chinese options are open.
         letterCases.add(isUpperCase)
+        currentInputConnection?.setComposingText(getDisplayKeys(newRawKeys), 1)
         updateComposition(newRawKeys)
     }
 
@@ -432,24 +434,24 @@ class DualQuickInputMethodService : InputMethodService() {
             updateEmailSuggestionsView()
             return
         }
-        // Numbers are regular input - commit any composition as English first
-        if (composition.rawKeys.isNotEmpty()) {
-            commitEnglish(composition.rawKeys)
-            clearComposition()
-        }
+        finishEnglishComposition()
         // Then commit the number
         commitText(digit.toString())
+    }
+
+    private fun handleShortcutPhrase(digit: Int) {
+        if (isEmailSuggestionsMode) clearEmailSuggestions()
+        if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        finishEnglishComposition()
+        val phrase = ShortcutPhraseManager.get(this, digit)
+        commitText(phrase.ifEmpty { digit.toString() })
     }
 
     private fun handleSymbol(char: Char) {
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
-        // Symbols commit composition as English first
-        if (composition.rawKeys.isNotEmpty()) {
-            commitEnglish(composition.rawKeys)
-            clearComposition()
-        }
+        finishEnglishComposition()
         // Then commit the symbol
         commitText(char.toString())
         if (char == '@' && !isPasswordField) {
@@ -459,22 +461,14 @@ class DualQuickInputMethodService : InputMethodService() {
 
     private fun handleEmoji(emoji: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
-        // Emoji commits composition as English first
-        if (composition.rawKeys.isNotEmpty()) {
-            commitEnglish(composition.rawKeys)
-            clearComposition()
-        }
+        finishEnglishComposition()
         // Then commit the emoji
         commitText(emoji)
     }
 
     private fun handleClipboardPaste(text: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
-        // Clipboard paste commits composition as English first
-        if (composition.rawKeys.isNotEmpty()) {
-            commitEnglish(composition.rawKeys)
-            clearComposition()
-        }
+        finishEnglishComposition()
         // Commit the clipboard text
         commitText(text)
     }
@@ -483,21 +477,9 @@ class DualQuickInputMethodService : InputMethodService() {
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
-        if (isAssociatedPhrasesMode) {
-            // Navigate to next page of associated phrases
-            nextAssociatedPhrasesPage()
-        } else if (composition.hasCandidates) {
-            // NEXT PAGE - do NOT commit
-            composition = composition.nextPage()
-            updateCandidateView()
-        } else if (composition.rawKeys.isNotEmpty()) {
-            // No candidates exist - commit as English + space
-            commitEnglish(composition.rawKeys + " ")
-            clearComposition()
-        } else {
-            // Just a space (IDLE state)
-            commitText(" ")
-        }
+        if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        finishEnglishComposition()
+        commitText(" ")
     }
 
     private fun handleBackspace() {
@@ -527,8 +509,11 @@ class DualQuickInputMethodService : InputMethodService() {
                 letterCases.removeAt(letterCases.lastIndex)
             }
             if (newKeys.isEmpty()) {
+                currentInputConnection?.setComposingText("", 1)
+                currentInputConnection?.finishComposingText()
                 clearComposition()
             } else {
+                currentInputConnection?.setComposingText(getDisplayKeys(newKeys), 1)
                 updateComposition(newKeys)
             }
         } else {
@@ -588,12 +573,43 @@ class DualQuickInputMethodService : InputMethodService() {
             clearAssociatedPhrases()
         }
 
-        if (composition.rawKeys.isNotEmpty()) {
-            // Commit composition as English
-            commitEnglish(composition.rawKeys)
-            clearComposition()
+        finishEnglishComposition()
+        dispatchEditorActionOrEnter()
+    }
+
+    /**
+     * Honor the target editor's requested IME action, while still inserting a
+     * real line break in multiline fields. Some apps ignore synthetic Enter
+     * key events; others ignore a committed newline in single-line fields, so
+     * the fallback is deliberately based on EditorInfo instead of one global
+     * behavior.
+     */
+    private fun dispatchEditorActionOrEnter() {
+        val inputConnection = currentInputConnection ?: return
+        val info = currentInputEditorInfo
+        if (info == null) {
+            sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_ENTER)
+            return
         }
-        // Send enter key event
+
+        inputConnection.finishComposingText()
+        val action = info.imeOptions and EditorInfo.IME_MASK_ACTION
+        val noEnterAction = info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+        val isText = info.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT
+        val isMultiline = isText && info.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
+
+        val actionHandled = if (!noEnterAction) {
+            when {
+                info.actionId != 0 -> inputConnection.performEditorAction(info.actionId)
+                action in EDITOR_ACTIONS -> inputConnection.performEditorAction(action)
+                else -> false
+            }
+        } else {
+            false
+        }
+
+        if (actionHandled) return
+        if (isMultiline && inputConnection.commitText("\n", 1)) return
         sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_ENTER)
     }
 
@@ -603,24 +619,25 @@ class DualQuickInputMethodService : InputMethodService() {
             RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
         }
         commitText(text)
+        clearComposition()
         // Trigger associated phrases lookup based on the last character committed
         showAssociatedPhrases(text.lastOrNull()?.toString() ?: "")
     }
 
-    private fun commitEnglish(text: String) {
-        commitEnglishPreservingCase(text, letterCases)
-        letterCases.clear()
-    }
-
-    private fun commitEnglishPreservingCase(text: String, cases: List<Boolean>) {
+    private fun getDisplayKeys(text: String): String {
         val result = StringBuilder()
         for (i in text.indices) {
             val char = text[i]
-            // Use stored case if available, otherwise keep original
-            val shouldBeUpper = cases.getOrNull(i) ?: false
+            val shouldBeUpper = letterCases.getOrNull(i) ?: false
             result.append(if (shouldBeUpper) char.uppercaseChar() else char.lowercaseChar())
         }
-        commitText(result.toString())
+        return result.toString()
+    }
+
+    private fun finishEnglishComposition() {
+        if (composition.rawKeys.isEmpty()) return
+        currentInputConnection?.finishComposingText()
+        clearComposition()
     }
 
     private fun commitText(text: String) {
@@ -639,7 +656,18 @@ class DualQuickInputMethodService : InputMethodService() {
             return
         }
 
-        val phrases = associatedPhrasesTable.lookup(character)
+        // The original keyboard indexes related words by the full preceding
+        // prefix as well as one character (e.g. 抗病 -> 毒). Prefer that order.
+        val beforeCursor = currentInputConnection?.getTextBeforeCursor(8, 0)?.toString().orEmpty()
+        var phrases = emptyList<String>()
+        for (length in minOf(8, beforeCursor.length) downTo 1) {
+            phrases = mckRelatedPhrases.lookup(beforeCursor.takeLast(length))
+            if (phrases.isNotEmpty()) break
+        }
+        if (phrases.isEmpty()) {
+            phrases = mckRelatedPhrases.lookup(character)
+        }
+        if (phrases.isEmpty()) phrases = associatedPhrasesTable.lookup(character)
         if (phrases.isEmpty()) {
             clearAssociatedPhrases()
             return
@@ -651,6 +679,7 @@ class DualQuickInputMethodService : InputMethodService() {
         associatedPhrasesPage = 0
         associatedPhrasesOffset = 0
         associatedPhrasesDisplayedCount = 0
+        associatedPhrasesPreviousOffsets.clear()
         lastCommittedChar = character
 
         updateAssociatedPhrasesView()
@@ -665,6 +694,7 @@ class DualQuickInputMethodService : InputMethodService() {
         associatedPhrasesPage = 0
         associatedPhrasesOffset = 0
         associatedPhrasesDisplayedCount = 0
+        associatedPhrasesPreviousOffsets.clear()
         lastCommittedChar = ""
         keyboardView?.clearCandidates()
     }
@@ -722,10 +752,19 @@ class DualQuickInputMethodService : InputMethodService() {
             // Wrap to beginning
             associatedPhrasesPage = 0
             associatedPhrasesOffset = 0
+            associatedPhrasesPreviousOffsets.clear()
         } else {
+            associatedPhrasesPreviousOffsets.add(associatedPhrasesOffset)
             associatedPhrasesPage++
             associatedPhrasesOffset = nextOffset
         }
+        updateAssociatedPhrasesView()
+    }
+
+    private fun previousAssociatedPhrasesPage() {
+        if (associatedPhrasesPreviousOffsets.isEmpty()) return
+        associatedPhrasesOffset = associatedPhrasesPreviousOffsets.removeAt(associatedPhrasesPreviousOffsets.lastIndex)
+        associatedPhrasesPage = (associatedPhrasesPage - 1).coerceAtLeast(0)
         updateAssociatedPhrasesView()
     }
 
@@ -776,14 +815,15 @@ class DualQuickInputMethodService : InputMethodService() {
     private fun updateComposition(rawKeys: String) {
         val pageSize = ThemeManager.getCandidatesPerPage(this)
 
-        // Look up candidates for the first 1-2 chars of the buffer.
-        // Try 2-char code first, fall back to 1-char if no match.
-        var lookupKeys = rawKeys.take(2)
-        var candidates = simplexTable.lookup(lookupKeys)
+        // The mixed dictionary accepts HKG Cantonese, full Cangjie, Quick,
+        // and English-to-Chinese keys in one namespace. Keep the entire buffer
+        // active so phrase codes (for example "neihou") work naturally.
+        val lookupKeys = rawKeys
+        var candidates = mixedDictionary.lookup(lookupKeys)
 
-        if (candidates.isEmpty() && lookupKeys.length == 2) {
-            lookupKeys = rawKeys.take(1)
-            candidates = simplexTable.lookup(lookupKeys)
+        // Retain the original OpenVanilla Quick table as a resilient fallback.
+        if (candidates.isEmpty() && rawKeys.length <= 2) {
+            candidates = simplexTable.lookup(rawKeys)
         }
 
         // Reorder candidates based on recent usage if enabled
@@ -791,12 +831,26 @@ class DualQuickInputMethodService : InputMethodService() {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
         }
 
+        // English remains visible in the editor. Offer only unambiguous one-edit
+        // spelling fixes, and never silently replace what the user typed.
+        if (!isPasswordField && ThemeManager.getEnglishSpellCheck(this)) {
+            EnglishSuggestions.correction(getDisplayKeys(rawKeys))?.let { correction ->
+                candidates = listOf(correction) + candidates.filterNot { it.equals(correction, ignoreCase = true) }
+            }
+        }
+
+        // Symbols are exact English keyword matches and deliberately follow
+        // the Chinese dictionary (and any spelling fix).
+        if (!isPasswordField) {
+            candidates = (candidates + UnicodeWordSuggestions.lookupEnglish(rawKeys)).distinct()
+        }
+
         composition = CompositionState(
             rawKeys = rawKeys,
             candidates = candidates,
             currentPage = 0,
             pageSize = pageSize,
-            activeKeyLength = if (candidates.isNotEmpty()) lookupKeys.length else minOf(rawKeys.length, 2)
+            activeKeyLength = rawKeys.length
         )
         updateUI()
     }
@@ -811,13 +865,7 @@ class DualQuickInputMethodService : InputMethodService() {
      * Get the raw keys with proper case applied for display purposes.
      */
     private fun getDisplayKeys(): String {
-        val result = StringBuilder()
-        for (i in composition.rawKeys.indices) {
-            val char = composition.rawKeys[i]
-            val shouldBeUpper = letterCases.getOrNull(i) ?: false
-            result.append(if (shouldBeUpper) char.uppercaseChar() else char.lowercaseChar())
-        }
-        return result.toString()
+        return getDisplayKeys(composition.rawKeys)
     }
 
     private fun updateUI() {
@@ -827,7 +875,9 @@ class DualQuickInputMethodService : InputMethodService() {
     private fun updateCandidateView() {
         keyboardView?.let { view ->
             val isMasked = isPasswordField && isPasswordMaskEnabled
-            val radicals = if (isMasked) "" else composition.radicalDisplay
+            // Full Cangjie codes have at most five keys; longer buffers are
+            // usually English, where radical previews only crowd suggestions.
+            val radicals = if (isMasked || composition.rawKeys.length > 5) "" else composition.radicalDisplay
             val keys = if (isMasked) "*".repeat(composition.rawKeys.length) else getDisplayKeys()
             view.setComposition(radicals, keys)
             view.setMaskToggle(
@@ -846,7 +896,7 @@ class DualQuickInputMethodService : InputMethodService() {
                 composition = composition.withDisplayedCount(displayedCount)
             } else if (composition.rawKeys.isNotEmpty()) {
                 if (isPasswordField) {
-                    // No Chinese match — keep displaying the masked/unmasked English pill only
+                    // Password fields never display a no-match hint.
                     view.clearCandidateSlotsOnly()
                 } else {
                     view.showNoMatch()
@@ -1166,6 +1216,15 @@ class DualQuickInputMethodService : InputMethodService() {
     }
 
     companion object {
+        private val EDITOR_ACTIONS = setOf(
+            EditorInfo.IME_ACTION_GO,
+            EditorInfo.IME_ACTION_SEARCH,
+            EditorInfo.IME_ACTION_SEND,
+            EditorInfo.IME_ACTION_NEXT,
+            EditorInfo.IME_ACTION_DONE,
+            EditorInfo.IME_ACTION_PREVIOUS
+        )
+
         private val EMAIL_DOMAINS = listOf(
             "gmail.com", "protonmail.com", "yahoo.com", "outlook.com", "hotmail.com",
             "icloud.com", "me.com", "live.com", "msn.com"

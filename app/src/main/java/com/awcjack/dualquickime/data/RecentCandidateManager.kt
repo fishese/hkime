@@ -1,135 +1,59 @@
 package com.awcjack.dualquickime.data
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Manages recently used candidates to prioritize them in future lookups.
- * Tracks per-code usage: for each input code (e.g., "qr"), stores
- * recently selected characters ordered by recency.
- *
- * Data is persisted in SharedPreferences as a JSON object mapping
- * codes to ordered lists of recently used characters.
- */
+/** Per-code selection counts; original dictionary order breaks frequency ties. */
 object RecentCandidateManager {
     private const val PREFS_NAME = "recent_candidate_prefs"
     private const val KEY_RECENT_DATA = "recent_data"
-
-    /** Maximum number of recent characters stored per input code. */
     const val MAX_RECENT_PER_CODE = 20
-
-    /** Maximum number of distinct codes to track. */
     const val MAX_CODES = 500
-
-    /** Delay in milliseconds before flushing pending writes to disk. */
     private const val SAVE_DELAY_MS = 2000L
 
-    // Cached data using LinkedHashMap for insertion-order (LRU eviction)
-    private var cachedData: LinkedHashMap<String, MutableList<String>>? = null
-
-    // Handler for coalescing writes
+    private var cachedData: LinkedHashMap<String, LinkedHashMap<String, Int>>? = null
     private val saveHandler = Handler(Looper.getMainLooper())
     private var pendingSave = false
     private var pendingContext: Context? = null
 
-    /**
-     * Record that a candidate was selected for a given input code.
-     * Moves the character to the front of the recent list for that code.
-     */
     fun recordUsage(context: Context, code: String, character: String) {
         if (code.isBlank() || character.isBlank()) return
-
         val data = loadData(context)
-        val recentList = data.getOrPut(code) { mutableListOf() }
-
-        // Remove if already present (will be re-added at front)
-        recentList.remove(character)
-        // Add to front (most recent)
-        recentList.add(0, character)
-
-        // Enforce per-code limit
-        while (recentList.size > MAX_RECENT_PER_CODE) {
-            recentList.removeAt(recentList.lastIndex)
+        val counts = data.remove(code) ?: linkedMapOf()
+        counts[character] = (counts[character] ?: 0).let { if (it == Int.MAX_VALUE) it else it + 1 }
+        if (counts.size > MAX_RECENT_PER_CODE) {
+            val leastUsed = counts.minByOrNull { it.value }?.key
+            if (leastUsed != null) counts.remove(leastUsed)
         }
-
-        // Move the accessed code to end of LinkedHashMap (most recently used)
-        data.remove(code)
-        data[code] = recentList
-
-        // Enforce total codes limit by removing oldest entries (first in LinkedHashMap)
-        while (data.size > MAX_CODES) {
-            val oldestKey = data.keys.first()
-            data.remove(oldestKey)
-        }
-
-        cachedData = data
+        data[code] = counts
+        while (data.size > MAX_CODES) data.remove(data.keys.first())
         scheduleSave(context)
     }
 
-    /**
-     * Reorder candidates for a given code, placing recently used ones first.
-     * Characters that were recently used appear at the beginning, in order
-     * of most-recent-first. Remaining candidates follow in their original order.
-     *
-     * @param code The input code
-     * @param candidates The original candidate list (frequency-ordered)
-     * @return Reordered candidate list with recent candidates first
-     */
     fun reorderCandidates(context: Context, code: String, candidates: List<String>): List<String> {
-        val data = loadData(context)
-        val recentList = data[code] ?: return candidates
-        if (recentList.isEmpty()) return candidates
-
-        val recentSet = recentList.toSet()
-        val reordered = mutableListOf<String>()
-
-        // Add recent candidates first (in recency order), only if they exist in candidates
-        for (recent in recentList) {
-            if (recent in candidates) {
-                reordered.add(recent)
-            }
-        }
-
-        // Add remaining candidates in their original order
-        for (candidate in candidates) {
-            if (candidate !in recentSet) {
-                reordered.add(candidate)
-            }
-        }
-
-        return reordered
+        val counts = loadData(context)[code] ?: return candidates
+        return rankCandidates(candidates, counts)
     }
 
-    /**
-     * Get the recent candidates list for a specific code.
-     */
     fun getRecentForCode(context: Context, code: String): List<String> {
-        return loadData(context)[code] ?: emptyList()
+        val counts = loadData(context)[code] ?: return emptyList()
+        return rankCandidates(counts.keys.toList(), counts)
     }
 
-    /**
-     * Clear all recent candidate data.
-     */
     fun clearAll(context: Context) {
         cancelPendingSave()
-        saveData(context, linkedMapOf())
         cachedData = linkedMapOf()
+        saveData(context, cachedData!!)
     }
 
-    /**
-     * Invalidate cache (call when settings might have changed externally).
-     */
     fun invalidateCache() {
-        cachedData = null
+        // Preserve pending selections; otherwise restarting the IME can discard them.
+        if (!pendingSave) cachedData = null
     }
 
-    /**
-     * Schedule a delayed save to coalesce multiple writes.
-     */
     private fun scheduleSave(context: Context) {
         pendingContext = context.applicationContext
         if (!pendingSave) {
@@ -143,55 +67,57 @@ object RecentCandidateManager {
         }
     }
 
-    /**
-     * Cancel any pending save operation.
-     */
     private fun cancelPendingSave() {
         saveHandler.removeCallbacksAndMessages(null)
         pendingSave = false
         pendingContext = null
     }
 
-    private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    }
-
-    private fun loadData(context: Context): LinkedHashMap<String, MutableList<String>> {
-        if (cachedData != null) {
-            return cachedData!!
-        }
-
-        val prefs = getPrefs(context)
-        val jsonString = prefs.getString(KEY_RECENT_DATA, null)
-            ?: return linkedMapOf<String, MutableList<String>>().also { cachedData = it }
-
-        return try {
-            val jsonObj = JSONObject(jsonString)
-            val result = linkedMapOf<String, MutableList<String>>()
-            val keys = jsonObj.keys()
-            while (keys.hasNext()) {
-                val code = keys.next()
-                val arr = jsonObj.getJSONArray(code)
-                val chars = mutableListOf<String>()
-                for (i in 0 until arr.length()) {
-                    chars.add(arr.getString(i))
+    private fun loadData(context: Context): LinkedHashMap<String, LinkedHashMap<String, Int>> {
+        cachedData?.let { return it }
+        val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_RECENT_DATA, null)
+        val result = linkedMapOf<String, LinkedHashMap<String, Int>>()
+        if (json != null) runCatching {
+            val objectData = JSONObject(json)
+            val codes = objectData.keys()
+            while (codes.hasNext()) {
+                val code = codes.next()
+                val array = objectData.getJSONArray(code)
+                val counts = linkedMapOf<String, Int>()
+                for (i in 0 until array.length()) {
+                    // Older builds stored plain strings, most-recent-first.
+                    val entry = array.get(i)
+                    if (entry is String) counts[entry] = 1
+                    else if (entry is JSONObject) {
+                        val value = entry.optString("value")
+                        if (value.isNotBlank()) counts[value] = entry.optInt("count", 1).coerceAtLeast(1)
+                    }
                 }
-                result[code] = chars
+                result[code] = counts
             }
-            cachedData = result
-            result
-        } catch (e: Exception) {
-            linkedMapOf<String, MutableList<String>>().also { cachedData = it }
         }
+        cachedData = result
+        return result
     }
 
-    private fun saveData(context: Context, data: Map<String, List<String>>) {
-        val jsonObj = JSONObject()
-        for ((code, chars) in data) {
-            val arr = JSONArray()
-            chars.forEach { arr.put(it) }
-            jsonObj.put(code, arr)
+    private fun saveData(context: Context, data: Map<String, Map<String, Int>>) {
+        val objectData = JSONObject()
+        for ((code, counts) in data) {
+            val array = JSONArray()
+            for ((value, count) in counts) {
+                array.put(JSONObject().put("value", value).put("count", count))
+            }
+            objectData.put(code, array)
         }
-        getPrefs(context).edit().putString(KEY_RECENT_DATA, jsonObj.toString()).apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_RECENT_DATA, objectData.toString()).apply()
     }
 }
+
+/** Stable sort: equal usage counts retain the dictionary's candidate ordering. */
+internal fun rankCandidates(candidates: List<String>, counts: Map<String, Int>): List<String> =
+    candidates.withIndex().sortedWith(
+        compareByDescending<IndexedValue<String>> { counts[it.value] ?: 0 }
+            .thenBy { it.index }
+    ).map { it.value }

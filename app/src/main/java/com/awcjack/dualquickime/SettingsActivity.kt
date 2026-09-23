@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.SeekBar
@@ -20,9 +21,11 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
 import com.awcjack.dualquickime.data.RecentCandidateManager
+import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.voice.ModelDownloadManager
 import com.awcjack.dualquickime.voice.VoiceModelType
@@ -89,8 +92,11 @@ class SettingsActivity : AppCompatActivity() {
         setupCandidatesSeekBar()
         setupCandidatePaddingSeekBar()
         setupRecentCandidatesSettings()
+        setupEnglishSpellCheckSettings()
         setupCharacterSetSettings()
         setupKeyboardBehaviorSettings()
+        setupKeyboardAppearanceSettings()
+        setupShortcutPhrases()
         setupChineseConvertSettings()
         setupClipboardSettings()
 
@@ -147,6 +153,131 @@ class SettingsActivity : AppCompatActivity() {
             ThemeManager.setHapticFeedbackEnabled(this, isChecked)
         }
     }
+
+    private fun setupKeyboardAppearanceSettings() {
+        val container = findViewById<LinearLayout>(R.id.keyboardAppearanceContainer)
+
+        fun addSlider(
+            titleId: Int,
+            descriptionId: Int,
+            min: Int,
+            max: Int,
+            current: Int,
+            unit: String,
+            save: (Int) -> Unit
+        ) {
+            container.addView(TextView(this).apply {
+                setText(titleId)
+                textSize = 16f
+            })
+            container.addView(TextView(this).apply {
+                setText(descriptionId)
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(4) }
+            })
+            val valueText = TextView(this).apply {
+                text = "$current $unit"
+                textSize = 14f
+                gravity = Gravity.END
+            }
+            container.addView(SeekBar(this).apply {
+                this.min = min
+                this.max = max
+                progress = current
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        valueText.text = "$progress $unit"
+                        if (fromUser) save(progress)
+                    }
+                    override fun onStartTrackingTouch(bar: SeekBar?) {}
+                    override fun onStopTrackingTouch(bar: SeekBar?) {}
+                })
+            })
+            container.addView(valueText)
+        }
+
+        addSlider(
+            R.string.settings_key_height,
+            R.string.settings_key_height_desc,
+            ThemeManager.KEY_HEIGHT_MIN,
+            ThemeManager.KEY_HEIGHT_MAX,
+            ThemeManager.getKeyHeight(this),
+            "dp",
+            { ThemeManager.setKeyHeight(this, it) }
+        )
+        addSlider(
+            R.string.settings_candidate_text_size,
+            R.string.settings_candidate_text_size_desc,
+            ThemeManager.CANDIDATE_TEXT_MIN,
+            ThemeManager.CANDIDATE_TEXT_MAX,
+            ThemeManager.getCandidateTextSize(this),
+            "sp",
+            { ThemeManager.setCandidateTextSize(this, it) }
+        )
+
+        container.addView(SwitchCompat(this).apply {
+            setText(R.string.settings_show_key_radicals)
+            isChecked = ThemeManager.getShowKeyRadicals(this@SettingsActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ThemeManager.setShowKeyRadicals(this@SettingsActivity, checked)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        })
+        container.addView(TextView(this).apply {
+            setText(R.string.settings_show_key_radicals_desc)
+            textSize = 12f
+        })
+        container.addView(TextView(this).apply {
+            setText(R.string.settings_hold_123)
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12) }
+        })
+    }
+
+    private fun setupEnglishSpellCheckSettings() {
+        findViewById<SwitchCompat>(R.id.switchEnglishSpellCheck).apply {
+            isChecked = ThemeManager.getEnglishSpellCheck(this@SettingsActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ThemeManager.setEnglishSpellCheck(this@SettingsActivity, checked)
+            }
+        }
+    }
+
+    private fun setupShortcutPhrases() {
+        val container = findViewById<LinearLayout>(R.id.shortcutPhraseContainer)
+        for (digit in listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            row.addView(TextView(this).apply {
+                text = digit.toString()
+                textSize = 16f
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(dp(36), dp(48))
+            })
+            row.addView(EditText(this).apply {
+                setSingleLine(false)
+                maxLines = 3
+                hint = getString(R.string.settings_shortcut_hint, digit)
+                setText(ShortcutPhraseManager.get(this@SettingsActivity, digit))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                doAfterTextChanged { ShortcutPhraseManager.set(this@SettingsActivity, digit, it?.toString().orEmpty()) }
+            })
+            container.addView(row)
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun setupChineseConvertSettings() {
         // Hide the section entirely in lite flavor where OpenCC isn't bundled.

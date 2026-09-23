@@ -1,27 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">双拼速成</string>
-    <string name="ime_name">双拼速成 中英输入</string>
-    <string name="settings_name">双拼速成设置</string>
+    <string name="app_name">HK IME</string>
+    <string name="ime_name">HK IME</string>
+    <string name="settings_name">HK IME 设置</string>
 
     <string name="subtype_zh_TW">繁体中文（台湾）</string>
     <string name="subtype_zh_HK">繁体中文（香港）</string>
     <string name="subtype_en_US">英文（美国）</string>
 
     <string name="no_candidates">无此字</string>
-    <string name="space_hint">空格键 = 下一页</string>
+    <string name="space_hint">空格键输入空格</string>
 
     <!-- Settings -->
     <string name="settings_title">设置</string>
     <string name="settings_appearance">外观</string>
     <string name="settings_theme">主题</string>
     <string name="settings_candidate_bar">候选字栏</string>
-    <string name="settings_show_composition">显示输入码</string>
-    <string name="settings_show_composition_desc">在候选字栏中显示速成码</string>
+    <string name="settings_show_composition">显示仓颉字根预览</string>
+    <string name="settings_show_composition_desc">在候选字栏中显示当前输入按键的字根</string>
     <string name="settings_candidates_per_page">每页候选字数量</string>
     <string name="settings_candidates_per_page_desc">调整候选字显示数量（较少 = 较大）</string>
     <string name="settings_candidate_padding">候选字间距</string>
     <string name="settings_candidate_padding_desc">调整候选字内部的水平间距（较小 = 可显示更多）</string>
+    <string name="settings_keyboard_layout">键盘布局</string>
+    <string name="settings_key_height">按键大小</string>
+    <string name="settings_key_height_desc">调整字母及符号按键的高度</string>
+    <string name="settings_candidate_text_size">候选字大小</string>
+    <string name="settings_candidate_text_size_desc">调整中文候选字的字体大小</string>
+    <string name="settings_show_key_radicals">显示按键上的仓颉字根</string>
+    <string name="settings_show_key_radicals_desc">关闭后，QWERTY 按键会显示更大的英文字母</string>
+    <string name="settings_hold_123">长按 123 打开设置</string>
     <string name="settings_preview">预览</string>
     <string name="settings_about">关于</string>
 
@@ -52,6 +60,8 @@
     <string name="settings_recent_candidates_clear_confirm_message">这将清除最近候选字使用记录。</string>
     <string name="settings_recent_candidates_clear_confirm_yes">清除</string>
     <string name="settings_recent_candidates_cleared">最近候选字记录已清除</string>
+    <string name="settings_english_spell_check">建议英文拼写修正</string>
+    <string name="settings_english_spell_check_desc">只建议离线常用词表中明确的一步修正；未点选前不会改动已输入文字</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字符集</string>

@@ -1,35 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Default strings (English as fallback) -->
-    <string name="app_name">DualQuick IME</string>
-    <string name="ime_name">DualQuick Chinese/English</string>
-    <string name="settings_name">DualQuick Settings</string>
+    <string name="app_name">HK IME</string>
+    <string name="ime_name">HK IME</string>
+    <string name="settings_name">HK IME Settings</string>
 
     <string name="subtype_zh_TW">Traditional Chinese (Taiwan)</string>
     <string name="subtype_zh_HK">Traditional Chinese (Hong Kong)</string>
     <string name="subtype_en_US">English (US)</string>
 
     <string name="no_candidates">No match</string>
-    <string name="space_hint">Space = Next page</string>
+    <string name="space_hint">Space inserts a space</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_candidate_bar">Candidate Bar</string>
-    <string name="settings_show_composition">Show composition code</string>
-    <string name="settings_show_composition_desc">Display the Quick input code in the candidate bar</string>
+    <string name="settings_show_composition">Show Cangjie radical preview</string>
+    <string name="settings_show_composition_desc">Display the radicals for keys typed so far in the candidate bar</string>
     <string name="settings_candidates_per_page">Candidates per page</string>
     <string name="settings_candidates_per_page_desc">Adjust number of candidates displayed (fewer = larger)</string>
     <string name="settings_candidate_padding">Candidate spacing</string>
     <string name="settings_candidate_padding_desc">Horizontal padding inside each candidate (smaller = more fit per row)</string>
-    <string name="settings_recent_candidates">Prioritize recent candidates</string>
-    <string name="settings_recent_candidates_desc">Show recently used characters earlier in the candidate list</string>
+    <string name="settings_recent_candidates">Learn from selected candidates</string>
+    <string name="settings_recent_candidates_desc">Frequently selected characters appear earlier for the same input code</string>
     <string name="settings_recent_candidates_clear">Clear recent candidate history</string>
     <string name="settings_recent_candidates_clear_confirm_title">Clear Recent Candidates?</string>
     <string name="settings_recent_candidates_clear_confirm_message">This will clear the recent candidate usage history.</string>
     <string name="settings_recent_candidates_clear_confirm_yes">Clear</string>
     <string name="settings_recent_candidates_cleared">Recent candidate history cleared</string>
+    <string name="settings_english_spell_check">Suggest English spelling fixes</string>
+    <string name="settings_english_spell_check_desc">Only clear, one-edit corrections from a small offline word list; typed text stays unchanged unless tapped</string>
     <string name="settings_preview">Preview</string>
     <string name="settings_about">About</string>
 
@@ -52,6 +54,17 @@
     <string name="settings_keyboard_behavior">Keyboard</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
     <string name="settings_haptic_feedback_desc">Vibrate on long-press actions</string>
+    <string name="settings_shortcuts">Phrase Shortcuts</string>
+    <string name="settings_shortcuts_desc">Long-press a number key to insert its saved phrase. An empty shortcut types the number normally.</string>
+    <string name="settings_shortcut_hint">Phrase for %1$d</string>
+    <string name="settings_keyboard_layout">Keyboard layout</string>
+    <string name="settings_key_height">Key size</string>
+    <string name="settings_key_height_desc">Change the height of the letter and symbol keys</string>
+    <string name="settings_candidate_text_size">Candidate size</string>
+    <string name="settings_candidate_text_size_desc">Change the text size of Chinese word choices</string>
+    <string name="settings_show_key_radicals">Show Cangjie labels on keys</string>
+    <string name="settings_show_key_radicals_desc">Turn off for larger English letters on QWERTY keys</string>
+    <string name="settings_hold_123">Hold 123 to open Settings</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">Character Set</string>

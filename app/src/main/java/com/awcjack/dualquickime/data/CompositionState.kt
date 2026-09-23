@@ -19,7 +19,8 @@ data class CompositionState(
     val pageSize: Int = 9,
     val activeKeyLength: Int = 0,
     val displayOffset: Int = 0,  // Actual start index for display (handles overflow)
-    val lastDisplayedCount: Int = 0  // How many were displayed on current page
+    val lastDisplayedCount: Int = 0,  // How many were displayed on current page
+    val previousOffsets: List<Int> = emptyList()
 ) {
     /**
      * The radical display string (e.g., "手口" for "qr")
@@ -74,10 +75,18 @@ data class CompositionState(
         val nextOffset = displayOffset + lastDisplayedCount.coerceAtLeast(1)
         return if (nextOffset >= candidates.size) {
             // Wrap to beginning
-            copy(currentPage = 0, displayOffset = 0)
+            copy(currentPage = 0, displayOffset = 0, previousOffsets = emptyList())
         } else {
-            copy(currentPage = currentPage + 1, displayOffset = nextOffset)
+            copy(currentPage = currentPage + 1, displayOffset = nextOffset,
+                previousOffsets = previousOffsets + displayOffset)
         }
+    }
+
+    fun previousPage(): CompositionState {
+        if (previousOffsets.isEmpty()) return this
+        return copy(currentPage = (currentPage - 1).coerceAtLeast(0),
+            displayOffset = previousOffsets.last(),
+            previousOffsets = previousOffsets.dropLast(1))
     }
 
     /**
@@ -91,7 +100,8 @@ data class CompositionState(
     /**
      * Reset to page 0
      */
-    fun resetPage(): CompositionState = copy(currentPage = 0, displayOffset = 0, lastDisplayedCount = 0)
+    fun resetPage(): CompositionState = copy(currentPage = 0, displayOffset = 0,
+        lastDisplayedCount = 0, previousOffsets = emptyList())
 
     companion object {
         val EMPTY = CompositionState()

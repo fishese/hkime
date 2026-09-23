@@ -23,6 +23,10 @@ object ThemeManager {
     private const val KEY_DEFAULT_SKIN_TONE = "default_skin_tone"
     private const val KEY_CHINESE_CONVERT_ENABLED = "chinese_convert_enabled"
     private const val KEY_CANDIDATE_PILL_PADDING = "candidate_pill_padding"
+    private const val KEY_KEY_HEIGHT = "key_height_dp"
+    private const val KEY_CANDIDATE_TEXT_SIZE = "candidate_text_sp"
+    private const val KEY_SHOW_KEY_RADICALS = "show_key_radicals"
+    private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
 
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
@@ -36,7 +40,14 @@ object ThemeManager {
     // Horizontal padding inside each candidate pill, in dp. Smaller = more candidates fit per row.
     const val CANDIDATE_PADDING_MIN = 2
     const val CANDIDATE_PADDING_MAX = 14
-    const val CANDIDATE_PADDING_DEFAULT = 8
+    const val CANDIDATE_PADDING_DEFAULT = 4
+
+    const val KEY_HEIGHT_MIN = 46
+    const val KEY_HEIGHT_MAX = 76
+    const val KEY_HEIGHT_DEFAULT = 58
+    const val CANDIDATE_TEXT_MIN = 14
+    const val CANDIDATE_TEXT_MAX = 28
+    const val CANDIDATE_TEXT_DEFAULT = 18
 
     private var cachedTheme: Int = -1
     private var cachedShowComposition: Boolean? = null
@@ -51,6 +62,10 @@ object ThemeManager {
     private var cachedDefaultSkinTone: Int = -1
     private var cachedChineseConvertEnabled: Boolean? = null
     private var cachedCandidatePillPadding: Int = -1
+    private var cachedKeyHeight: Int = -1
+    private var cachedCandidateTextSize: Int = -1
+    private var cachedShowKeyRadicals: Boolean? = null
+    private var cachedEnglishSpellCheck: Boolean? = null
 
     fun getThemeMode(context: Context): Int {
         if (cachedTheme == -1) {
@@ -166,10 +181,10 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_VOICE_DOWNLOAD_WIFI_ONLY, enabled).apply()
     }
 
-    // Recent candidates settings (default: false to disable)
+    // Learned candidate frequency is enabled for new installations.
     fun getRecentCandidatesEnabled(context: Context): Boolean {
         if (cachedRecentCandidatesEnabled == null) {
-            cachedRecentCandidatesEnabled = getPrefs(context).getBoolean(KEY_RECENT_CANDIDATES_ENABLED, false)
+            cachedRecentCandidatesEnabled = getPrefs(context).getBoolean(KEY_RECENT_CANDIDATES_ENABLED, true)
         }
         return cachedRecentCandidatesEnabled!!
     }
@@ -233,6 +248,57 @@ object ThemeManager {
         getPrefs(context).edit().putInt(KEY_CANDIDATE_PILL_PADDING, cachedCandidatePillPadding).apply()
     }
 
+    fun getKeyHeight(context: Context): Int {
+        if (cachedKeyHeight == -1) {
+            cachedKeyHeight = getPrefs(context).getInt(KEY_KEY_HEIGHT, KEY_HEIGHT_DEFAULT)
+                .coerceIn(KEY_HEIGHT_MIN, KEY_HEIGHT_MAX)
+        }
+        return cachedKeyHeight
+    }
+
+    fun setKeyHeight(context: Context, dp: Int) {
+        cachedKeyHeight = dp.coerceIn(KEY_HEIGHT_MIN, KEY_HEIGHT_MAX)
+        getPrefs(context).edit().putInt(KEY_KEY_HEIGHT, cachedKeyHeight).apply()
+    }
+
+    fun getCandidateTextSize(context: Context): Int {
+        if (cachedCandidateTextSize == -1) {
+            cachedCandidateTextSize = getPrefs(context)
+                .getInt(KEY_CANDIDATE_TEXT_SIZE, CANDIDATE_TEXT_DEFAULT)
+                .coerceIn(CANDIDATE_TEXT_MIN, CANDIDATE_TEXT_MAX)
+        }
+        return cachedCandidateTextSize
+    }
+
+    fun setCandidateTextSize(context: Context, sp: Int) {
+        cachedCandidateTextSize = sp.coerceIn(CANDIDATE_TEXT_MIN, CANDIDATE_TEXT_MAX)
+        getPrefs(context).edit().putInt(KEY_CANDIDATE_TEXT_SIZE, cachedCandidateTextSize).apply()
+    }
+
+    fun getShowKeyRadicals(context: Context): Boolean {
+        if (cachedShowKeyRadicals == null) {
+            cachedShowKeyRadicals = getPrefs(context).getBoolean(KEY_SHOW_KEY_RADICALS, true)
+        }
+        return cachedShowKeyRadicals!!
+    }
+
+    fun setShowKeyRadicals(context: Context, show: Boolean) {
+        cachedShowKeyRadicals = show
+        getPrefs(context).edit().putBoolean(KEY_SHOW_KEY_RADICALS, show).apply()
+    }
+
+    fun getEnglishSpellCheck(context: Context): Boolean {
+        if (cachedEnglishSpellCheck == null) {
+            cachedEnglishSpellCheck = getPrefs(context).getBoolean(KEY_ENGLISH_SPELL_CHECK, true)
+        }
+        return cachedEnglishSpellCheck!!
+    }
+
+    fun setEnglishSpellCheck(context: Context, enabled: Boolean) {
+        cachedEnglishSpellCheck = enabled
+        getPrefs(context).edit().putBoolean(KEY_ENGLISH_SPELL_CHECK, enabled).apply()
+    }
+
     /**
      * Returns true if dark theme should be used based on current settings.
      */
@@ -287,6 +353,10 @@ object ThemeManager {
         cachedDefaultSkinTone = -1
         cachedChineseConvertEnabled = null
         cachedCandidatePillPadding = -1
+        cachedKeyHeight = -1
+        cachedCandidateTextSize = -1
+        cachedShowKeyRadicals = null
+        cachedEnglishSpellCheck = null
     }
 
     // Modern Dark Theme Colors (Material You inspired)

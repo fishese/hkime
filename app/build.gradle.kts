@@ -17,11 +17,13 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.awcjack.dualquickime"
+        // Provisional standalone id so this prototype cannot overwrite the
+        // upstream DualQuickIME app or the supplied legacy keyboard.
+        applicationId = "dev.local.mixedchinesekeyboard"
         minSdk = 24
         targetSdk = 34
-        versionCode = 28
-        versionName = "1.9.3"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     // Release signing configuration (only if keystore.properties exists)
@@ -98,6 +100,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
@@ -111,6 +114,8 @@ dependencies {
     "fullImplementation"(files("libs/sherpa-onnx-1.12.34.aar"))
 
     // OpenCC for Simplified to Traditional Chinese conversion
-    // Pure Java library, no JNI needed - used for voice input post-processing
+    // Pure Java library, no JNI needed. The lite keyboard also uses it for the
+    // selected-text conversion action and remains fully offline.
     "fullImplementation"("io.github.laisuk:openccjava:1.2.0")
+    "liteImplementation"("io.github.laisuk:openccjava:1.2.0")
 }
