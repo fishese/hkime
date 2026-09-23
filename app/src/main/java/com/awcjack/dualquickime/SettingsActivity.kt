@@ -95,6 +95,7 @@ class SettingsActivity : AppCompatActivity() {
         setupCandidatesSeekBar()
         setupCandidatePaddingSeekBar()
         setupRecentCandidatesSettings()
+        setupInputMethods()
         setupEnglishSpellCheckSettings()
         setupCharacterSetSettings()
         setupKeyboardBehaviorSettings()
@@ -159,6 +160,25 @@ class SettingsActivity : AppCompatActivity() {
         // Listen for changes
         switchHaptic.setOnCheckedChangeListener { _, isChecked ->
             ThemeManager.setHapticFeedbackEnabled(this, isChecked)
+        }
+    }
+
+    private fun setupInputMethods() {
+        findViewById<SwitchCompat>(R.id.switchMethodCantonese).apply {
+            isChecked = ThemeManager.getMethodCantonese(this@SettingsActivity)
+            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodCantonese(this@SettingsActivity, enabled) }
+        }
+        findViewById<SwitchCompat>(R.id.switchMethodCangjie).apply {
+            isChecked = ThemeManager.getMethodCangjie(this@SettingsActivity)
+            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodCangjie(this@SettingsActivity, enabled) }
+        }
+        findViewById<SwitchCompat>(R.id.switchMethodQuick).apply {
+            isChecked = ThemeManager.getMethodQuick(this@SettingsActivity)
+            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodQuick(this@SettingsActivity, enabled) }
+        }
+        findViewById<SwitchCompat>(R.id.switchMethodEnglish).apply {
+            isChecked = ThemeManager.getMethodEnglish(this@SettingsActivity)
+            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodEnglish(this@SettingsActivity, enabled) }
         }
     }
 

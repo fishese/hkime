@@ -99,6 +99,57 @@
 
         </androidx.cardview.widget.CardView>
 
+        <!-- Input methods: Latin typing remains available regardless of switches. -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_input_methods"
+            android:textSize="14sp"
+            android:textColor="@color/colorPrimary"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            android:layout_marginBottom="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_input_methods_desc"
+                    android:textSize="12sp"
+                    android:textColor="?android:textColorSecondary"
+                    android:layout_marginBottom="8dp" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchMethodCantonese"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_method_cantonese" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchMethodCangjie"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_method_cangjie" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchMethodQuick"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_method_quick" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchMethodEnglish"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_method_english" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
         <!-- Candidate Bar Section -->
         <TextView
             android:layout_width="wrap_content"

@@ -28,6 +28,10 @@ object ThemeManager {
     private const val KEY_SHOW_KEY_RADICALS = "show_key_radicals"
     private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
     private const val KEY_SPACE_AFTER_ENGLISH_CANDIDATE = "space_after_english_candidate"
+    private const val KEY_METHOD_CANTONESE = "method_cantonese_enabled"
+    private const val KEY_METHOD_CANGJIE = "method_cangjie_enabled"
+    private const val KEY_METHOD_QUICK = "method_quick_enabled"
+    private const val KEY_METHOD_ENGLISH = "method_english_enabled"
 
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
@@ -68,6 +72,20 @@ object ThemeManager {
     private var cachedShowKeyRadicals: Boolean? = null
     private var cachedEnglishSpellCheck: Boolean? = null
     private var cachedSpaceAfterEnglishCandidate: Boolean? = null
+
+    fun getMethodCantonese(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANTONESE, true)
+    fun getMethodCangjie(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANGJIE, true)
+    fun getMethodQuick(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_QUICK, true)
+    fun getMethodEnglish(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_ENGLISH, true)
+
+    fun setMethodCantonese(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_METHOD_CANTONESE, enabled).apply()
+    fun setMethodCangjie(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_METHOD_CANGJIE, enabled).apply()
+    fun setMethodQuick(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_METHOD_QUICK, enabled).apply()
+    fun setMethodEnglish(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_METHOD_ENGLISH, enabled).apply()
 
     fun getThemeMode(context: Context): Int {
         if (cachedTheme == -1) {
