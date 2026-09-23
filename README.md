@@ -1,10 +1,11 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.6 APK](releases/HK-IME-0.3.6-debug.apk).
-This is a debug-signed, offline-capable Android APK; Android may ask you to
-allow installation from your browser or file manager. It uses the same app ID
-as previous HK IME test builds, so it updates them rather than the original
-Mixed Chinese Keyboard Plus app.
+Download the latest build: [HK IME 0.3.9 signed APK](releases/HK-IME-0.3.9-release.apk).
+This is a locally signed, minified, offline-capable Android APK; Android may ask
+you to allow installation from your browser or file manager. It has the same
+app ID as previous HK IME test builds, but its release signing key differs from
+the earlier debug key. Uninstall a debug-signed HK IME build before installing
+this release; uninstalling may remove its settings and local data.
 
 HK IME is an independent Android keyboard for Cantonese romanization,
 Cangjie/Quick, English, emoji, clipboard history, and reusable phrase
@@ -162,7 +163,7 @@ columns and an original-order column for sorting back after batch edits.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.6-debug.apk)
+1. Download the [current signed APK](releases/HK-IME-0.3.9-release.apk)
 2. Install the APK on your Android device
 3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 
@@ -185,17 +186,21 @@ columns and an original-order column for sorting back after batch edits.
 
 ### Build Steps
 
-The test APK is the lite build, without voice input. Optional full-flavor voice
-code remains in the repository but is not part of the distributed test APK.
-APK builds are currently produced locally and checked into `releases/`;
-the inherited automatic GitHub Actions build is disabled.
+The distributed APK is the minified, release-signed lite build, without voice
+input. Optional full-flavor voice code remains in the repository but is not
+part of the distributed APK. APK builds are produced locally and checked into
+`releases/`; the inherited automatic GitHub Actions build is disabled.
+
+Create a local `keystore.properties` with `storeFile`, `storePassword`,
+`keyAlias`, and `keyPassword` before building a release. Keep the keystore and
+properties file private; both are ignored by Git. Use the same signing key for
+future releases so Android can install them as updates.
 
 ```bash
-./gradlew testLiteDebugUnitTest assembleLiteDebug
+./gradlew testLiteDebugUnitTest assembleLiteRelease
 
 # APK locations:
-# Full: app/build/outputs/apk/full/debug/
-# Lite: app/build/outputs/apk/lite/debug/
+# Lite universal: app/build/outputs/apk/lite/release/app-lite-universal-release.apk
 ```
 
 ## Data Source

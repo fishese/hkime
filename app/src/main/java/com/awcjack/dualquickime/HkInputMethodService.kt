@@ -110,8 +110,10 @@ class HkInputMethodService : InputMethodService() {
         // Load simplex data based on user setting (extended by default)
         loadSimplexTable()
         mixedDictionary = MixedDictionary(assets)
-        methodMembership = assets.open("method-membership.tsv").bufferedReader().use {
-            MethodMembership(it.lineSequence())
+        methodMembership = assets.open("method-membership.tsv").bufferedReader().use { membership ->
+            assets.open("method-phrase-overrides.tsv").bufferedReader().use { overrides ->
+                MethodMembership(membership.lineSequence(), overrides.lineSequence())
+            }
         }
         englishAutocomplete = runCatching {
             EnglishAutocomplete.parse(assets.open("english-autocomplete.txt"))
@@ -805,9 +807,13 @@ class HkInputMethodService : InputMethodService() {
                 add(MethodMembership.Method.CANGJIE)
             if (ThemeManager.getMethodQuick(this@HkInputMethodService))
                 add(MethodMembership.Method.QUICK)
+            if (ThemeManager.getMethodEnglish(this@HkInputMethodService))
+                add(MethodMembership.Method.ENGLISH)
         }
         var candidates = methodMembership.filter(lookupKeys,
-            mixedDictionary.lookup(lookupKeys), enabledMethods)
+            mixedDictionary.lookup(lookupKeys), enabledMethods,
+            ThemeManager.getMethodUncertain(this))
+        candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
 
         // Retain the original OpenVanilla Quick table as a resilient fallback.
         if (candidates.isEmpty() && rawKeys.length <= 2 && ThemeManager.getMethodQuick(this)) {
@@ -844,6 +850,8 @@ class HkInputMethodService : InputMethodService() {
         if (!isPasswordField) {
             candidates = (candidates + UnicodeWordSuggestions.lookupEnglish(rawKeys)).distinct()
         }
+        // Cangjie and Quick often identify the same text; show it only once.
+        candidates = candidates.distinct()
 
         composition = CompositionState(
             rawKeys = rawKeys,

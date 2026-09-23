@@ -14,44 +14,66 @@ import sys
 import unicodedata
 
 
+def is_han_character(char):
+    return unicodedata.name(char, "").startswith((
+        "CJK UNIFIED IDEOGRAPH", "CJK COMPATIBILITY IDEOGRAPH"))
+
+
 def is_han(value):
-    return bool(value) and all(
-        unicodedata.name(char, "").startswith((
-            "CJK UNIFIED IDEOGRAPH", "CJK COMPATIBILITY IDEOGRAPH"))
-        for char in value
-    )
+    return bool(value) and all(is_han_character(char) for char in value)
 
 
-def phrase_match(code, candidate, first_keys, full_codes, quick_final=False):
-    if len(candidate) < 2 or len(code) < len(candidate) or not is_han(candidate):
+def is_mixed_phrase(value):
+    """Allow literal Latin letters in Chinese phrases, without treating them as English."""
+    return (any(is_han_character(char) for char in value) and
+            all(is_han_character(char) or char.isascii() and char.isalpha()
+                for char in value))
+
+
+def character_codes(char, codes):
+    return {char.lower()} if char.isascii() and char.isalpha() else codes.get(char, ())
+
+
+def part_matches(typed, reference, cantonese_z_alias):
+    return (typed == reference or
+            cantonese_z_alias and typed.startswith('z') and
+            reference.startswith('j') and typed[1:] == reference[1:])
+
+
+def phrase_match(code, candidate, first_keys, full_codes, quick_final=False,
+                 cantonese_z_alias=False):
+    if len(candidate) < 2 or len(code) < len(candidate) or not is_mixed_phrase(candidate):
         return None
     start = code[:len(candidate) - 1]
     end = code[len(candidate) - 1:]
-    if not all(letter in first_keys.get(character, ())
+    if not all(any(part_matches(letter, key, cantonese_z_alias)
+                   for key in character_codes(character, first_keys))
                for letter, character in zip(start, candidate[:-1])):
         return None
-    if len(end) == 1 and end in first_keys.get(candidate[-1], ()):
+    if len(end) == 1 and any(part_matches(end, key, cantonese_z_alias)
+                             for key in character_codes(candidate[-1], first_keys)):
         return "initials"
-    if any(end == full or (quick_final and end == full[0] + full[-1])
-           for full in full_codes.get(candidate[-1], ())):
+    if any(part_matches(end, full, cantonese_z_alias) or
+           (quick_final and end == full[0] + full[-1])
+           for full in character_codes(candidate[-1], full_codes)):
         return "final_code"
     return None
 
 
 def cangjie_prefix_guess(code, candidate, first_keys):
     """A review hint, never a method assignment."""
-    if len(candidate) < 2 or not code or not is_han(candidate):
+    if len(candidate) < 2 or not code or not is_mixed_phrase(candidate):
         return None
     compared = min(len(code), len(candidate))
     matched = 0
     while (matched < compared and
-           code[matched] in first_keys.get(candidate[matched], ())):
+           code[matched] in character_codes(candidate[matched], first_keys)):
         matched += 1
     if matched == 0:
         return None
     detail = f"{matched}/{compared} leading Cangjie initials match"
     if matched < compared:
-        expected = ",".join(sorted(first_keys.get(candidate[matched], ()))) or "unmapped"
+        expected = ",".join(sorted(character_codes(candidate[matched], first_keys))) or "unmapped"
         detail += f"; position {matched + 1}: typed {code[matched]}, reference {expected}"
     elif len(code) != len(candidate):
         detail += "; code/phrase lengths differ"
@@ -106,7 +128,7 @@ def main(membership_path, english_path, audit_path, output_dir):
             if cangjie_match:
                 tags.append("cangjie_phrase_" + cangjie_match)
             cantonese_match = phrase_match(code, candidate, cantonese_first_keys,
-                                          cantonese_full_codes)
+                                          cantonese_full_codes, cantonese_z_alias=True)
             if cantonese_match:
                 tags.append("cantonese_phrase_" + cantonese_match)
             if code in english_words:

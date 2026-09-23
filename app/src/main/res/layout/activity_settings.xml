@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/settingsScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:colorBackground">
 
     <LinearLayout
+        android:id="@+id/settingsRoot"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -21,10 +23,18 @@
             android:textColor="?android:textColorPrimary"
             android:layout_marginBottom="24dp" />
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchSettingsChinese"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/settings_language_traditional"
+            android:layout_marginBottom="8dp" />
+
         <!-- Theme Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionThemeHeader"
             android:text="@string/settings_appearance"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -103,6 +113,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionMethodsHeader"
             android:text="@string/settings_input_methods"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -147,6 +158,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="@string/settings_method_english" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchMethodUncertain"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/settings_method_uncertain" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -154,6 +170,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionCandidateHeader"
             android:text="@string/settings_candidate_bar"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -435,6 +452,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionKeyboardLayoutHeader"
             android:text="@string/settings_keyboard_layout"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -559,6 +577,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionCharsetHeader"
             android:text="@string/settings_character_set"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -634,6 +653,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionBehaviorHeader"
             android:text="@string/settings_keyboard_behavior"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -763,6 +783,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionClipboardHeader"
             android:text="@string/settings_clipboard"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -1088,6 +1109,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionPreviewHeader"
             android:text="@string/settings_preview"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
@@ -1135,6 +1157,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/sectionAboutHeader"
             android:text="@string/settings_about"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"

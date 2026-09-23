@@ -1,9 +1,13 @@
 package com.awcjack.dualquickime
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.DialogInterface
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -14,13 +18,16 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import android.view.ViewGroup
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
+import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
@@ -32,6 +39,7 @@ import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.voice.ModelDownloadManager
 import com.awcjack.dualquickime.voice.VoiceModelType
+import java.util.Locale
 
 /**
  * Settings activity for HK IME.
@@ -41,7 +49,13 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
+        private const val STATE_SETTINGS_TAB = "settings_tab"
     }
+
+    private lateinit var settingsScroll: ScrollView
+    private lateinit var settingsPages: List<LinearLayout>
+    private lateinit var settingsTabLabels: List<TextView>
+    private var selectedSettingsTab = 0
 
     private lateinit var themeRadioGroup: RadioGroup
     private lateinit var previewContainer: LinearLayout
@@ -66,9 +80,19 @@ class SettingsActivity : AppCompatActivity() {
     // Currently selected model type for download
     private var selectedModelType: VoiceModelType = VoiceModelType.DEFAULT
 
+    override fun attachBaseContext(newBase: Context) {
+        val locale = if (ThemeManager.getSettingsChinese(newBase)) "zh-HK" else "en"
+        val config = Configuration(newBase.resources.configuration).apply {
+            setLocale(Locale.forLanguageTag(locale))
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        organizeSettings(savedInstanceState?.getInt(STATE_SETTINGS_TAB) ?: 0)
+        setupSettingsLanguage()
 
         themeRadioGroup = findViewById(R.id.themeRadioGroup)
         previewContainer = findViewById(R.id.previewContainer)
@@ -163,6 +187,158 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(STATE_SETTINGS_TAB, selectedSettingsTab)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun setupSettingsLanguage() {
+        findViewById<SwitchCompat>(R.id.switchSettingsChinese).apply {
+            isChecked = ThemeManager.getSettingsChinese(this@SettingsActivity)
+            setOnCheckedChangeListener { _, chinese ->
+                ThemeManager.setSettingsChinese(this@SettingsActivity, chinese)
+                recreate()
+            }
+        }
+    }
+
+    private fun organizeSettings(initialTab: Int) {
+        settingsScroll = findViewById(R.id.settingsScroll)
+        val root = findViewById<LinearLayout>(R.id.settingsRoot)
+        val tabBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        settingsTabLabels = listOf(
+            R.string.settings_tab_appearance,
+            R.string.settings_tab_input,
+            R.string.settings_tab_other,
+        ).mapIndexed { index, title ->
+            TextView(this).apply {
+                setText(title)
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                isClickable = true
+                isFocusable = true
+                layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f)
+                setOnClickListener { showSettingsTab(index) }
+                tabBar.addView(this)
+            }
+        }
+        root.addView(tabBar, 2, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = dp(12) })
+        settingsPages = List(3) {
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                root.addView(this)
+            }
+        }
+
+        fun moveSection(headerId: Int, page: LinearLayout) {
+            val header = findViewById<View>(headerId)
+            val index = root.indexOfChild(header)
+            require(index >= 0 && index + 1 < root.childCount) { "Missing settings section $headerId" }
+            val card = root.getChildAt(index + 1)
+            root.removeView(card)
+            root.removeView(header)
+            page.addView(header)
+            page.addView(card)
+        }
+
+        val appearance = settingsPages[0]
+        moveSection(R.id.sectionThemeHeader, appearance)
+        moveSection(R.id.sectionCandidateHeader, appearance)
+        moveSection(R.id.sectionKeyboardLayoutHeader, appearance)
+        moveSection(R.id.sectionPreviewHeader, appearance)
+
+        val input = settingsPages[1]
+        moveSection(R.id.sectionMethodsHeader, input)
+        val englishOptions = addSettingsSection(input, R.string.settings_english_options)
+        moveWithFollowingDescription(R.id.switchEnglishSpellCheck, englishOptions)
+        moveWithFollowingDescription(R.id.switchSpaceAfterEnglishCandidate, englishOptions)
+        moveSection(R.id.shortcutSectionHeader, input)
+        moveSection(R.id.customDictionarySectionHeader, input)
+        moveSection(R.id.sectionCharsetHeader, input)
+
+        val other = settingsPages[2]
+        moveSection(R.id.sectionBehaviorHeader, other)
+        moveSection(R.id.chineseConvertSectionHeader, other)
+        val history = addSettingsSection(other, R.string.settings_history)
+        val recentRow = findViewById<SwitchCompat>(R.id.switchRecentCandidates).parent as View
+        val recentParent = recentRow.parent as ViewGroup
+        val dividerIndex = recentParent.indexOfChild(recentRow) - 1
+        if (dividerIndex >= 0 && recentParent.getChildAt(dividerIndex) !is TextView) {
+            recentParent.removeViewAt(dividerIndex)
+        }
+        moveView(recentRow, history)
+        moveView(findViewById(R.id.btnClearRecentCandidates), history)
+        moveSection(R.id.sectionClipboardHeader, other)
+        moveSection(R.id.voiceInputSectionHeader, other)
+        moveSection(R.id.sectionAboutHeader, other)
+
+        selectedSettingsTab = initialTab.coerceIn(0, 2)
+        showSettingsTab(selectedSettingsTab)
+    }
+
+    private fun showSettingsTab(index: Int) {
+        selectedSettingsTab = index
+        settingsPages.forEachIndexed { position, page ->
+            page.visibility = if (position == index) View.VISIBLE else View.GONE
+        }
+        settingsTabLabels.forEachIndexed { position, label ->
+            val selected = position == index
+            label.setTextColor(if (selected) Color.BLACK else
+                ContextCompat.getColor(this, R.color.colorPrimary))
+            label.background = if (selected) GradientDrawable().apply {
+                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
+                cornerRadius = dp(10).toFloat()
+            } else null
+            label.isSelected = selected
+        }
+        settingsScroll.post { settingsScroll.scrollTo(0, 0) }
+    }
+
+    private fun moveView(view: View, target: LinearLayout) {
+        (view.parent as ViewGroup).removeView(view)
+        target.addView(view)
+    }
+
+    private fun moveWithFollowingDescription(viewId: Int, target: LinearLayout) {
+        val control = findViewById<View>(viewId)
+        val parent = control.parent as ViewGroup
+        val description = parent.getChildAt(parent.indexOfChild(control) + 1)
+        moveView(control, target)
+        moveView(description, target)
+    }
+
+    private fun addSettingsSection(page: LinearLayout, titleId: Int): LinearLayout {
+        page.addView(TextView(this).apply {
+            setText(titleId)
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        })
+        val card = CardView(this).apply {
+            radius = dp(12).toFloat()
+            cardElevation = dp(2).toFloat()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(16) }
+        }
+        page.addView(card)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            card.addView(this)
+        }
+    }
+
     private fun setupInputMethods() {
         findViewById<SwitchCompat>(R.id.switchMethodCantonese).apply {
             isChecked = ThemeManager.getMethodCantonese(this@SettingsActivity)
@@ -179,6 +355,10 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<SwitchCompat>(R.id.switchMethodEnglish).apply {
             isChecked = ThemeManager.getMethodEnglish(this@SettingsActivity)
             setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodEnglish(this@SettingsActivity, enabled) }
+        }
+        findViewById<SwitchCompat>(R.id.switchMethodUncertain).apply {
+            isChecked = ThemeManager.getMethodUncertain(this@SettingsActivity)
+            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodUncertain(this@SettingsActivity, enabled) }
         }
     }
 

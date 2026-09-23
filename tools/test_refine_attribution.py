@@ -23,6 +23,34 @@ class RefineAttributionTest(unittest.TestCase):
         self.assertIsNone(cangjie_prefix_guess("abc", "🔤", self.first))
         self.assertIsNone(cangjie_prefix_guess("xaa", "時間表", self.first))
 
+    def test_latin_leading_phrase_is_matched_without_changing_its_text(self):
+        cantonese_first = {"制": {"j"}}
+        cantonese_full = {"制": {"jai"}}
+        cangjie_first = {"制": {"h"}}
+        cangjie_full = {"制": {"hbln"}}
+        self.assertEqual("initials", phrase_match(
+            "aaj", "AA制", cantonese_first, cantonese_full))
+        self.assertEqual("final_code", phrase_match(
+            "aajai", "AA制", cantonese_first, cantonese_full))
+        self.assertEqual("initials", phrase_match(
+            "aah", "AA制", cangjie_first, cangjie_full, True))
+        self.assertEqual("final_code", phrase_match(
+            "aahbln", "AA制", cangjie_first, cangjie_full, True))
+        self.assertIsNone(phrase_match("aaj", "AA制", cangjie_first, cangjie_full, True))
+        self.assertIsNone(phrase_match("aaj", "AAA", cantonese_first, cantonese_full))
+
+    def test_z_shorthand_matches_cantonese_j_readings(self):
+        first = {"支": {"j"}, "姿": {"j"}, "整": {"j"},
+                 "專": {"j"}, "制": {"j"}, "政": {"j"}, "治": {"j"}}
+        full = {"整": {"jing"}, "治": {"ji"}}
+        self.assertEqual("initials", phrase_match(
+            "zzzz", "支支整整", first, full, cantonese_z_alias=True))
+        self.assertEqual("initials", phrase_match(
+            "zzzz", "專制政治", first, full, cantonese_z_alias=True))
+        self.assertEqual("final_code", phrase_match(
+            "zzzzing", "姿姿整整", first, full, cantonese_z_alias=True))
+        self.assertIsNone(phrase_match("zzzz", "支支整整", first, full))
+
 
 if __name__ == "__main__":
     unittest.main()

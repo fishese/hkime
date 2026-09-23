@@ -1,11 +1,13 @@
 package com.awcjack.dualquickime.data
 
 /** Method provenance hints for the merged MCK candidate list. */
-class MethodMembership(lines: Sequence<String>) {
-    enum class Method { CANTONESE, CANGJIE, QUICK }
+class MethodMembership(lines: Sequence<String>, phraseOverrides: Sequence<String> = emptySequence()) {
+    enum class Method { CANTONESE, CANGJIE, QUICK, ENGLISH }
 
     private val cangjieCodesByCharacter = mutableMapOf<String, MutableSet<String>>()
     private val cantoneseCodesByCharacter = mutableMapOf<String, MutableSet<String>>()
+    private val phraseMethods = mutableMapOf<Pair<String, String>, MutableSet<Method>>()
+    private val overrideCandidatesByCode = linkedMapOf<String, LinkedHashSet<String>>()
     private val byCode: Map<String, Map<Method, Set<String>>> = buildMap {
         val mutable = mutableMapOf<String, MutableMap<Method, MutableSet<String>>>()
         for (line in lines) {
@@ -36,31 +38,60 @@ class MethodMembership(lines: Sequence<String>) {
         putAll(mutable)
     }
 
-    /** Keep MCK order. Unclassified entries are retained only when no relevant
-     * method is disabled, or when the code belongs exclusively to one enabled
-     * method. This avoids assigning ambiguous MCK phrases to the wrong method. */
-    fun filter(code: String, candidates: List<String>, enabled: Set<Method>): List<String> {
-        if (enabled.containsAll(Method.values().toSet())) return candidates
+    init {
+        for (line in phraseOverrides) {
+            if (line.startsWith('#')) continue
+            val parts = line.split('\t', limit = 3)
+            if (parts.size != 3) continue
+            val method = when (parts[1]) {
+                "cantonese" -> Method.CANTONESE
+                "cangjie" -> Method.CANGJIE
+                "quick" -> Method.QUICK
+                "english" -> Method.ENGLISH
+                else -> continue
+            }
+            val code = parts[0].lowercase()
+            phraseMethods.getOrPut(code to parts[2]) { mutableSetOf() }.add(method)
+            overrideCandidatesByCode.getOrPut(code) { linkedSetOf() }.add(parts[2])
+        }
+    }
+
+    /** Add reviewed/user-supplied entries missing from a bundled dictionary shard. */
+    fun supplementalCandidates(code: String, enabled: Set<Method>): List<String> =
+        overrideCandidatesByCode[code.lowercase()].orEmpty().filter { candidate ->
+            phraseMethods[code.lowercase() to candidate].orEmpty().any { it in enabled }
+        }
+
+    /** Keep MCK order, retaining unassigned candidates via the default-on
+     * Method uncertain option instead of silently discarding them. */
+    fun filter(code: String, candidates: List<String>, enabled: Set<Method>,
+               includeUncertain: Boolean = true): List<String> {
+        if (enabled.containsAll(Method.values().toSet()) && includeUncertain) return candidates.distinct()
         val methods = byCode[code.lowercase()].orEmpty()
         return candidates.filter { candidate ->
             val identified = methods.filterValues { candidate in it }.keys.toMutableSet()
-            if (matchesPhraseCode(code, candidate, cangjieCodesByCharacter, true))
+            identified.addAll(phraseMethods[code.lowercase() to candidate].orEmpty())
+            // Multi-character Cangjie shorthand uses the same first-key logic
+            // in Quick/Simple Input, so either method should expose it.
+            if (matchesPhraseCode(code, candidate, cangjieCodesByCharacter, true)) {
                 identified.add(Method.CANGJIE)
-            if (matchesPhraseCode(code, candidate, cantoneseCodesByCharacter, false))
+                identified.add(Method.QUICK)
+            }
+            if (matchesPhraseCode(code, candidate, cantoneseCodesByCharacter, false, true))
                 identified.add(Method.CANTONESE)
             when {
                 identified.isNotEmpty() -> identified.any { it in enabled }
-                methods.size == 1 -> methods.keys.first() in enabled
-                else -> methods.isNotEmpty() && methods.keys.all { it in enabled }
+                else -> includeUncertain
             }
-        }
+        }.distinct()
     }
 
     private fun matchesPhraseCode(
         rawCode: String,
         candidate: String,
         codesByCharacter: Map<String, Set<String>>,
-        quickFinalCode: Boolean
+        quickFinalCode: Boolean,
+        cantoneseZAlias: Boolean = false
     ): Boolean {
         val code = rawCode.lowercase()
         val characters = mutableListOf<String>()
@@ -70,15 +101,31 @@ class MethodMembership(lines: Sequence<String>) {
             characters.add(String(Character.toChars(point)))
             index += Character.charCount(point)
         }
-        if (characters.size < 2 || code.length < characters.size) return false
+        if (characters.size < 2 || code.length < characters.size ||
+            characters.all(::isAsciiLatin)) return false
         for (position in 0 until characters.lastIndex) {
-            val codes = codesByCharacter[characters[position]] ?: return false
-            if (codes.none { it[0] == code[position] }) return false
+            val codes = characterCodes(characters[position], codesByCharacter) ?: return false
+            if (codes.none { codePartMatches(code[position].toString(), it.take(1), cantoneseZAlias) }) return false
         }
         val suffix = code.substring(characters.lastIndex)
-        return codesByCharacter[characters.last()]?.any {
-            suffix == it || suffix == it.take(1) ||
+        return characterCodes(characters.last(), codesByCharacter)?.any {
+            codePartMatches(suffix, it, cantoneseZAlias) ||
+                codePartMatches(suffix, it.take(1), cantoneseZAlias) ||
                 (quickFinalCode && suffix == "${it.first()}${it.last()}")
         } == true
     }
+
+    private fun codePartMatches(typed: String, reference: String, cantoneseZAlias: Boolean): Boolean =
+        typed == reference || (cantoneseZAlias && typed.startsWith('z') &&
+            reference.startsWith('j') && typed.drop(1) == reference.drop(1))
+
+    private fun isAsciiLatin(character: String): Boolean =
+        character.length == 1 && (character[0] in 'A'..'Z' || character[0] in 'a'..'z')
+
+    private fun characterCodes(character: String, codesByCharacter: Map<String, Set<String>>): Set<String>? =
+        if (isAsciiLatin(character)) {
+            setOf(character.lowercase())
+        } else {
+            codesByCharacter[character]
+        }
 }

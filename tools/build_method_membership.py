@@ -27,6 +27,8 @@ def main():
     source = pathlib.Path(sys.argv[1])
     target = pathlib.Path(sys.argv[2])
     lines = ["# code<TAB>method<TAB>characters; membership only, not ranking\n"]
+    # User-verified Cantonese candidates absent from the reference table.
+    lines.extend(("a\tcantonese\t啊阿呀亞\n", "aa\tcantonese\t啊阿呀亞\n"))
     for method, filename in (
         ("cantonese", "cantonese.js"),
         ("cangjie", "cangjie.js"),

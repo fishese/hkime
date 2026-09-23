@@ -13,6 +13,37 @@
 
     <!-- Settings -->
     <string name="settings_title">設定</string>
+    <string name="settings_tab_appearance">外觀</string>
+    <string name="settings_tab_input">輸入</string>
+    <string name="settings_tab_other">其他</string>
+    <string name="settings_language_traditional">以繁體中文顯示設定</string>
+    <string name="settings_english_options">英文輸入選項</string>
+    <string name="settings_history">記錄</string>
+    <string name="settings_input_methods">輸入方式</string>
+    <string name="settings_input_methods_desc">揀選要顯示嘅候選字。英文輸入同自訂詞庫照常可用；未能確定來源嘅詞語預設會顯示。</string>
+    <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
+    <string name="settings_method_cangjie">倉頡 · Cangjie</string>
+    <string name="settings_method_quick">速成 · Quick</string>
+    <string name="settings_method_english">英文建議</string>
+    <string name="settings_method_uncertain">未確定 · Method uncertain</string>
+    <string name="settings_shortcuts">常用短語捷徑</string>
+    <string name="settings_expand_section">展開%1$s</string>
+    <string name="settings_collapse_section">收起%1$s</string>
+    <string name="settings_shortcuts_desc">長按數字鍵輸入儲存的短語；未設定的數字鍵會照常輸入數字。</string>
+    <string name="settings_shortcut_hint">數字 %1$d 的短語</string>
+    <string name="settings_custom_dictionary">自訂詞庫</string>
+    <string name="settings_custom_dictionary_desc">加入英文字母輸入碼和對應詞語。自訂候選字排在內建詞庫之前，但常用候選字仍可排得更前。資料只儲存在本機。</string>
+    <string name="settings_custom_add">新增詞條</string>
+    <string name="settings_custom_edit">編輯</string>
+    <string name="settings_custom_delete">刪除</string>
+    <string name="settings_custom_empty">尚未有自訂詞條。</string>
+    <string name="settings_custom_code">輸入碼（只限英文字母）</string>
+    <string name="settings_custom_candidate">建議字詞或短語</string>
+    <string name="settings_custom_save">儲存</string>
+    <string name="settings_custom_invalid">請輸入 1–32 個英文字母的輸入碼，以及 1–100 個字元的獨立詞語。</string>
+    <string name="settings_custom_delete_confirm">刪除 %1$s → %2$s？</string>
+    <string name="settings_voice_download_wifi_only">只在 Wi-Fi 下載</string>
+    <string name="settings_voice_download_wifi_only_desc">語音模型較大（最多約 1 GB）。關閉後可使用流動數據下載。</string>
     <string name="settings_appearance">外觀</string>
     <string name="settings_theme">主題</string>
     <string name="settings_candidate_bar">候選字列</string>
