@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.2 APK](releases/HK-IME-0.3.2-debug.apk).
+Download the latest test build: [HK IME 0.3.3 APK](releases/HK-IME-0.3.3-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
 allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
@@ -156,7 +156,7 @@ source tables are needed for reliable separation.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.2-debug.apk)
+1. Download the [current test APK](releases/HK-IME-0.3.3-debug.apk)
 2. Install the APK on your Android device
 3. Enable the keyboard in Settings
 

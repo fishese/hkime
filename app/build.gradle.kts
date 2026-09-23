@@ -22,8 +22,8 @@ android {
         applicationId = "dev.local.mixedchinesekeyboard"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.3.2"
+        versionCode = 6
+        versionName = "0.3.3"
     }
 
     // Release signing configuration (only if keystore.properties exists)

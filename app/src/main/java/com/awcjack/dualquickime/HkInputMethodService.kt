@@ -18,7 +18,10 @@ import com.awcjack.dualquickime.data.AssociatedPhrasesParser
 import com.awcjack.dualquickime.data.MckRelatedPhrases
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.UnicodeWordSuggestions
+import com.awcjack.dualquickime.data.SymbolAlternatives
 import com.awcjack.dualquickime.data.AssociatedPhrasesTable
+import com.awcjack.dualquickime.data.AssociatedPhraseSuggestions
+import com.awcjack.dualquickime.data.CuratedAssociatedPhrases
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
 import com.awcjack.dualquickime.data.CompositionState
@@ -49,15 +52,16 @@ import kotlin.concurrent.thread
  *
  * Uses embedded Gboard-style candidate bar (not system candidates view).
  */
-class DualQuickInputMethodService : InputMethodService() {
+class HkInputMethodService : InputMethodService() {
 
     private lateinit var simplexTable: SimplexTable
     private lateinit var mixedDictionary: MixedDictionary
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
+    private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
-    private data class PendingPunctuation(val inserted: Char, val alternative: Char)
-    private var pendingPunctuation: PendingPunctuation? = null
+    private data class PendingSymbol(val inserted: Char, val alternatives: List<String>)
+    private var pendingSymbol: PendingSymbol? = null
 
     private var keyboardView: KeyboardView? = null
 
@@ -143,6 +147,11 @@ class DualQuickInputMethodService : InputMethodService() {
             // Fallback to empty table if loading fails
             associatedPhrasesTable = AssociatedPhrasesTable.EMPTY
         }
+        curatedAssociatedPhrases = try {
+            CuratedAssociatedPhrases.parse(assets.open("curated-associated-phrases.tsv"))
+        } catch (e: Exception) {
+            CuratedAssociatedPhrases.EMPTY
+        }
     }
 
     /**
@@ -174,8 +183,8 @@ class DualQuickInputMethodService : InputMethodService() {
                 isSymbolMode = symbolMode
             }
             setOnCandidateSelectedListener { candidate ->
-                if (pendingPunctuation != null) {
-                    handlePunctuationCandidateSelected(candidate)
+                if (pendingSymbol != null) {
+                    handleSymbolCandidateSelected(candidate)
                 } else if (isEmailSuggestionsMode) {
                     handleEmailSuggestionSelected(candidate)
                 } else if (isAssociatedPhrasesMode) {
@@ -264,7 +273,7 @@ class DualQuickInputMethodService : InputMethodService() {
         // Refresh theme in case it changed in settings
         keyboardView?.refreshTheme()
         // Clear composition when starting new input
-        pendingPunctuation = null
+        pendingSymbol = null
         clearComposition()
         // Clear associated phrases mode
         clearAssociatedPhrases()
@@ -309,8 +318,8 @@ class DualQuickInputMethodService : InputMethodService() {
     }
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
-        if (pendingPunctuation != null && event !is KeyboardView.KeyEvent.Symbol) {
-            pendingPunctuation = null
+        if (pendingSymbol != null && event !is KeyboardView.KeyEvent.Symbol) {
+            pendingSymbol = null
             keyboardView?.clearCandidates()
         }
         when (event) {
@@ -449,25 +458,29 @@ class DualQuickInputMethodService : InputMethodService() {
             clearEmailSuggestions()
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
-        pendingPunctuation = null
+        pendingSymbol = null
         finishEnglishComposition()
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
-        commitText((choice?.inserted ?: event.char).toString())
-        if (choice != null && !isPasswordField) {
-            pendingPunctuation = PendingPunctuation(choice.inserted, choice.alternative)
-            keyboardView?.setCandidates(listOf(choice.alternative.toString()))
+        val inserted = choice?.inserted ?: event.char
+        val alternatives = if (choice != null) listOf(choice.alternative.toString())
+            else SymbolAlternatives.forKey(inserted)
+        commitText(inserted.toString())
+        keyboardView?.clearCandidates()
+        if (alternatives.isNotEmpty() && !isPasswordField) {
+            pendingSymbol = PendingSymbol(inserted, alternatives)
+            keyboardView?.setCandidates(alternatives)
         }
         if (event.char == '@' && !isPasswordField) {
             enterEmailSuggestionsMode()
         }
     }
 
-    private fun handlePunctuationCandidateSelected(candidate: String) {
-        val pending = pendingPunctuation ?: return
-        pendingPunctuation = null
+    private fun handleSymbolCandidateSelected(candidate: String) {
+        val pending = pendingSymbol ?: return
+        pendingSymbol = null
         val ic = currentInputConnection
-        if (candidate == pending.alternative.toString() &&
+        if (candidate in pending.alternatives &&
             ic?.getSelectedText(0).isNullOrEmpty() &&
             ic?.getTextBeforeCursor(1, 0)?.toString() == pending.inserted.toString()
         ) {
@@ -678,16 +691,11 @@ class DualQuickInputMethodService : InputMethodService() {
 
         // The original keyboard indexes related words by the full preceding
         // prefix as well as one character (e.g. 抗病 -> 毒). Prefer that order.
-        val beforeCursor = currentInputConnection?.getTextBeforeCursor(8, 0)?.toString().orEmpty()
-        var phrases = emptyList<String>()
-        for (length in minOf(8, beforeCursor.length) downTo 1) {
-            phrases = mckRelatedPhrases.lookup(beforeCursor.takeLast(length))
-            if (phrases.isNotEmpty()) break
-        }
-        if (phrases.isEmpty()) {
-            phrases = mckRelatedPhrases.lookup(character)
-        }
-        if (phrases.isEmpty()) phrases = associatedPhrasesTable.lookup(character)
+        val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        val phrases = AssociatedPhraseSuggestions.merge(
+            beforeCursor, character, curatedAssociatedPhrases,
+            mckRelatedPhrases::lookup, associatedPhrasesTable::lookup
+        )
         if (phrases.isEmpty()) {
             clearAssociatedPhrases()
             return
@@ -849,9 +857,9 @@ class DualQuickInputMethodService : InputMethodService() {
                 isMasked = isPasswordMaskEnabled
             )
 
-            val punctuation = pendingPunctuation
-            if (punctuation != null) {
-                view.setCandidates(listOf(punctuation.alternative.toString()))
+            val symbol = pendingSymbol
+            if (symbol != null) {
+                view.setCandidates(symbol.alternatives)
             } else if (composition.hasCandidates) {
                 view.setCandidates(composition.candidates)
             } else if (composition.rawKeys.isNotEmpty()) {
@@ -873,10 +881,10 @@ class DualQuickInputMethodService : InputMethodService() {
      * Handle clicking the page indicator to show all candidates in a full grid view.
      */
     private fun handlePageIndicatorClicked() {
-        val allCandidates = if (isAssociatedPhrasesMode) {
-            associatedPhrases
-        } else {
-            composition.candidates
+        val allCandidates = when {
+            pendingSymbol != null -> pendingSymbol!!.alternatives
+            isAssociatedPhrasesMode -> associatedPhrases
+            else -> composition.candidates
         }
 
         if (allCandidates.isEmpty()) return

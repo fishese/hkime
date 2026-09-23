@@ -11,7 +11,7 @@ object CustomDictionaryManager {
 
     private const val PREFS = "custom_dictionary"
     private const val KEY_ENTRIES = "entries"
-    private const val MAX_ENTRIES = 1000
+    private const val MAX_ENTRIES = 100
     private var cachedEntries: List<Entry>? = null
 
     @Synchronized fun all(context: Context): List<Entry> = load(context).toList()

@@ -42,9 +42,9 @@
     <string name="preview_hint">主题预览</string>
 
     <!-- About -->
-    <string name="app_description">支持中英双输入的速成输入法</string>
+    <string name="app_description">离线输入粤语拼音、仓颉、速成与英文，支持表情符号及自定义词库。</string>
     <string name="version_info">版本 %s</string>
-    <string name="github_link_text">在 GitHub 上查看</string>
+    <string name="github_link_text">在 GitHub 查看 HK IME 源代码</string>
     <string name="github_icon_desc">GitHub</string>
 
     <!-- Keyboard Behavior -->

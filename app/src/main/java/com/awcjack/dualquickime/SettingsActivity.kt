@@ -34,7 +34,7 @@ import com.awcjack.dualquickime.voice.ModelDownloadManager
 import com.awcjack.dualquickime.voice.VoiceModelType
 
 /**
- * Settings activity for the DualQuick IME.
+ * Settings activity for HK IME.
  * Allows users to configure theme, composition display, and candidate count.
  */
 class SettingsActivity : AppCompatActivity() {
@@ -101,6 +101,10 @@ class SettingsActivity : AppCompatActivity() {
         setupKeyboardAppearanceSettings()
         setupShortcutPhrases()
         setupCustomDictionary()
+        setupCollapsibleSection(R.id.shortcutSectionHeader, R.id.shortcutSectionBody,
+            R.string.settings_shortcuts)
+        setupCollapsibleSection(R.id.customDictionarySectionHeader,
+            R.id.customDictionarySectionBody, R.string.settings_custom_dictionary)
         setupChineseConvertSettings()
         setupClipboardSettings()
 
@@ -227,6 +231,7 @@ class SettingsActivity : AppCompatActivity() {
             isChecked = ThemeManager.getShowKeyRadicals(this@SettingsActivity)
             setOnCheckedChangeListener { _, checked ->
                 ThemeManager.setShowKeyRadicals(this@SettingsActivity, checked)
+                updatePreview()
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -278,6 +283,25 @@ class SettingsActivity : AppCompatActivity() {
                 doAfterTextChanged { ShortcutPhraseManager.set(this@SettingsActivity, digit, it?.toString().orEmpty()) }
             })
             container.addView(row)
+        }
+    }
+
+    private fun setupCollapsibleSection(headerId: Int, bodyId: Int, titleId: Int) {
+        val header = findViewById<TextView>(headerId)
+        val body = findViewById<View>(bodyId)
+        fun updateHeader() {
+            val expanded = body.visibility == View.VISIBLE
+            header.text = "${if (expanded) "▾" else "▸"} ${getString(titleId)}"
+            header.contentDescription = getString(
+                if (expanded) R.string.settings_collapse_section else R.string.settings_expand_section,
+                getString(titleId)
+            )
+        }
+        body.visibility = View.GONE
+        updateHeader()
+        header.setOnClickListener {
+            body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            updateHeader()
         }
     }
 
@@ -729,12 +753,18 @@ class SettingsActivity : AppCompatActivity() {
             Pair("T", "廿")
         )
 
+        val showRadicals = ThemeManager.getShowKeyRadicals(this)
         sampleKeys.forEach { (letter, radical) ->
-            previewKeyRow.addView(createPreviewKey(letter, radical, colors))
+            previewKeyRow.addView(createPreviewKey(letter, radical, colors, showRadicals))
         }
     }
 
-    private fun createPreviewKey(letter: String, radical: String, colors: com.awcjack.dualquickime.theme.KeyboardColors): View {
+    private fun createPreviewKey(
+        letter: String,
+        radical: String,
+        colors: com.awcjack.dualquickime.theme.KeyboardColors,
+        showRadicals: Boolean
+    ): View {
         return LinearLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
                 setMargins(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(3))
@@ -746,31 +776,34 @@ class SettingsActivity : AppCompatActivity() {
             background = createKeyBackground(colors.keyBackground, colors.keyShadowColor)
             elevation = dpToPx(2).toFloat()
 
-            // Letter
-            addView(TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-                gravity = Gravity.CENTER or Gravity.BOTTOM
-                text = letter
-                textSize = 16f
-                setTextColor(colors.keyTextPrimary)
-            })
-
-            // Radical
-            addView(TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    0.7f
-                )
-                gravity = Gravity.CENTER or Gravity.TOP
-                text = radical
-                textSize = 11f
-                setTextColor(colors.keyTextSecondary)
-            })
+            if (showRadicals) {
+                addView(TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+                    gravity = Gravity.CENTER or Gravity.BOTTOM
+                    text = radical
+                    textSize = 20f
+                    setTextColor(colors.keyTextPrimary)
+                })
+                addView(TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f)
+                    gravity = Gravity.CENTER or Gravity.TOP
+                    text = letter
+                    textSize = 12f
+                    setTextColor(colors.keyTextSecondary)
+                })
+            } else {
+                addView(TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT)
+                    gravity = Gravity.CENTER
+                    text = letter
+                    textSize = 24f
+                    setTextColor(colors.keyTextPrimary)
+                })
+            }
         }
     }
 

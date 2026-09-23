@@ -15,7 +15,7 @@
 
         <!-- Input Method Service -->
         <service
-            android:name=".DualQuickInputMethodService"
+            android:name=".HkInputMethodService"
             android:label="@string/ime_name"
             android:permission="android.permission.BIND_INPUT_METHOD"
             android:exported="true">

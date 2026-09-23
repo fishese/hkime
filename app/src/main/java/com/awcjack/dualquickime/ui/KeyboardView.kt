@@ -78,6 +78,8 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateRow: LinearLayout? = null
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
+    private var symbolUtilBar: View? = null
+    private var symbolCandidateBar: View? = null
     private var pageIndicator: TextView? = null
     private val candidateSlots = mutableListOf<TextView>()
     private var englishPill: TextView? = null
@@ -105,7 +107,7 @@ class KeyboardView @JvmOverloads constructor(
 
     // Number/Symbol rows (page 1) - Gboard "?123" layout
     private val numRow1 = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
-    private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '(', ')', '/')
+    private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '(', ')', '/', '\'')
     private val symRow3Page1 = listOf('、', '“', '”', ':', ';', '!', '?')
 
     // Symbol rows (page 2) - Gboard "=\<" layout
@@ -116,7 +118,7 @@ class KeyboardView @JvmOverloads constructor(
     // Symbol rows (page 3) - Chinese brackets and CJK punctuation
     private val symRow1Page3 = listOf('「', '」', '『', '』', '【', '】', '（', '）', '〈', '〉')
     private val symRow2Page3 = listOf('《', '》', '，', '。', '：', '；', '！', '？', '…')
-    private val symRow3Page3 = listOf('—', '–', '_', '‖', '¦', '※', '·')
+    private val symRow3Page3 = listOf('—', '–', '_', '‖', '¦', '※', '·', '«', '»')
 
     // Symbol rows (page 4) - Currency and units
     private val symRow1Page4 = listOf('$', '¥', '€', '£', '¢', '₩', '₹', '฿', '₱', '₽')
@@ -163,7 +165,7 @@ class KeyboardView @JvmOverloads constructor(
             loadTheme()
             buildKeyboard()
         } catch (t: Throwable) {
-            Log.e("DualQuickIME", "KeyboardView $reason failed; recovering to letter mode", t)
+            Log.e("HKIME", "KeyboardView $reason failed; recovering to letter mode", t)
             isSymbolMode = false
             symbolPage = 0
             isCandidateGridMode = false
@@ -171,13 +173,15 @@ class KeyboardView @JvmOverloads constructor(
                 loadTheme()
                 buildKeyboard()
             } catch (t2: Throwable) {
-                Log.e("DualQuickIME", "KeyboardView recovery also failed", t2)
+                Log.e("HKIME", "KeyboardView recovery also failed", t2)
             }
         }
     }
 
     private fun buildKeyboard() {
         removeAllViews()
+        symbolUtilBar = null
+        symbolCandidateBar = null
 
         // Check if we're in candidate grid mode (view all candidates)
         if (isCandidateGridMode) {
@@ -255,11 +259,25 @@ class KeyboardView @JvmOverloads constructor(
         // a util-button bar in symbol mode (since composition isn't possible
         // there, the area is otherwise unused).
         if (isSymbolMode) {
-            addView(createSymbolUtilBar())
+            val topBar = FrameLayout(context).apply {
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, candidateBarHeightPx())
+            }
+            symbolUtilBar = createSymbolUtilBar().apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            }
+            topBar.addView(symbolUtilBar)
+            symbolCandidateBar = createCandidateBar().apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                visibility = View.GONE
+            }
+            topBar.addView(symbolCandidateBar)
+            addView(topBar)
             when (symbolPage) {
                 0 -> {
                     addView(createSymbolRow(numRow1))
-                    addView(createSymbolRow(symRow2Page1, leftPadding = 0.5f))
+                    addView(createSymbolRow(symRow2Page1))
                     addView(createSymbolSpecialRow3(symRow3Page1))
                 }
                 1 -> {
@@ -453,6 +471,15 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun candidateBarHeightPx(): Int {
+        val twoLineTextHeight = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            (candidateTextSizeSp * 2).toFloat(),
+            resources.displayMetrics
+        ).toInt()
+        return maxOf(dpToPx(50), twoLineTextHeight + dpToPx(12))
+    }
+
     private fun createCandidateBar(): FrameLayout {
         candidateSlots.clear()
         numberSlots.clear()
@@ -460,12 +487,7 @@ class KeyboardView @JvmOverloads constructor(
         maskToggle = null
 
         // Both overlays have the same fixed height, so composing never moves the editor.
-        val twoLineTextHeight = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP,
-            (candidateTextSizeSp * 2).toFloat(),
-            resources.displayMetrics
-        ).toInt()
-        val barHeight = maxOf(dpToPx(46), twoLineTextHeight + dpToPx(12))
+        val barHeight = candidateBarHeightPx()
         val wrapper = FrameLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
         }
@@ -641,6 +663,10 @@ class KeyboardView @JvmOverloads constructor(
 
     /** Show all choices in a continuously scrollable strip. */
     fun setCandidates(candidates: List<String>) {
+        if (isSymbolMode && symbolCandidateBar != null) {
+            symbolUtilBar?.visibility = View.GONE
+            symbolCandidateBar?.visibility = View.VISIBLE
+        }
         hideNumberRow()
         if (displayedCandidates != candidates) {
             displayedCandidates = candidates.toList()
@@ -717,6 +743,11 @@ class KeyboardView @JvmOverloads constructor(
 
         // Show number row in candidate bar when idle (no code/key being typed)
         showNumberRow()
+
+        if (isSymbolMode) {
+            symbolCandidateBar?.visibility = View.GONE
+            symbolUtilBar?.visibility = View.VISIBLE
+        }
 
         pageIndicator?.visibility = View.GONE
     }
@@ -1220,6 +1251,7 @@ class KeyboardView @JvmOverloads constructor(
             addView(createSpecialKey(pageLabel, 1.5f) {
                 symbolPage = (symbolPage + 1) % totalPages
                 buildKeyboard()
+                this@KeyboardView.post { onCandidateRefreshRequested?.invoke() }
             })
 
             chars.forEach { char -> addView(createSymbolKey(char)) }

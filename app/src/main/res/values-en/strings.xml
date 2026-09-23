@@ -42,9 +42,9 @@
     <string name="preview_hint">Theme preview</string>
 
     <!-- About -->
-    <string name="app_description">Quick input method with Chinese/English dual input support</string>
+    <string name="app_description">Offline keyboard for Cantonese pinyin, Cangjie, Quick and English, with emoji and a personal dictionary.</string>
     <string name="version_info">Version %s</string>
-    <string name="github_link_text">View on GitHub</string>
+    <string name="github_link_text">HK IME source on GitHub</string>
     <string name="github_icon_desc">GitHub</string>
 
     <!-- Character Set -->
