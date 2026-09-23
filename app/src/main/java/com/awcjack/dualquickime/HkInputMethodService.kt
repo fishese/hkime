@@ -17,6 +17,7 @@ import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.AssociatedPhrasesParser
 import com.awcjack.dualquickime.data.MckRelatedPhrases
 import com.awcjack.dualquickime.data.EnglishSuggestions
+import com.awcjack.dualquickime.data.EnglishAutocomplete
 import com.awcjack.dualquickime.data.UnicodeWordSuggestions
 import com.awcjack.dualquickime.data.SymbolAlternatives
 import com.awcjack.dualquickime.data.AssociatedPhrasesTable
@@ -56,6 +57,7 @@ class HkInputMethodService : InputMethodService() {
 
     private lateinit var simplexTable: SimplexTable
     private lateinit var mixedDictionary: MixedDictionary
+    private var englishAutocomplete = EnglishAutocomplete.EMPTY
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
@@ -106,6 +108,9 @@ class HkInputMethodService : InputMethodService() {
         // Load simplex data based on user setting (extended by default)
         loadSimplexTable()
         mixedDictionary = MixedDictionary(assets)
+        englishAutocomplete = runCatching {
+            EnglishAutocomplete.parse(assets.open("english-autocomplete.txt"))
+        }.getOrDefault(EnglishAutocomplete.EMPTY)
         mckRelatedPhrases = MckRelatedPhrases(assets)
         // Load associated phrases table
         loadAssociatedPhrasesTable()
@@ -812,7 +817,10 @@ class HkInputMethodService : InputMethodService() {
         // English autocomplete is below the bundled Chinese choices by default.
         // Learned per-code usage can lift a frequently selected word above them.
         if (!isPasswordField) {
-            candidates = (candidates + EnglishSuggestions.completions(getDisplayKeys(rawKeys))).distinct()
+            val typed = getDisplayKeys(rawKeys)
+            val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
+                else EnglishSuggestions.completions(typed)
+            candidates = (candidates + english).distinct()
         }
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)

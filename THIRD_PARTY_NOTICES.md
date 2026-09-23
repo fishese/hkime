@@ -10,6 +10,9 @@ The bundled `app/src/main/assets/mck/mix_map_ext_*.cs2` dictionary shards and
 from [Mixed-Chinese-Keyboard-Plus-Dicts](https://github.com/holleeb/Mixed-Chinese-Keyboard-Plus-Dicts),
 commit `8eb2435`, used under the Apache License 2.0. A copy of that license is
 included at `licenses/Mixed-Chinese-Keyboard-Plus-Dicts-LICENSE.txt`.
+The `english-autocomplete.txt` word list is generated from that project's v2.1
+`eng_*.cs2` tables, intersected with the bundled mixed-input keys, with a few
+common-word additions. The original English tables are not bundled.
 
 Other upstream components retained from DualQuickIME include OpenVanilla data,
 OpenCC/OpenCC Java, AndroidX, and Material Components. Their notices and source

@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.4 APK](releases/HK-IME-0.3.4-debug.apk).
+Download the latest test build: [HK IME 0.3.5 APK](releases/HK-IME-0.3.5-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
 allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
@@ -156,7 +156,7 @@ source tables are needed for reliable separation.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.4-debug.apk)
+1. Download the [current test APK](releases/HK-IME-0.3.5-debug.apk)
 2. Install the APK on your Android device
 3. Enable the keyboard in Settings
 
@@ -196,6 +196,9 @@ Mixed Cantonese/Cangjie/Quick/English data comes from
 [Mixed-Chinese-Keyboard-Plus-Dicts](https://github.com/holleeb/Mixed-Chinese-Keyboard-Plus-Dicts)
 under Apache-2.0. The legacy APK's 53 `mix_map_ext` shards were verified
 byte-for-byte against that public source before being bundled.
+English autocomplete uses a small offline word list generated from that
+project's v2.1 English tables and the bundled mixed-input keys. The original
+English table binaries are not included.
 
 Fallback Quick character data comes from [OpenVanilla](https://github.com/openvanilla/openvanilla):
 - **simplex-ext.cin** - Extended set with 63,190 characters (default)
