@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.5 APK](releases/HK-IME-0.3.5-debug.apk).
+Download the latest test build: [HK IME 0.3.6 APK](releases/HK-IME-0.3.6-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
 allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
@@ -39,14 +39,14 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Scroll the candidate strip continuously** for more choices; tap the x/y button for the full grid
 - **Stable candidate-bar height** keeps the editor from jumping when suggestions appear or disappear
 - **Space inserts a space** rather than selecting or paging candidates
-- **OpenVanilla compatible** - same character ordering as macOS
+- **OpenVanilla Quick fallback** - available when the mixed dictionary has no match
 
 ### Cantonese, Cangjie, Quick, and English in one buffer
 - The Apache-licensed Mixed Chinese Keyboard Plus dictionary is bundled offline
 - Full Cantonese spellings such as `nei`, phrase spellings such as `neihou`,
   full Cangjie codes, Quick codes, and English-to-Chinese aliases share one lookup
 - The typed Latin text appears directly in the app until a Chinese candidate is selected
-- A small offline English word list offers only unambiguous one-edit corrections (for example, `canddiate` → `candidate`); the typed text is never changed without a tap
+- An offline English list offers autocomplete; a separate small word list offers only unambiguous one-edit corrections (for example, `canddiate` → `candidate`). Typed text is never changed without a tap
 - Exact English symbol keywords such as `star` append `★` and `☆` after normal dictionary choices
 - The 53 compressed dictionary shards are loaded lazily and cached in memory
 
@@ -88,18 +88,12 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Chain input** - selecting a phrase shows suggestions for its last character
 - Swipe the candidate strip or tap the page count for further phrase choices
 
-### 🎤 Offline Voice Input
-- **Fully offline** - No internet required after model download
-- **Trilingual** - Cantonese, Mandarin Chinese, and English
-- **On-demand download** - 228 MB model downloaded only when needed
-- **Privacy-first** - Voice processed entirely on-device
-
 ### 🎨 Modern Design
 - **Theme support** - System default, Light mode, Dark mode
 - **Full-width punctuation** - `，` `。` `！` `？` default for Chinese input
 - **5 symbol pages** - punctuation, brackets, currency, arrows, shapes
 - **Full emoji keyboard** - 9 categories; long-press any person emoji to pick a Fitzpatrick skin tone (saved as your default, shown once per base emoji with no duplicates)
-- **Symbol-mode util bar** - emoji, clipboard, 簡⇄繁, and voice buttons live above the number row for one-tap access
+- **Symbol-mode util bar** - emoji, clipboard, and 簡⇄繁 buttons live above the number row for one-tap access
 - **Configurable candidate spacing** - tune pill padding (2–14 dp) to fit more candidates per row
 - **Keyboard size controls** - adjust key height and candidate text size, and show or hide Cangjie radical labels
 - **Full-cell key touch areas** - visible gaps remain, but touches in those gaps register on adjacent keys even at smaller sizes
@@ -156,9 +150,9 @@ source tables are needed for reliable separation.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.5-debug.apk)
+1. Download the [current test APK](releases/HK-IME-0.3.6-debug.apk)
 2. Install the APK on your Android device
-3. Enable the keyboard in Settings
+3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 
 ### Enable the Keyboard
 
@@ -179,6 +173,8 @@ source tables are needed for reliable separation.
 
 ### Build Steps
 
+The test APK is the lite build, without voice input. Optional full-flavor voice
+code remains in the repository but is not part of the distributed test APK.
 APK builds are currently produced locally and checked into `releases/`;
 the inherited automatic GitHub Actions build is disabled.
 
@@ -209,7 +205,6 @@ Fallback Quick character data comes from [OpenVanilla](https://github.com/openva
 This keyboard:
 - Processes all input **locally on device**
 - The lite build has no Internet permission
-- Voice recognition happens **entirely offline**
 - Clipboard history stored locally, never uploaded
 
 See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for details.
@@ -225,6 +220,5 @@ Application code is MIT-licensed; dictionary and dependency notices are in
 - Mixed input dictionary: [Mixed Chinese Keyboard Plus Dicts](https://github.com/holleeb/Mixed-Chinese-Keyboard-Plus-Dicts)
 - Application base: [DualQuickIME](https://github.com/awcjack/DualQuickIME)
 - Associated phrases: [OpenVanilla Project](https://github.com/openvanilla/openvanilla)
-- Voice recognition: [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
 - Chinese conversion: [OpenCC](https://github.com/BYVoid/OpenCC)
 - 速成/Quick input method: Based on Cangjie by Chu Bong-Foo (朱邦復)
