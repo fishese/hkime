@@ -27,6 +27,7 @@ object ThemeManager {
     private const val KEY_CANDIDATE_TEXT_SIZE = "candidate_text_sp"
     private const val KEY_SHOW_KEY_RADICALS = "show_key_radicals"
     private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
+    private const val KEY_SPACE_AFTER_ENGLISH_CANDIDATE = "space_after_english_candidate"
 
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
@@ -45,9 +46,9 @@ object ThemeManager {
     const val KEY_HEIGHT_MIN = 46
     const val KEY_HEIGHT_MAX = 76
     const val KEY_HEIGHT_DEFAULT = 58
-    const val CANDIDATE_TEXT_MIN = 14
-    const val CANDIDATE_TEXT_MAX = 28
-    const val CANDIDATE_TEXT_DEFAULT = 18
+    const val CANDIDATE_TEXT_MIN = 15
+    const val CANDIDATE_TEXT_MAX = 30
+    const val CANDIDATE_TEXT_DEFAULT = 20
 
     private var cachedTheme: Int = -1
     private var cachedShowComposition: Boolean? = null
@@ -66,6 +67,7 @@ object ThemeManager {
     private var cachedCandidateTextSize: Int = -1
     private var cachedShowKeyRadicals: Boolean? = null
     private var cachedEnglishSpellCheck: Boolean? = null
+    private var cachedSpaceAfterEnglishCandidate: Boolean? = null
 
     fun getThemeMode(context: Context): Int {
         if (cachedTheme == -1) {
@@ -299,6 +301,19 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_ENGLISH_SPELL_CHECK, enabled).apply()
     }
 
+    fun getSpaceAfterEnglishCandidate(context: Context): Boolean {
+        if (cachedSpaceAfterEnglishCandidate == null) {
+            cachedSpaceAfterEnglishCandidate = getPrefs(context)
+                .getBoolean(KEY_SPACE_AFTER_ENGLISH_CANDIDATE, true)
+        }
+        return cachedSpaceAfterEnglishCandidate!!
+    }
+
+    fun setSpaceAfterEnglishCandidate(context: Context, enabled: Boolean) {
+        cachedSpaceAfterEnglishCandidate = enabled
+        getPrefs(context).edit().putBoolean(KEY_SPACE_AFTER_ENGLISH_CANDIDATE, enabled).apply()
+    }
+
     /**
      * Returns true if dark theme should be used based on current settings.
      */
@@ -357,6 +372,7 @@ object ThemeManager {
         cachedCandidateTextSize = -1
         cachedShowKeyRadicals = null
         cachedEnglishSpellCheck = null
+        cachedSpaceAfterEnglishCandidate = null
     }
 
     // Modern Dark Theme Colors (Material You inspired)

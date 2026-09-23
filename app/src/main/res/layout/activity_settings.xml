@@ -361,6 +361,21 @@
                     android:textSize="12sp"
                     android:textColor="?android:textColorSecondary" />
 
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchSpaceAfterEnglishCandidate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/settings_space_after_english_candidate"
+                    android:layout_marginTop="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_space_after_english_candidate_desc"
+                    android:textSize="12sp"
+                    android:textColor="?android:textColorSecondary" />
+
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>

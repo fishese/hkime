@@ -2,7 +2,13 @@ package com.awcjack.dualquickime.data
 
 /** Small offline English lexicon; only an unambiguous single-edit typo is suggested. */
 object EnglishSuggestions {
+    fun isLatinWord(candidate: String): Boolean = candidate.isNotEmpty() &&
+        candidate.all { it in 'a'..'z' || it in 'A'..'Z' }
+
     private val commonWords = """
+        an and are as at be by can do for has have he her him his how if in is it its may me my no not of on
+        or our out she so that the they this to too us was we who why yes you
+        cat dog fish bird rabbit horse cow pig bear mouse tiger lion whale dolphin butterfly
         about above across action active actual address after again against agree almost alone along already always
         amount answer anyone anything appear around arrive article artist asked asking attention available away because
         become before began begin behind believe below better between beyond black blue board book both bottom break
@@ -34,6 +40,23 @@ object EnglishSuggestions {
         writing wrong year yellow yesterday young your yourself candidate candidates cantonese cangjie chinese
         english keyboard clipboard shortcut convert conversion correction dictionary frequency suggestion
     """.trimIndent().split(Regex("\\s+")).toSet()
+
+    /** A small, deterministic prefix list; the caller ranks it after Chinese candidates. */
+    fun completions(typed: String): List<String> {
+        if (typed.length !in 2..20 || typed.any { !it.isLetter() || it.code > 127 }) return emptyList()
+        val lower = typed.lowercase()
+        return commonWords.asSequence()
+            .filter { it.startsWith(lower) && it.length >= lower.length }
+            .sortedWith(compareBy<String> { it.length }.thenBy { it })
+            .take(8)
+            .map { word -> when {
+                typed.all { it.isUpperCase() } -> word.uppercase()
+                typed.first().isUpperCase() && typed.drop(1).all { it.isLowerCase() } ->
+                    word.replaceFirstChar { it.uppercase() }
+                else -> word
+            } }
+            .toList()
+    }
 
     fun correction(typed: String): String? {
         if (typed.length !in 5..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return null
@@ -82,7 +105,26 @@ object UnicodeWordSuggestions {
     private val words = mapOf(
         "star" to listOf("★", "☆"),
         "heart" to listOf("♥", "♡"),
-        "arrow" to listOf("→", "←", "↑", "↓", "↔"),
+        "arrow" to listOf("↑", "↓", "←", "→", "↔"),
+        "up" to listOf("↑", "⬆"),
+        "down" to listOf("↓", "⬇"),
+        "left" to listOf("←", "⬅"),
+        "right" to listOf("→", "➡"),
+        "cat" to listOf("🐈", "🐈‍⬛", "🐱"),
+        "dog" to listOf("🐕", "🐶", "🐕‍🦺"),
+        "fish" to listOf("🐟", "🐠", "🐡"),
+        "bird" to listOf("🐦", "🐤"),
+        "rabbit" to listOf("🐇", "🐰"),
+        "horse" to listOf("🐎", "🐴"),
+        "cow" to listOf("🐄", "🐮"),
+        "pig" to listOf("🐖", "🐷"),
+        "bear" to listOf("🐻", "🐻‍❄️"),
+        "mouse" to listOf("🐁", "🐭"),
+        "tiger" to listOf("🐅", "🐯"),
+        "lion" to listOf("🦁"),
+        "whale" to listOf("🐋", "🐳"),
+        "dolphin" to listOf("🐬"),
+        "butterfly" to listOf("🦋"),
         "check" to listOf("✓", "✔", "☑"),
         "tick" to listOf("✓", "✔"),
         "cross" to listOf("✗", "✘", "×"),

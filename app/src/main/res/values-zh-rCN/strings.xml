@@ -62,6 +62,8 @@
     <string name="settings_recent_candidates_cleared">最近候选字记录已清除</string>
     <string name="settings_english_spell_check">建议英文拼写修正</string>
     <string name="settings_english_spell_check_desc">只建议离线常用词表中明确的一步修正；未点选前不会改动已输入文字</string>
+    <string name="settings_space_after_english_candidate">选择英文词后添加空格</string>
+    <string name="settings_space_after_english_candidate_desc">点击英文词候选项时，自动在后面加一个空格</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字符集</string>

@@ -259,6 +259,12 @@ class SettingsActivity : AppCompatActivity() {
                 ThemeManager.setEnglishSpellCheck(this@SettingsActivity, checked)
             }
         }
+        findViewById<SwitchCompat>(R.id.switchSpaceAfterEnglishCandidate).apply {
+            isChecked = ThemeManager.getSpaceAfterEnglishCandidate(this@SettingsActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ThemeManager.setSpaceAfterEnglishCandidate(this@SettingsActivity, checked)
+            }
+        }
     }
 
     private fun setupShortcutPhrases() {
@@ -291,6 +297,10 @@ class SettingsActivity : AppCompatActivity() {
         val body = findViewById<View>(bodyId)
         fun updateHeader() {
             val expanded = body.visibility == View.VISIBLE
+            (header.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
+                params.bottomMargin = dp(if (expanded) 8 else 16)
+                header.layoutParams = params
+            }
             header.text = "${if (expanded) "▾" else "▸"} ${getString(titleId)}"
             header.contentDescription = getString(
                 if (expanded) R.string.settings_collapse_section else R.string.settings_expand_section,

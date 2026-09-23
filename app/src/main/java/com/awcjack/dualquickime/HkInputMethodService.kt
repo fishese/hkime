@@ -193,7 +193,7 @@ class HkInputMethodService : InputMethodService() {
                 } else {
                     // The typed Latin code is already visible as composing text.
                     // Committing the candidate replaces that span in the editor.
-                    commitChinese(candidate)
+                    commitCandidate(candidate)
                 }
             }
             setOnEnglishSelectedListener { _ ->
@@ -646,15 +646,18 @@ class HkInputMethodService : InputMethodService() {
         sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_ENTER)
     }
 
-    private fun commitChinese(text: String) {
+    private fun commitCandidate(text: String) {
         // Record usage for recent candidates feature
         if (ThemeManager.getRecentCandidatesEnabled(this) && composition.rawKeys.isNotEmpty()) {
             RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
         }
-        commitText(text)
+        val latinWord = EnglishSuggestions.isLatinWord(text)
+        val needsSpace = latinWord && ThemeManager.getSpaceAfterEnglishCandidate(this) &&
+            currentInputConnection?.getTextAfterCursor(1, 0)?.firstOrNull()?.isWhitespace() != true
+        commitText(text + if (needsSpace) " " else "")
         clearComposition()
-        // Trigger associated phrases lookup based on the last character committed
-        showAssociatedPhrases(text.lastOrNull()?.toString() ?: "")
+        // Associated phrases follow Chinese selections, not Latin autocomplete.
+        if (!latinWord) showAssociatedPhrases(text.lastOrNull()?.toString() ?: "")
     }
 
     private fun getDisplayKeys(text: String): String {
@@ -798,17 +801,21 @@ class HkInputMethodService : InputMethodService() {
         candidates = prioritizeCustomCandidates(
             CustomDictionaryManager.lookup(this, lookupKeys), candidates)
 
-        // Reorder candidates based on recent usage if enabled
-        if (ThemeManager.getRecentCandidatesEnabled(this)) {
-            candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
-        }
-
         // English remains visible in the editor. Offer only unambiguous one-edit
         // spelling fixes, and never silently replace what the user typed.
         if (!isPasswordField && ThemeManager.getEnglishSpellCheck(this)) {
             EnglishSuggestions.correction(getDisplayKeys(rawKeys))?.let { correction ->
                 candidates = listOf(correction) + candidates.filterNot { it.equals(correction, ignoreCase = true) }
             }
+        }
+
+        // English autocomplete is below the bundled Chinese choices by default.
+        // Learned per-code usage can lift a frequently selected word above them.
+        if (!isPasswordField) {
+            candidates = (candidates + EnglishSuggestions.completions(getDisplayKeys(rawKeys))).distinct()
+        }
+        if (ThemeManager.getRecentCandidatesEnabled(this)) {
+            candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
         }
 
         // Symbols are exact English keyword matches and deliberately follow

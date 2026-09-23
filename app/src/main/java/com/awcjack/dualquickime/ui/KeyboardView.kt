@@ -813,17 +813,22 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
+            val keyViews = keys.map(::createLetterKey)
+
             if (leftPadding > 0) {
                 addView(View(context).apply {
                     layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, leftPadding)
+                    // The staggered edge is otherwise a dead touch zone.
+                    setOnClickListener { keyViews.first().performClick() }
                 })
             }
 
-            keys.forEach { char -> addView(createLetterKey(char)) }
+            keyViews.forEach { addView(it) }
 
             if (leftPadding > 0) {
                 addView(View(context).apply {
                     layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, leftPadding)
+                    setOnClickListener { keyViews.last().performClick() }
                 })
             }
         }
@@ -1080,7 +1085,7 @@ class KeyboardView @JvmOverloads constructor(
             addState(intArrayOf(), normal)
         }
         // Visual gaps no longer shrink the clickable view (especially at small key heights).
-        return InsetDrawable(states, dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(4))
+        return InsetDrawable(states, dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
     }
 
     // ==================== SYMBOL/EMOJI KEYBOARD ====================
