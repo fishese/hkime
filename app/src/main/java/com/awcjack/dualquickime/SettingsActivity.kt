@@ -2,10 +2,12 @@ package com.awcjack.dualquickime
 
 import android.Manifest
 import android.content.Intent
+import android.content.DialogInterface
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -24,6 +26,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
+import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.RecentCandidateManager
 import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
@@ -97,6 +100,7 @@ class SettingsActivity : AppCompatActivity() {
         setupKeyboardBehaviorSettings()
         setupKeyboardAppearanceSettings()
         setupShortcutPhrases()
+        setupCustomDictionary()
         setupChineseConvertSettings()
         setupClipboardSettings()
 
@@ -275,6 +279,101 @@ class SettingsActivity : AppCompatActivity() {
             })
             container.addView(row)
         }
+    }
+
+    private fun setupCustomDictionary() {
+        findViewById<Button>(R.id.btnAddCustomEntry).setOnClickListener {
+            showCustomEntryDialog(null)
+        }
+        renderCustomDictionary()
+    }
+
+    private fun renderCustomDictionary() {
+        val container = findViewById<LinearLayout>(R.id.customDictionaryContainer)
+        container.removeAllViews()
+        val entries = CustomDictionaryManager.all(this)
+        if (entries.isEmpty()) {
+            container.addView(TextView(this).apply {
+                text = getString(R.string.settings_custom_empty)
+                setPadding(0, dp(8), 0, 0)
+            })
+        }
+        entries.forEach { entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(8), 0, dp(8))
+            }
+            row.addView(TextView(this).apply {
+                text = "${entry.code} → ${entry.candidate}"
+                textSize = 16f
+                maxLines = 2
+            })
+            val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            actions.addView(Button(this).apply {
+                text = getString(R.string.settings_custom_edit)
+                setOnClickListener { showCustomEntryDialog(entry) }
+            })
+            actions.addView(Button(this).apply {
+                text = getString(R.string.settings_custom_delete)
+                setOnClickListener {
+                    AlertDialog.Builder(this@SettingsActivity)
+                        .setMessage(getString(R.string.settings_custom_delete_confirm,
+                            entry.code, entry.candidate))
+                        .setPositiveButton(R.string.settings_custom_delete) { _, _ ->
+                            CustomDictionaryManager.remove(this@SettingsActivity, entry)
+                            renderCustomDictionary()
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+            })
+            row.addView(actions)
+            container.addView(row)
+        }
+    }
+
+    private fun showCustomEntryDialog(existing: CustomDictionaryManager.Entry?) {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+        }
+        val codeInput = EditText(this).apply {
+            hint = getString(R.string.settings_custom_code)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setSingleLine(true)
+            setText(existing?.code.orEmpty())
+        }
+        val candidateInput = EditText(this).apply {
+            hint = getString(R.string.settings_custom_candidate)
+            setSingleLine(true)
+            setText(existing?.candidate.orEmpty())
+        }
+        form.addView(codeInput)
+        form.addView(candidateInput)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (existing == null) R.string.settings_custom_add else R.string.settings_custom_edit)
+            .setView(form)
+            .setPositiveButton(R.string.settings_custom_save, null)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val code = codeInput.text.toString()
+                val candidate = candidateInput.text.toString()
+                val saved = if (existing == null) {
+                    CustomDictionaryManager.add(this, code, candidate)
+                } else {
+                    CustomDictionaryManager.update(this, existing, code, candidate)
+                }
+                if (saved) {
+                    renderCustomDictionary()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this, R.string.settings_custom_invalid, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

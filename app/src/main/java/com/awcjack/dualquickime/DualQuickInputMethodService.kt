@@ -22,6 +22,9 @@ import com.awcjack.dualquickime.data.AssociatedPhrasesTable
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
 import com.awcjack.dualquickime.data.CompositionState
+import com.awcjack.dualquickime.data.ContextualPunctuation
+import com.awcjack.dualquickime.data.CustomDictionaryManager
+import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.RecentCandidateManager
 import com.awcjack.dualquickime.data.SimplexTable
@@ -53,6 +56,8 @@ class DualQuickInputMethodService : InputMethodService() {
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
+    private data class PendingPunctuation(val inserted: Char, val alternative: Char)
+    private var pendingPunctuation: PendingPunctuation? = null
 
     private var keyboardView: KeyboardView? = null
 
@@ -169,7 +174,9 @@ class DualQuickInputMethodService : InputMethodService() {
                 isSymbolMode = symbolMode
             }
             setOnCandidateSelectedListener { candidate ->
-                if (isEmailSuggestionsMode) {
+                if (pendingPunctuation != null) {
+                    handlePunctuationCandidateSelected(candidate)
+                } else if (isEmailSuggestionsMode) {
                     handleEmailSuggestionSelected(candidate)
                 } else if (isAssociatedPhrasesMode) {
                     // User TAPPED an associated phrase - commit it
@@ -238,6 +245,7 @@ class DualQuickInputMethodService : InputMethodService() {
         ThemeManager.invalidateCache()
         ClipboardHistoryManager.invalidateCache()
         RecentCandidateManager.invalidateCache()
+        CustomDictionaryManager.invalidateCache()
 
         // Pre-bind the :voice process if the user has Qwen3-ASR selected.
         // Saves the 500 ms – 2 s bindService cold start off the mic-tap path,
@@ -256,6 +264,7 @@ class DualQuickInputMethodService : InputMethodService() {
         // Refresh theme in case it changed in settings
         keyboardView?.refreshTheme()
         // Clear composition when starting new input
+        pendingPunctuation = null
         clearComposition()
         // Clear associated phrases mode
         clearAssociatedPhrases()
@@ -300,11 +309,15 @@ class DualQuickInputMethodService : InputMethodService() {
     }
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
+        if (pendingPunctuation != null && event !is KeyboardView.KeyEvent.Symbol) {
+            pendingPunctuation = null
+            keyboardView?.clearCandidates()
+        }
         when (event) {
             is KeyboardView.KeyEvent.Letter -> handleLetter(event.char)
             is KeyboardView.KeyEvent.Number -> handleNumber(event.digit)
             is KeyboardView.KeyEvent.ShortcutPhrase -> handleShortcutPhrase(event.digit)
-            is KeyboardView.KeyEvent.Symbol -> handleSymbol(event.char)
+            is KeyboardView.KeyEvent.Symbol -> handleSymbol(event)
             is KeyboardView.KeyEvent.Emoji -> handleEmoji(event.emoji)
             is KeyboardView.KeyEvent.ClipboardPaste -> handleClipboardPaste(event.text)
             KeyboardView.KeyEvent.Space -> handleSpace()
@@ -431,16 +444,39 @@ class DualQuickInputMethodService : InputMethodService() {
         commitText(phrase.ifEmpty { digit.toString() })
     }
 
-    private fun handleSymbol(char: Char) {
+    private fun handleSymbol(event: KeyboardView.KeyEvent.Symbol) {
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
+        if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        pendingPunctuation = null
         finishEnglishComposition()
-        // Then commit the symbol
-        commitText(char.toString())
-        if (char == '@' && !isPasswordField) {
+        val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
+        commitText((choice?.inserted ?: event.char).toString())
+        if (choice != null && !isPasswordField) {
+            pendingPunctuation = PendingPunctuation(choice.inserted, choice.alternative)
+            keyboardView?.setCandidates(listOf(choice.alternative.toString()))
+        }
+        if (event.char == '@' && !isPasswordField) {
             enterEmailSuggestionsMode()
         }
+    }
+
+    private fun handlePunctuationCandidateSelected(candidate: String) {
+        val pending = pendingPunctuation ?: return
+        pendingPunctuation = null
+        val ic = currentInputConnection
+        if (candidate == pending.alternative.toString() &&
+            ic?.getSelectedText(0).isNullOrEmpty() &&
+            ic?.getTextBeforeCursor(1, 0)?.toString() == pending.inserted.toString()
+        ) {
+            ic?.beginBatchEdit()
+            ic?.deleteSurroundingText(1, 0)
+            ic?.commitText(candidate, 1)
+            ic?.endBatchEdit()
+        }
+        keyboardView?.clearCandidates()
     }
 
     private fun handleEmoji(emoji: String) {
@@ -749,6 +785,11 @@ class DualQuickInputMethodService : InputMethodService() {
             candidates = simplexTable.lookup(rawKeys)
         }
 
+        // User entries precede bundled results, but learned selection counts
+        // below can still lift any frequently used candidate above them.
+        candidates = prioritizeCustomCandidates(
+            CustomDictionaryManager.lookup(this, lookupKeys), candidates)
+
         // Reorder candidates based on recent usage if enabled
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
@@ -808,7 +849,10 @@ class DualQuickInputMethodService : InputMethodService() {
                 isMasked = isPasswordMaskEnabled
             )
 
-            if (composition.hasCandidates) {
+            val punctuation = pendingPunctuation
+            if (punctuation != null) {
+                view.setCandidates(listOf(punctuation.alternative.toString()))
+            } else if (composition.hasCandidates) {
                 view.setCandidates(composition.candidates)
             } else if (composition.rawKeys.isNotEmpty()) {
                 if (isPasswordField) {

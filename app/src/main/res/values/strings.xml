@@ -48,7 +48,7 @@
     <string name="version_info">Version %s</string>
     <string name="github_link_text">View on GitHub</string>
     <string name="github_icon_desc">GitHub</string>
-    <string name="github_url" translatable="false">https://github.com/awcjack/DualQuickIME</string>
+    <string name="github_url" translatable="false">https://github.com/fishese/hkime</string>
 
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">Keyboard</string>
@@ -57,6 +57,17 @@
     <string name="settings_shortcuts">Phrase Shortcuts</string>
     <string name="settings_shortcuts_desc">Long-press a number key to insert its saved phrase. An empty shortcut types the number normally.</string>
     <string name="settings_shortcut_hint">Phrase for %1$d</string>
+    <string name="settings_custom_dictionary">Custom dictionary</string>
+    <string name="settings_custom_dictionary_desc">Add a Latin input code and the word or phrase it should suggest. Custom choices appear before the bundled dictionary, but frequently selected choices still come first. Stored on this device.</string>
+    <string name="settings_custom_add">Add entry</string>
+    <string name="settings_custom_edit">Edit</string>
+    <string name="settings_custom_delete">Delete</string>
+    <string name="settings_custom_empty">No custom entries yet.</string>
+    <string name="settings_custom_code">Input code (letters only)</string>
+    <string name="settings_custom_candidate">Suggested word or phrase</string>
+    <string name="settings_custom_save">Save</string>
+    <string name="settings_custom_invalid">Enter a code of 1–32 Latin letters and a unique phrase of 1–100 characters.</string>
+    <string name="settings_custom_delete_confirm">Delete %1$s → %2$s?</string>
     <string name="settings_keyboard_layout">Keyboard layout</string>
     <string name="settings_key_height">Key size</string>
     <string name="settings_key_height_desc">Change the height of the letter and symbol keys</string>

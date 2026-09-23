@@ -982,7 +982,7 @@ class KeyboardView @JvmOverloads constructor(
                         val runnable = Runnable {
                             longPressTriggered = true
                             // Long-press: output alternate character
-                            onKeyPress?.invoke(KeyEvent.Symbol(longPressChar))
+                            onKeyPress?.invoke(KeyEvent.Symbol(longPressChar, forceLiteral = true))
                             if (ThemeManager.getHapticFeedbackEnabled(context)) {
                                 v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                             }
@@ -1175,7 +1175,7 @@ class KeyboardView @JvmOverloads constructor(
                         val runnable = Runnable {
                             longPressTriggered = true
                             // Long-press: output alternate character
-                            onKeyPress?.invoke(KeyEvent.Symbol(longPressChar))
+                            onKeyPress?.invoke(KeyEvent.Symbol(longPressChar, forceLiteral = true))
                             // Provide haptic feedback if enabled
                             if (ThemeManager.getHapticFeedbackEnabled(context)) {
                                 v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
@@ -1466,7 +1466,7 @@ class KeyboardView @JvmOverloads constructor(
         data class Letter(val char: Char) : KeyEvent()
         data class Number(val digit: Int) : KeyEvent()
         data class ShortcutPhrase(val digit: Int) : KeyEvent()
-        data class Symbol(val char: Char) : KeyEvent()
+        data class Symbol(val char: Char, val forceLiteral: Boolean = false) : KeyEvent()
         data class Emoji(val emoji: String) : KeyEvent()
         data class ClipboardPaste(val text: String) : KeyEvent()
         object Space : KeyEvent()

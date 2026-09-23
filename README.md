@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest test build: [HK IME 0.3.1 APK](releases/HK-IME-0.3.1-debug.apk).
+Download the latest test build: [HK IME 0.3.2 APK](releases/HK-IME-0.3.2-debug.apk).
 This is a debug-signed, offline-capable Android APK; Android may ask you to
 allow installation from your browser or file manager. It uses the same app ID
 as previous HK IME test builds, so it updates them rather than the original
@@ -67,6 +67,11 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - Tap a number to type the digit; long-press it to insert the saved phrase
 - Empty shortcuts safely fall back to typing the digit
 
+### Custom Dictionary
+- Add, edit, or delete Latin input-code → candidate entries in Settings
+- Multiple words or phrases can share one code; entries are stored locally
+- Learned frequent choices rank first, then custom entries, then bundled choices
+
 ### Compatible Enter key
 - Honors the receiving app's Done, Go, Next, Previous, Search, and Send actions
 - Inserts a real newline in multiline fields
@@ -98,6 +103,7 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Configurable candidate spacing** - tune pill padding (2–14 dp) to fit more candidates per row
 - **Keyboard size controls** - adjust key height and candidate text size, and show or hide Cangjie radical labels
 - **Full-cell key touch areas** - visible gaps remain, but touches in those gaps register on adjacent keys even at smaller sizes
+- **Contextual punctuation** - comma, period, question mark, exclamation mark, colon, and semicolon default to half-width after Latin text and full-width after Chinese text; tap the candidate to swap widths
 - **Cangjie radical preview** - independently show or hide the radical sequence in the candidate strip
 - **English correction toggle** - turn conservative spelling suggestions on or off
 - **Quick settings access** - long-press `123` on the letter keyboard
@@ -150,7 +156,7 @@ source tables are needed for reliable separation.
 
 ### From this repository
 
-1. Download the [current test APK](releases/HK-IME-0.3.1-debug.apk)
+1. Download the [current test APK](releases/HK-IME-0.3.2-debug.apk)
 2. Install the APK on your Android device
 3. Enable the keyboard in Settings
 
@@ -172,6 +178,9 @@ source tables are needed for reliable separation.
 - Android SDK with API 34
 
 ### Build Steps
+
+APK builds are currently produced locally and checked into `releases/`;
+the inherited automatic GitHub Actions build is disabled.
 
 ```bash
 ./gradlew testLiteDebugUnitTest assembleLiteDebug
