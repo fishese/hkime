@@ -27,7 +27,7 @@
             android:id="@+id/switchSettingsChinese"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="@string/settings_language_traditional"
+            android:text="@string/settings_switch_language"
             android:layout_marginBottom="8dp" />
 
         <!-- Theme Section -->
@@ -35,7 +35,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/sectionThemeHeader"
-            android:text="@string/settings_appearance"
+            android:text="@string/settings_theme"
             android:textSize="14sp"
             android:textColor="@color/colorPrimary"
             android:textStyle="bold"
@@ -53,14 +53,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_theme"
-                    android:textSize="16sp"
-                    android:textColor="?android:textColorPrimary"
-                    android:layout_marginBottom="12dp" />
 
                 <RadioGroup
                     android:id="@+id/themeRadioGroup"
@@ -323,7 +315,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="2"
+                        android:text="5"
                         android:textSize="12sp"
                         android:textColor="?android:textColorSecondary" />
 
@@ -332,16 +324,15 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:min="2"
-                        android:max="14"
-                        android:progress="4"
+                        android:max="10"
+                        android:progress="5"
                         android:layout_marginStart="8dp"
                         android:layout_marginEnd="8dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="14"
+                        android:text="15"
                         android:textSize="12sp"
                         android:textColor="?android:textColorSecondary" />
 
@@ -351,7 +342,7 @@
                     android:id="@+id/textCandidatePaddingValue"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="4"
+                    android:text="10"
                     android:textSize="14sp"
                     android:textColor="@color/colorPrimary"
                     android:textStyle="bold"
@@ -419,8 +410,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
-                    android:text="@string/settings_english_spell_check"
-                    android:layout_marginTop="12dp" />
+                    android:text="@string/settings_english_spell_check" />
 
                 <TextView
                     android:layout_width="match_parent"

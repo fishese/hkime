@@ -142,7 +142,7 @@ object UnicodeWordSuggestions {
         "registered" to listOf("®"),
         "trademark" to listOf("™"),
         "bullet" to listOf("•", "◦"),
-        "bracket" to listOf("[", "]", "(", ")", "{", "}", "«", "»", "「", "」", "『", "』", "【", "】"),
+        "bracket" to listOf("[", "]", "(", ")", "{", "}", "<", ">", "＜", "＞", "«", "»", "「", "」", "『", "』", "【", "】"),
         "quote" to listOf("'", "\"", "‘", "’", "“", "”", "«", "»", "「", "」")
     )
 
@@ -151,12 +151,22 @@ object UnicodeWordSuggestions {
 
 /** Alternatives shown after tapping a bracket or quote key. */
 object SymbolAlternatives {
-    private val opening = listOf("[", "(", "{", "（", "「", "『", "【", "〈", "《", "«")
-    private val closing = listOf("]", ")", "}", "）", "」", "』", "】", "〉", "》", "»")
+    private val opening = listOf("[", "(", "{", "<", "（", "＜", "「", "『", "【", "〈", "《", "«", "“", "‘")
+    private val closing = listOf("]", ")", "}", ">", "）", "＞", "」", "』", "】", "〉", "》", "»", "”", "’")
+    private val preferred = mapOf(
+        '<' to listOf("＜", "〈", "《", "«"),
+        '>' to listOf("＞", "〉", "》", "»"),
+        '(' to listOf("（", "{", "["),
+        ')' to listOf("）", "}", "]"),
+        '[' to listOf("【", "{", "("),
+        ']' to listOf("】", "}", ")"),
+        '「' to listOf("『", "“", "‘", "【"),
+        '」' to listOf("』", "”", "’", "】"),
+    )
 
     fun forKey(key: Char): List<String> = when (key.toString()) {
-        in opening -> opening.filterNot { it == key.toString() }
-        in closing -> closing.filterNot { it == key.toString() }
+        in opening -> (preferred[key].orEmpty() + opening).distinct().filterNot { it == key.toString() }
+        in closing -> (preferred[key].orEmpty() + closing).distinct().filterNot { it == key.toString() }
         "'" -> listOf("‘", "’", "′")
         "\"" -> listOf("“", "”", "「", "」")
         else -> emptyList()

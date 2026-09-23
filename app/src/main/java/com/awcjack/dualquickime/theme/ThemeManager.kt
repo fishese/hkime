@@ -45,16 +45,16 @@ object ThemeManager {
     const val CANDIDATES_DEFAULT = 6
 
     // Horizontal padding inside each candidate pill, in dp. Smaller = more candidates fit per row.
-    const val CANDIDATE_PADDING_MIN = 2
-    const val CANDIDATE_PADDING_MAX = 14
-    const val CANDIDATE_PADDING_DEFAULT = 4
+    const val CANDIDATE_PADDING_MIN = 5
+    const val CANDIDATE_PADDING_MAX = 15
+    const val CANDIDATE_PADDING_DEFAULT = 10
 
     const val KEY_HEIGHT_MIN = 46
     const val KEY_HEIGHT_MAX = 76
-    const val KEY_HEIGHT_DEFAULT = 58
+    const val KEY_HEIGHT_DEFAULT = 55
     const val CANDIDATE_TEXT_MIN = 15
     const val CANDIDATE_TEXT_MAX = 30
-    const val CANDIDATE_TEXT_DEFAULT = 20
+    const val CANDIDATE_TEXT_DEFAULT = 22
 
     private var cachedTheme: Int = -1
     private var cachedShowComposition: Boolean? = null

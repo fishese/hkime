@@ -14,7 +14,7 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_theme">Theme</string>
+    <string name="settings_theme">Themes</string>
     <string name="settings_candidate_bar">Candidate Bar</string>
     <string name="settings_show_composition">Show Cangjie radical preview</string>
     <string name="settings_show_composition_desc">Display the radicals for keys typed so far in the candidate bar</string>

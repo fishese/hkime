@@ -21,7 +21,7 @@ class EnglishSuggestionsTest {
     @Test fun unicodeKeywordsAreExactEnglishOnly() {
         assertEquals(listOf("★", "☆"), UnicodeWordSuggestions.lookupEnglish("star"))
         assertEquals(emptyList<String>(), UnicodeWordSuggestions.lookupEnglish("sing"))
-        assertEquals(listOf("[", "]", "(", ")", "{", "}", "«", "»", "「", "」", "『", "』", "【", "】"),
+        assertEquals(listOf("[", "]", "(", ")", "{", "}", "<", ">", "＜", "＞", "«", "»", "「", "」", "『", "』", "【", "】"),
             UnicodeWordSuggestions.lookupEnglish("bracket"))
     }
 
@@ -53,6 +53,28 @@ class EnglishSuggestionsTest {
         assertEquals(true, "「" in SymbolAlternatives.forKey('['))
         assertEquals(true, "」" in SymbolAlternatives.forKey(']'))
         assertEquals(false, "」" in SymbolAlternatives.forKey('['))
+        assertEquals(true, "<" in SymbolAlternatives.forKey('['))
+        assertEquals(true, "＜" in SymbolAlternatives.forKey('['))
+        assertEquals(true, ">" in SymbolAlternatives.forKey(']'))
+        assertEquals(true, "＞" in SymbolAlternatives.forKey(']'))
+        assertEquals(false, ">" in SymbolAlternatives.forKey('['))
+        assertEquals(false, "<" in SymbolAlternatives.forKey(']'))
+        assertEquals(true, "<" in UnicodeWordSuggestions.lookupEnglish("bracket"))
+        assertEquals(true, "＞" in UnicodeWordSuggestions.lookupEnglish("bracket"))
         assertEquals(listOf("‘", "’", "′"), SymbolAlternatives.forKey('\''))
+    }
+
+    @Test fun bracketAlternativesRankSimilarShapesFirst() {
+        assertEquals(listOf("＜", "〈", "《", "«"), SymbolAlternatives.forKey('<').take(4))
+        assertEquals(listOf("＞", "〉", "》", "»"), SymbolAlternatives.forKey('>').take(4))
+        assertEquals(listOf("（", "{", "["), SymbolAlternatives.forKey('(').take(3))
+        assertEquals(listOf("）", "}", "]"), SymbolAlternatives.forKey(')').take(3))
+        assertEquals(listOf("【", "{", "("), SymbolAlternatives.forKey('[').take(3))
+        assertEquals(listOf("】", "}", ")"), SymbolAlternatives.forKey(']').take(3))
+        assertEquals(listOf("『", "“", "‘", "【"), SymbolAlternatives.forKey('「').take(4))
+        assertEquals(listOf("』", "”", "’", "】"), SymbolAlternatives.forKey('」').take(4))
+        assertFalse(">" in SymbolAlternatives.forKey('<'))
+        assertFalse("<" in SymbolAlternatives.forKey('>'))
+        assertEquals(SymbolAlternatives.forKey('「').distinct(), SymbolAlternatives.forKey('「'))
     }
 }

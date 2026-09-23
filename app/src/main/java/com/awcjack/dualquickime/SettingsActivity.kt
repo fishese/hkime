@@ -899,12 +899,13 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupCandidatePaddingSeekBar() {
         val currentValue = ThemeManager.getCandidatePillPadding(this)
-        seekBarCandidatePadding.progress = currentValue
+        seekBarCandidatePadding.max = ThemeManager.CANDIDATE_PADDING_MAX - ThemeManager.CANDIDATE_PADDING_MIN
+        seekBarCandidatePadding.progress = currentValue - ThemeManager.CANDIDATE_PADDING_MIN
         textCandidatePaddingValue.text = currentValue.toString()
 
         seekBarCandidatePadding.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val value = progress.coerceIn(
+                val value = (progress + ThemeManager.CANDIDATE_PADDING_MIN).coerceIn(
                     ThemeManager.CANDIDATE_PADDING_MIN,
                     ThemeManager.CANDIDATE_PADDING_MAX
                 )

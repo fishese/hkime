@@ -16,7 +16,7 @@
     <string name="settings_tab_appearance">外观</string>
     <string name="settings_tab_input">输入</string>
     <string name="settings_tab_other">其他</string>
-    <string name="settings_language_traditional">以繁体中文显示设置</string>
+    <string name="settings_switch_language">Show settings in English</string>
     <string name="settings_english_options">英文输入选项</string>
     <string name="settings_history">记录</string>
     <string name="settings_input_methods">输入方式</string>
@@ -63,7 +63,7 @@
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">键盘</string>
     <string name="settings_haptic_feedback">触感反馈</string>
-    <string name="settings_haptic_feedback_desc">长按时振动提示</string>
+    <string name="settings_haptic_feedback_desc">按键和长按时振动提示（需启用设备触感反馈）</string>
 
     <!-- Recent Candidates -->
     <string name="settings_recent_candidates">优先显示最近使用的候选字</string>

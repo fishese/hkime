@@ -15,7 +15,7 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_theme">Theme</string>
+    <string name="settings_theme">Themes</string>
     <string name="settings_candidate_bar">Candidate Bar</string>
     <string name="settings_show_composition">Show Cangjie radical preview</string>
     <string name="settings_show_composition_desc">Display the radicals for keys typed so far in the candidate bar</string>
@@ -35,7 +35,7 @@
     <string name="settings_tab_appearance">Appearance</string>
     <string name="settings_tab_input">Input</string>
     <string name="settings_tab_other">Other</string>
-    <string name="settings_language_traditional">Show Settings in Traditional Chinese</string>
+    <string name="settings_switch_language">以中文顯示設定</string>
     <string name="settings_english_options">English input options</string>
     <string name="settings_history">History</string>
     <string name="settings_input_methods_desc">Choose which suggestions appear together. Latin typing and your custom dictionary stay available. Unclassified merged-dictionary entries appear under Method uncertain by default.</string>
@@ -68,7 +68,7 @@
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">Keyboard</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
-    <string name="settings_haptic_feedback_desc">Vibrate on long-press actions</string>
+    <string name="settings_haptic_feedback_desc">Vibrate on key taps and long presses when device haptics are enabled</string>
     <string name="settings_shortcuts">Phrase Shortcuts</string>
     <string name="settings_expand_section">Expand %1$s</string>
     <string name="settings_collapse_section">Collapse %1$s</string>

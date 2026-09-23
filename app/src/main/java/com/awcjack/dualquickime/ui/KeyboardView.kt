@@ -12,6 +12,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
@@ -107,22 +108,22 @@ class KeyboardView @JvmOverloads constructor(
 
     // Number/Symbol rows (page 1) - Gboard "?123" layout
     private val numRow1 = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
-    private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '(', ')', '/', '\'')
-    private val symRow3Page1 = listOf('、', '“', '”', ':', ';', '!', '?')
+    private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '*', '/', '(', ')')
+    private val symRow3Page1 = listOf('<', '>', '×', '÷', '\'', '!', '?')
 
     // Symbol rows (page 2) - Gboard "=\<" layout
-    private val symRow1Page2 = listOf('~', '`', '|', '•', '√', 'π', '÷', '×', '*', '§')
-    private val symRow2Page2 = listOf('£', '¢', '€', '¥', '^', '°', '=', '{', '}', '\\')
+    private val symRow1Page2 = listOf('~', '`', '|', '•', '√', 'π', '§', '、', '“', '”')
+    private val symRow2Page2 = listOf('£', '¢', '€', '¥', '^', '°', '=', '\\', ':', ';')
     private val symRow3Page2 = listOf('％', '‘', '’', '™', '℅', '[', ']')
 
-    // Symbol rows (page 3) - Chinese brackets and CJK punctuation
-    private val symRow1Page3 = listOf('「', '」', '『', '』', '【', '】', '（', '）', '〈', '〉')
-    private val symRow2Page3 = listOf('《', '》', '，', '。', '：', '；', '！', '？', '…')
-    private val symRow3Page3 = listOf('—', '–', '_', '‖', '¦', '※', '·', '«', '»')
+    // Symbol rows (page 3) - Chinese punctuation; bracket variants are candidates.
+    private val symRow1Page3 = listOf('「', '」', '，', '。', '：', '；')
+    private val symRow2Page3 = listOf('！', '？', '—', '–', '_', '‖')
+    private val symRow3Page3 = listOf('¦', '※', '·', '…', '±', '∞')
 
     // Symbol rows (page 4) - Currency and units
     private val symRow1Page4 = listOf('$', '¥', '€', '£', '¢', '₩', '₹', '฿', '₱', '₽')
-    private val symRow2Page4 = listOf('%', '‰', '°', '℃', '℉', '±', '∞', '≈', '≠')
+    private val symRow2Page4 = listOf('%', '‰', '°', '℃', '℉', '≈', '≠')
     private val symRow3Page4 = listOf('≤', '≥', '∑', '∏', '†', '‡', '"', '\'', '©', '®')
 
     // Symbol rows (page 5) - Arrows, shapes, and cards
@@ -537,12 +538,12 @@ class KeyboardView @JvmOverloads constructor(
         // The strip holds every choice in order. HorizontalScrollView handles
         // pixel-by-pixel dragging/flinging instead of translating swipes to pages.
         candidateRow = LinearLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            layoutParams = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, barHeight)
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
         candidateScroll = HorizontalScrollView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = LayoutParams(0, barHeight, 1f)
             isHorizontalScrollBarEnabled = false
             isFillViewport = false
             addView(candidateRow)
@@ -561,6 +562,7 @@ class KeyboardView @JvmOverloads constructor(
             background = createPillBackground(colors.candidateBarBackground, colors.candidatePillBackgroundPressed)
 
             setOnClickListener {
+                performKeyHaptic(this)
                 onPageIndicatorClicked?.invoke()
             }
         }
@@ -676,7 +678,10 @@ class KeyboardView @JvmOverloads constructor(
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
                     visibility = View.VISIBLE
-                    setOnClickListener { onCandidateSelected?.invoke(candidate) }
+                    setOnClickListener {
+                        performKeyHaptic(this)
+                        onCandidateSelected?.invoke(candidate)
+                    }
                 }
                 candidateSlots.add(slot)
                 candidateRow?.addView(slot)
@@ -874,6 +879,7 @@ class KeyboardView @JvmOverloads constructor(
             }
 
             setOnClickListener {
+                performKeyHaptic(this)
                 val letter = if (isShiftOn || isCapsLock) char.uppercaseChar() else char
                 onKeyPress?.invoke(KeyEvent.Letter(letter))
                 // Turn off shift after typing (but not caps lock)
@@ -975,7 +981,10 @@ class KeyboardView @JvmOverloads constructor(
             background = createKeyBackground(colors.spaceKeyBackground, colors.keyBackgroundPressed)
             elevation = dpToPx(2).toFloat()
 
-            setOnClickListener { onKeyPress?.invoke(KeyEvent.Space) }
+            setOnClickListener {
+                performKeyHaptic(this)
+                onKeyPress?.invoke(KeyEvent.Space)
+            }
         }
     }
 
@@ -989,7 +998,10 @@ class KeyboardView @JvmOverloads constructor(
             background = createKeyBackground(colors.specialKeyBackground, colors.specialKeyBackgroundPressed)
             elevation = dpToPx(1).toFloat()
 
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                performKeyHaptic(this)
+                onClick()
+            }
         }
     }
 
@@ -1019,9 +1031,7 @@ class KeyboardView @JvmOverloads constructor(
                             longPressTriggered = true
                             // Long-press: output alternate character
                             onKeyPress?.invoke(KeyEvent.Symbol(longPressChar, forceLiteral = true))
-                            if (ThemeManager.getHapticFeedbackEnabled(context)) {
-                                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                            }
+                            performKeyHaptic(v, longPress = true)
                         }
                         longPressRunnable = runnable
                         longPressHandler.postDelayed(runnable, LONG_PRESS_DELAY)
@@ -1033,6 +1043,7 @@ class KeyboardView @JvmOverloads constructor(
 
                         if (!longPressTriggered) {
                             // Normal tap: output default character
+                            performKeyHaptic(v)
                             onKeyPress?.invoke(KeyEvent.Symbol(defaultLabel[0]))
                         }
                         longPressRunnable = null
@@ -1064,7 +1075,10 @@ class KeyboardView @JvmOverloads constructor(
             background = createKeyBackground(colors.specialKeyBackground, colors.specialKeyBackgroundPressed)
             elevation = dpToPx(2).toFloat()
 
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                performKeyHaptic(this)
+                onClick()
+            }
         }
     }
 
@@ -1138,7 +1152,10 @@ class KeyboardView @JvmOverloads constructor(
                 if (char.isDigit()) {
                     setupNumberKey(this, char.digitToInt())
                 } else {
-                    setOnClickListener { onKeyPress?.invoke(KeyEvent.Symbol(char)) }
+                    setOnClickListener {
+                        performKeyHaptic(this)
+                        onKeyPress?.invoke(KeyEvent.Symbol(char))
+                    }
                 }
             }
         }
@@ -1156,9 +1173,7 @@ class KeyboardView @JvmOverloads constructor(
                     val runnable = Runnable {
                         longPressTriggered = true
                         onKeyPress?.invoke(KeyEvent.ShortcutPhrase(digit))
-                        if (ThemeManager.getHapticFeedbackEnabled(context)) {
-                            touched.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                        }
+                        performKeyHaptic(touched, longPress = true)
                     }
                     longPressRunnable = runnable
                     longPressHandler.postDelayed(runnable, LONG_PRESS_DELAY)
@@ -1167,7 +1182,10 @@ class KeyboardView @JvmOverloads constructor(
                 MotionEvent.ACTION_UP -> {
                     touched.isPressed = false
                     longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
-                    if (!longPressTriggered) onKeyPress?.invoke(KeyEvent.Number(digit))
+                    if (!longPressTriggered) {
+                        performKeyHaptic(touched)
+                        onKeyPress?.invoke(KeyEvent.Number(digit))
+                    }
                     longPressRunnable = null
                     true
                 }
@@ -1212,10 +1230,7 @@ class KeyboardView @JvmOverloads constructor(
                             longPressTriggered = true
                             // Long-press: output alternate character
                             onKeyPress?.invoke(KeyEvent.Symbol(longPressChar, forceLiteral = true))
-                            // Provide haptic feedback if enabled
-                            if (ThemeManager.getHapticFeedbackEnabled(context)) {
-                                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                            }
+                            performKeyHaptic(v, longPress = true)
                         }
                         longPressRunnable = runnable
                         longPressHandler.postDelayed(runnable, LONG_PRESS_DELAY)
@@ -1227,6 +1242,7 @@ class KeyboardView @JvmOverloads constructor(
 
                         if (!longPressTriggered) {
                             // Normal tap: output default character
+                            performKeyHaptic(v)
                             onKeyPress?.invoke(KeyEvent.Symbol(defaultChar))
                         }
                         longPressRunnable = null
@@ -1458,6 +1474,7 @@ class KeyboardView @JvmOverloads constructor(
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
+                    performKeyHaptic(v)
                     action()
                     backspaceRepeatRunnable?.let { backspaceHandler.removeCallbacks(it) }
                     val runnable = object : Runnable {
@@ -1489,6 +1506,13 @@ class KeyboardView @JvmOverloads constructor(
         longPressRunnable = null
         convertDirectionPopup?.dismiss()
         convertDirectionPopup = null
+    }
+
+    private fun performKeyHaptic(view: View, longPress: Boolean = false) {
+        if (!ThemeManager.getHapticFeedbackEnabled(context)) return
+        view.performHapticFeedback(
+            if (longPress) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.KEYBOARD_TAP
+        )
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -1562,6 +1586,8 @@ class KeyboardView @JvmOverloads constructor(
             '》' to '>',   // Right double angle bracket -> ASCII greater-than
             '〈' to '<',   // Left angle bracket -> ASCII less-than
             '〉' to '>',   // Right angle bracket -> ASCII greater-than
+            '＜' to '<',   // Fullwidth less-than -> ASCII less-than
+            '＞' to '>',   // Fullwidth greater-than -> ASCII greater-than
             '％' to '%',
         )
     }
