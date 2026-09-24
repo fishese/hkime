@@ -17,13 +17,12 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        // Keep this standalone app ID stable so existing HK IME test installs
-        // can be updated without overwriting DualQuickIME or the legacy app.
-        applicationId = "dev.local.mixedchinesekeyboard"
+        // User-selected public app ID. This installs beside older HK IME test builds.
+        applicationId = "cc.fishese.hkime"
         minSdk = 24
         targetSdk = 34
-        versionCode = 22
-        versionName = "0.3.19"
+        versionCode = 23
+        versionName = "0.3.20"
     }
 
     // Release signing configuration (only if keystore.properties exists)
@@ -60,23 +59,6 @@ android {
         jvmTarget = "1.8"
     }
 
-    // Product flavors: full (with voice input) and lite (without voice input)
-    flavorDimensions += "version"
-    productFlavors {
-        create("full") {
-            dimension = "version"
-            // Full version includes voice input (requires INTERNET permission for model download)
-            buildConfigField("boolean", "VOICE_INPUT_ENABLED", "true")
-        }
-        create("lite") {
-            dimension = "version"
-            // Lite version without voice input (no INTERNET permission required)
-            applicationIdSuffix = ".lite"
-            versionNameSuffix = "-lite"
-            buildConfigField("boolean", "VOICE_INPUT_ENABLED", "false")
-        }
-    }
-
     // Generate separate APKs per ABI to reduce download size
     // arm64-v8a: Modern 64-bit devices (most common)
     // armeabi-v7a: Older 32-bit devices
@@ -91,11 +73,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        // Enable AIDL processing so IVoiceRecognizer.aidl (used by the
-        // VoiceService in the full flavor) is compiled to its stub class.
-        // Off by default in AGP 7+; without this the .aidl file is silently
-        // skipped and the Kotlin call sites fail to resolve.
-        aidl = true
     }
 }
 
@@ -108,14 +85,7 @@ dependencies {
     // Security library for EncryptedSharedPreferences (clipboard history encryption)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Sherpa-ONNX for offline voice recognition (Cantonese/Chinese/English)
-    // Using official k2-fsa AAR which includes VAD support
-    // Only included in the full flavor
-    "fullImplementation"(files("libs/sherpa-onnx-1.12.34.aar"))
-
     // OpenCC for Simplified to Traditional Chinese conversion
-    // Pure Java library, no JNI needed. The lite keyboard also uses it for the
-    // selected-text conversion action and remains fully offline.
-    "fullImplementation"("io.github.laisuk:openccjava:1.2.0")
-    "liteImplementation"("io.github.laisuk:openccjava:1.2.0")
+    // Pure Java library, no JNI needed; remains fully offline.
+    implementation("io.github.laisuk:openccjava:1.2.0")
 }

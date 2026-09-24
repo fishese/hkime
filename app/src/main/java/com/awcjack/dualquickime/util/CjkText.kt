@@ -4,12 +4,8 @@ package com.awcjack.dualquickime.util
  * Shared helpers for detecting CJK characters and converting only the CJK runs
  * of a string (leaving Latin / digits / whitespace untouched).
  *
- * Centralised here so the voice post-processing path ([VoiceInputManager]) and
- * the Simplified <-> Traditional converter ([ChineseConverter]) agree on exactly
- * which code points count as "Chinese". Previously each kept its own copy of the
- * predicate, and both treated the entire Halfwidth & Fullwidth Forms block as
- * CJK — which swept fullwidth Latin letters (Ａ-Ｚ ａ-ｚ) and digits (０-９) into
- * CJK runs and handed them to OpenCC.
+ * Fullwidth Latin letters and digits are deliberately excluded from OpenCC
+ * conversion, even though they share a Unicode block with CJK punctuation.
  */
 object CjkText {
 

@@ -74,46 +74,4 @@
     <string name="settings_chinese_convert_enable">Show 簡⇄繁 key</string>
     <string name="settings_chinese_convert_enable_desc">Tap converts the selected text to Simplified Chinese; long-press converts it to Traditional (HK).</string>
 
-    <!-- Voice Input -->
-    <string name="settings_voice_input">Voice Input</string>
-    <string name="settings_voice_enable">Enable voice input</string>
-    <string name="settings_voice_enable_desc">Speak to type using offline recognition (Cantonese/Chinese/English)</string>
-    <string name="settings_voice_noise_suppression">Noise suppression</string>
-    <string name="settings_voice_noise_suppression_desc">Filter background noise for clearer recognition in noisy places</string>
-    <string name="settings_voice_select_model">Select model</string>
-    <string name="settings_voice_selected_model">Selected model</string>
-    <string name="settings_voice_download_model">Download voice model</string>
-    <string name="settings_voice_download_model_format">Download model (%d MB)</string>
-    <string name="settings_voice_model_size">Model size: 228 MB</string>
-    <string name="settings_voice_model_downloaded">Voice model downloaded</string>
-    <string name="settings_voice_model_deleted">Voice model deleted</string>
-    <string name="settings_voice_model_status_downloaded">Downloaded</string>
-    <string name="settings_voice_delete_model">Delete voice model</string>
-    <string name="settings_voice_delete_confirm_title">Delete Voice Model?</string>
-    <string name="settings_voice_delete_confirm_message">This will delete the 228 MB voice model. You can download it again later.</string>
-    <string name="settings_voice_delete_confirm_message_format">This will delete %1$s (%2$d MB). You can download it again later.</string>
-    <string name="settings_voice_delete_confirm_yes">Delete</string>
-    <string name="settings_voice_permission">Audio permission</string>
-    <string name="settings_voice_permission_desc">Required for voice input</string>
-    <string name="settings_voice_permission_grant">Grant permission</string>
-    <string name="settings_voice_permission_granted">Permission granted</string>
-    <string name="voice_listening">Listening...</string>
-    <string name="voice_processing">Processing...</string>
-    <string name="voice_stopped">Stopped</string>
-    <string name="voice_cancel">Cancel</string>
-    <string name="voice_stop_send">Stop</string>
-    <string name="voice_loading_model">Loading voice model...</string>
-    <string name="voice_downloading_model">Downloading voice model...</string>
-    <string name="voice_download_starting">Starting download...</string>
-    <string name="voice_permission_required">Audio permission required for voice input</string>
-    <string name="voice_init_failed">Failed to initialize voice recognition</string>
-    <string name="voice_start_failed">Failed to start voice recording</string>
-
-    <!-- Voice Model Types -->
-    <string name="voice_model_sensevoice_name">SenseVoice (Multilingual)</string>
-    <string name="voice_model_sensevoice_desc">Auto-detects Cantonese, Mandarin, English, Japanese, Korean</string>
-    <string name="voice_model_whisper_cantonese_name">Whisper Cantonese</string>
-    <string name="voice_model_whisper_cantonese_desc">Optimized for Cantonese (7.93% CER) with HK English support</string>
-    <string name="voice_model_u2pp_conformer_yue_name">U2pp-Conformer Yue</string>
-    <string name="voice_model_u2pp_conformer_yue_desc">Best accuracy-to-size ratio (5.05% MER, 130M params) - Recommended</string>
 </resources>

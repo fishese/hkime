@@ -1,11 +1,11 @@
 # HK IME
 
-Download the latest build: [HK IME 0.3.19 signed APK](releases/HK-IME-0.3.19-release.apk).
-This is a locally signed, minified, offline-capable Android APK; Android may ask
+Download the latest build: [HK IME 0.3.20 signed APK](https://github.com/fishese/hkime/releases/download/v0.3.20/HK-IME-0.3.20-release.apk).
+This is a locally signed, minified, offline Android APK; Android may ask
 you to allow installation from your browser or file manager. It has the same
-app ID as previous HK IME test builds, but its release signing key differs from
-the earlier debug key. Uninstall a debug-signed HK IME build before installing
-this release; uninstalling may remove its settings and local data.
+signing key as recent release builds, but a new app ID (`cc.fishese.hkime`).
+It installs separately from earlier HK IME test builds. Their settings and
+local data do not transfer automatically.
 
 HK IME is an independent Android keyboard for Cantonese romanization,
 Cangjie/Quick, English, emoji, clipboard history, and reusable phrase
@@ -56,7 +56,7 @@ The keyboard intelligently understands your intent and commits Chinese or Englis
 - **Auto-detect direction** - Traditional becomes Simplified and vice versa, no toggle needed
 - **Powered by OpenCC** - standard Hong Kong Traditional ↔ Simplified mappings (`hk2s` / `s2hk`)
 - **Works anywhere** - converts the current text selection in any app
-- **Available offline in the lite build** - no network permission is required
+- **Available offline** - no network permission is required
 
 ### 📋 Clipboard History
 - **Gboard-style clipboard** - access via 📋 button on the symbol keyboard util bar
@@ -153,7 +153,7 @@ Mandarin Pinyin is not enabled yet.
 
 ### From this repository
 
-1. Download the [current signed APK](releases/HK-IME-0.3.19-release.apk)
+1. Download the [current signed APK](https://github.com/fishese/hkime/releases/download/v0.3.20/HK-IME-0.3.20-release.apk)
 2. Install the APK on your Android device
 3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 
@@ -176,12 +176,10 @@ Mandarin Pinyin is not enabled yet.
 
 ### Build Steps
 
-The distributed APK is the minified, release-signed lite build, without voice
-input. Optional full-flavor voice code remains in the repository but is not
-part of the distributed APK. APK builds are produced locally and checked into
-`releases/`; the inherited automatic GitHub Actions build is disabled.
-Name each distributed APK `releases/HK-IME-<version>-release.apk` after
-verifying its signature.
+The distributed APK is the minified, release-signed offline build. APK builds
+are produced locally and attached to GitHub Releases; the inherited automatic
+GitHub Actions build is disabled. Name each distributed APK
+`HK-IME-<version>-release.apk` after verifying its signature.
 
 Create a local `keystore.properties` with `storeFile`, `storePassword`,
 `keyAlias`, and `keyPassword` before building a release. Keep the keystore and
@@ -189,15 +187,13 @@ properties file private; both are ignored by Git. Use the same signing key for
 future releases so Android can install them as updates.
 
 ```bash
-./gradlew testLiteDebugUnitTest assembleLiteRelease
+./gradlew testDebugUnitTest assembleRelease
 
 # APK locations:
-# Lite universal: app/build/outputs/apk/lite/release/app-lite-universal-release.apk
+# Universal: app/build/outputs/apk/release/app-universal-release.apk
 ```
 
-On Windows, run `gradlew.bat testLiteDebugUnitTest assembleLiteRelease`.
-The optional full/voice flavor also needs a separately downloaded Sherpa-ONNX
-AAR (`setup-libs.sh`); only the lite flavor is currently distributed.
+On Windows, run `gradlew.bat testDebugUnitTest assembleRelease`.
 
 ## Data Source
 
@@ -216,8 +212,10 @@ for the current provenance review before redistributing this file.
 workbook. Confirmed labels take precedence over suggestions. Multi-character
 Cangjie/Changjie entries are also available under Quick; the `all` label
 includes all four methods. These labels do not change the MCK candidate order.
-Before changing the repository to public, review the outstanding data-license
-questions in the [public-release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md).
+Before changing the repository to public, review the provenance notes and
+remaining checks in the [public-release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md).
+For future words, follow the [dictionary contribution checklist](CONTRIBUTING.md):
+check all four input methods and record each code or a deliberate omission.
 
 Fallback Quick character data comes from [OpenVanilla](https://github.com/openvanilla/openvanilla):
 - **simplex-ext.cin** - Extended set with 63,190 characters (default)
@@ -225,7 +223,7 @@ Fallback Quick character data comes from [OpenVanilla](https://github.com/openva
 
 ## Privacy
 
-The distributed lite build processes input locally and has no Internet
+The distributed build processes input locally and has no Internet
 permission. It stores selected-candidate learning data and, by default,
 clipboard history on-device. Copied text can include sensitive material;
 disable or clear clipboard history in Settings if you prefer.

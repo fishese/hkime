@@ -241,7 +241,7 @@ Add unit tests covering at least:
 Run relevant tests and, if practical:
 
 ```bash
-./gradlew testLiteDebugUnitTest
+./gradlew testDebugUnitTest
 ```
 
 ## Test APK

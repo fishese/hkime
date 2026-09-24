@@ -5,7 +5,7 @@ import com.awcjack.dualquickime.BuildConfig
 import com.awcjack.dualquickime.util.CjkText
 import openccjava.OpenCC
 
-/** Offline Simplified/Traditional conversion for the lite keyboard. */
+/** Offline Simplified/Traditional conversion. */
 object ChineseConverter {
     private const val TAG = "ChineseConverter"
 

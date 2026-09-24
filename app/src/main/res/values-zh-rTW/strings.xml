@@ -104,48 +104,4 @@
     <string name="settings_chinese_convert_enable">顯示「簡⇄繁」鍵</string>
     <string name="settings_chinese_convert_enable_desc">點按將選取的文字轉為簡體；長按轉為繁體（香港）。</string>
 
-    <!-- Voice Input -->
-    <string name="settings_voice_input">語音輸入</string>
-    <string name="settings_voice_enable">啟用語音輸入</string>
-    <string name="settings_voice_enable_desc">使用離線語音辨識（粵語/中文/英文）</string>
-    <string name="settings_voice_noise_suppression">噪音抑制</string>
-    <string name="settings_voice_noise_suppression_desc">過濾背景雜訊，在嘈雜環境中辨識更清晰</string>
-    <string name="settings_voice_select_model">選擇模型</string>
-    <string name="settings_voice_selected_model">已選模型</string>
-    <string name="settings_voice_download_model">下載語音模型</string>
-    <string name="settings_voice_download_model_format">下載模型（%d MB）</string>
-    <string name="settings_voice_model_size">模型大小：228 MB</string>
-    <string name="settings_voice_model_downloaded">語音模型已下載</string>
-    <string name="settings_voice_model_deleted">語音模型已刪除</string>
-    <string name="settings_voice_model_status_downloaded">已下載</string>
-    <string name="settings_voice_delete_model">刪除語音模型</string>
-    <string name="settings_voice_delete_confirm_title">刪除語音模型？</string>
-    <string name="settings_voice_delete_confirm_message">這將刪除 228 MB 的語音模型。您可以之後再次下載。</string>
-    <string name="settings_voice_delete_confirm_message_format">這將刪除 %1$s（%2$d MB）。您可以之後再次下載。</string>
-    <string name="settings_voice_delete_confirm_yes">刪除</string>
-    <string name="settings_voice_permission">錄音權限</string>
-    <string name="settings_voice_permission_desc">語音輸入需要此權限</string>
-    <string name="settings_voice_permission_grant">授予權限</string>
-    <string name="settings_voice_permission_granted">已授予權限</string>
-    <string name="voice_listening">正在聆聽...</string>
-    <string name="voice_processing">處理中...</string>
-    <string name="voice_stopped">已停止</string>
-    <string name="voice_cancel">取消</string>
-    <string name="voice_stop_send">停止</string>
-    <string name="voice_loading_model">載入中語音模型...</string>
-    <string name="voice_downloading_model">正在下載語音模型...</string>
-    <string name="voice_download_starting">開始下載...</string>
-    <string name="voice_permission_required">語音輸入需要錄音權限</string>
-    <string name="voice_init_failed">語音辨識初始化失敗</string>
-    <string name="voice_start_failed">無法開始錄音</string>
-
-    <!-- Voice Model Types -->
-    <string name="voice_model_sensevoice_name">SenseVoice（多語言）</string>
-    <string name="voice_model_sensevoice_desc">自動辨識粵語、普通話、英文、日文、韓文</string>
-    <string name="voice_model_whisper_cantonese_name">Whisper 廣東話</string>
-    <string name="voice_model_whisper_cantonese_desc">針對廣東話優化（7.93% CER），支援香港英語</string>
-    <string name="voice_model_u2pp_conformer_yue_name">U2pp-Conformer 粵語</string>
-    <string name="voice_model_u2pp_conformer_yue_desc">最佳精度體積比（5.05% MER，130M 參數）- 推薦</string>
-    <string name="voice_model_qwen3_asr_name">Qwen3-ASR（最佳廣東話）</string>
-    <string name="voice_model_qwen3_asr_desc">廣東話精度最高（~4.12% WER），支援粵英夾雜。需下載 942 MB，辨識較慢。</string>
 </resources>

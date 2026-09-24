@@ -12,7 +12,6 @@ local.properties
 # APK files
 *.apk
 *.aab
-!releases/*.apk
 
 # Large library files (downloaded during CI/local setup)
 app/libs/*.aar

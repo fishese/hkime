@@ -1,13 +1,12 @@
 # HK IME privacy policy
 
-Last updated: 24 September 2026
+Last updated: 25 September 2026
 
-This policy describes the **lite APK distributed in this repository**. HK IME is
+This policy describes the **APK distributed in GitHub Releases**. HK IME is
 an Android keyboard, so Android gives it access to the text you enter while it
-is active. The lite APK processes that text on your device. It has no Internet,
+is active. The APK processes that text on your device. It has no Internet,
 microphone, analytics, advertising, or account permissions, and it does not
-send your input to us. Optional voice-input source code exists in the full
-flavor, but voice input is **not included** in the distributed lite APK.
+send your input to us.
 
 ## Data kept on your device
 
@@ -36,7 +35,7 @@ settings, dictionary entries, shortcuts, learned rankings, and clipboard items.
 
 ## Permissions and third parties
 
-The lite APK requests Android's input-method binding permission so it can act
+The APK requests Android's input-method binding permission so it can act
 as a keyboard. It does not request Internet access. It bundles offline
 dictionaries and uses local libraries for Chinese conversion and UI rendering.
 No analytics or advertising SDK is included. See

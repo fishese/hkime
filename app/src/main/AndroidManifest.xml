@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Voice input permissions are added via flavor-specific manifests -->
-    <!-- Full flavor: includes INTERNET and RECORD_AUDIO -->
-    <!-- Lite flavor: no network permissions required -->
-
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

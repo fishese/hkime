@@ -572,7 +572,7 @@ Preferred placement: **bottom-left of the normal full keyboard**, as a dedicated
 Conceptually:
 
 ```
-⌄ | 123 | ， | [voice if enabled] |     space     | 。 | ↵
+⌄ | 123 | ， |     space     | 。 | ↵
 ```
 
 Why bottom-left:
@@ -642,7 +642,7 @@ If the keyboard already varies the action based on `EditorInfo.imeOptions` elsew
 Q W E R T Y U I O P
  A S D F G H J K L
 ⇧ Z X C V B N M ⌫
-⌄ 123 ， [voice]   space   。 ↵
+⌄ 123 ，   space   。 ↵
 ```
 
 The `⌄` dismisses the keyboard. `123` still opens the existing full symbol keyboard.

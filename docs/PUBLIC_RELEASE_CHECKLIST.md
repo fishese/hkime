@@ -1,48 +1,23 @@
 # Public-release checklist
 
-This repository is currently private. Publishing the source and APK should be
-a deliberate maintainer action after the checks below; this document does not
-authorize changing visibility.
+Keep this repository private until the maintainer deliberately changes its visibility. A GitHub Release asset can be prepared while the repository is private.
 
-## Resolve before making the repository public
+## Data provenance
 
-- [ ] Verify redistribution terms for the Cantonese, Cangjie and Quick
-  reference tables used to derive `method-membership.tsv`. Their source files
-  are not committed, but the generated TSV contains substantial code/character
-  membership data. If permission is unavailable, regenerate it from a clearly
-  licensed source and recheck method-toggle behavior.
-- [ ] Confirm the redistribution terms for the three OpenVanilla table files
-  (`simplex.cin`, `simplex-ext.cin`, `associated-phrases.cin`). The OpenVanilla
-  root MIT license is included, but it directs readers to check individual
-  data-table terms. No separate notice was found inside these bundled tables.
-
-These are provenance questions, not an assertion that redistribution is
-forbidden. The [third-party notices](../THIRD_PARTY_NOTICES.md) record the
-current sources and licenses without silently treating unknown terms as MIT.
+- [x] The maintainer reviewed the Cantonese, Cangjie, and Quick code assignments used for `method-membership.tsv` as factual method mappings. The original quick-reference files are unavailable, are not committed, and their ranking is not copied. This is a provenance decision, not a legal opinion about the unavailable sources.
+- [x] Preserve the upstream [MCK Apache-2.0 notice](../licenses/Mixed-Chinese-Keyboard-Plus-Dicts-LICENSE.txt) and [OpenVanilla MIT notice](../licenses/OpenVanilla-LICENSE.txt), plus [third-party notices](../THIRD_PARTY_NOTICES.md). OpenVanilla's root license asks readers to check individual table terms; no file-specific notice was found in the three bundled tables. The maintainer accepts this remaining uncertainty for the intended release.
+- [x] Require explicit Cantonese, Cangjie, Quick, and English review for future additions, including deliberate omissions; see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Technical and presentation checks
 
-- [x] Build the lite APK locally with JDK 17, Gradle 8.2 and Android SDK 34;
-  run `testLiteDebugUnitTest` and verify the release signature.
-- [x] Keep signing properties and keystore material out of Git; the release
-  APK is signed with the project-configured key.
-- [x] Describe the lite APK's actual storage and permissions in
-  [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), including default-on clipboard
-  history and candidate learning.
-- [x] Replace inherited app branding in the main README and label retained
-  upstream changelog/design notes as historical.
-- [x] Remove the inherited manual voice-model GitHub workflow that still
-  pointed to the upstream release repository.
-- [ ] Before sharing widely, smoke-test installation and the keyboard in a
-  few common messaging, browser and search fields on another Android device.
+- [x] Build the single APK with JDK 17, Gradle 8.2, and Android SDK 34; run `testDebugUnitTest` and verify the release signature and package ID.
+- [x] Keep signing properties and keystore material out of Git.
+- [x] Describe actual local storage and permissions in [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), including default-on clipboard history and candidate learning.
+- [x] Remove unused alternate-build and audio-input code and describe only the supported app.
+- [ ] Remove older APKs from the repository's current tree and attach the signed APK to an HK IME GitHub Release. Older commits can still contain past APKs; history rewriting is a separate, disruptive operation.
+- [ ] Before wider sharing, smoke-test the new `cc.fishese.hkime` installation and keyboard in common messaging, browser, and search fields on another Android device.
 
-## Potential later improvements (not publication blockers)
+## Later improvements
 
-- Make the optional full/voice build separately reproducible and review its
-  network/audio privacy text before distributing it. The linked APK is lite.
-- Add a reproducible, licensed source for method-attribution hints so future
-  dictionary updates do not depend on a local review workbook.
-- Consider moving old APKs out of Git history or attaching future APKs to
-  GitHub Releases; this would reduce repository download size.
-- If package/namespace cleanup is desired, plan an Android upgrade path first:
-  changing the application ID would make existing installations a separate app.
+- Add a reproducible source for method-attribution hints so future dictionary updates do not depend on a local review workbook.
+- Decide whether to rename the internal Kotlin namespace (`com.awcjack.dualquickime`). It is separate from the public Android application ID and has no effect on the installed app name.

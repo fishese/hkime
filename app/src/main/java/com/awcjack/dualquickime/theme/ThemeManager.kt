@@ -14,10 +14,6 @@ object ThemeManager {
     private const val KEY_SHOW_COMPOSITION = "show_composition"
     private const val KEY_CANDIDATES_PER_PAGE = "candidates_per_page"
     private const val KEY_USE_EXTENDED_CHARSET = "use_extended_charset"
-    private const val KEY_VOICE_INPUT_ENABLED = "voice_input_enabled"
-    private const val KEY_VOICE_MODEL_TYPE = "voice_model_type"
-    private const val KEY_VOICE_NOISE_SUPPRESSION = "voice_noise_suppression"
-    private const val KEY_VOICE_DOWNLOAD_WIFI_ONLY = "voice_download_wifi_only"
     private const val KEY_RECENT_CANDIDATES_ENABLED = "recent_candidates_enabled"
     private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
     private const val KEY_DEFAULT_SKIN_TONE = "default_skin_tone"
@@ -59,10 +55,6 @@ object ThemeManager {
     private var cachedShowComposition: Boolean? = null
     private var cachedCandidatesPerPage: Int = -1
     private var cachedUseExtendedCharset: Boolean? = null
-    private var cachedVoiceInputEnabled: Boolean? = null
-    private var cachedVoiceModelType: String? = null
-    private var cachedVoiceNoiseSuppression: Boolean? = null
-    private var cachedVoiceDownloadWifiOnly: Boolean? = null
     private var cachedRecentCandidatesEnabled: Boolean? = null
     private var cachedHapticFeedbackEnabled: Boolean? = null
     private var cachedDefaultSkinTone: Int = -1
@@ -150,62 +142,6 @@ object ThemeManager {
      */
     fun getSimplexFilename(context: Context): String {
         return if (getUseExtendedCharset(context)) "simplex-ext.cin" else "simplex.cin"
-    }
-
-    // Voice input settings (default: true to enable)
-    fun getVoiceInputEnabled(context: Context): Boolean {
-        if (cachedVoiceInputEnabled == null) {
-            cachedVoiceInputEnabled = getPrefs(context).getBoolean(KEY_VOICE_INPUT_ENABLED, true)
-        }
-        return cachedVoiceInputEnabled!!
-    }
-
-    fun setVoiceInputEnabled(context: Context, enabled: Boolean) {
-        cachedVoiceInputEnabled = enabled
-        getPrefs(context).edit().putBoolean(KEY_VOICE_INPUT_ENABLED, enabled).apply()
-    }
-
-    // Voice model type settings (default: "sensevoice")
-    fun getVoiceModelType(context: Context): String {
-        if (cachedVoiceModelType == null) {
-            cachedVoiceModelType = getPrefs(context).getString(KEY_VOICE_MODEL_TYPE, "sensevoice") ?: "sensevoice"
-        }
-        return cachedVoiceModelType!!
-    }
-
-    fun setVoiceModelType(context: Context, modelTypeId: String) {
-        cachedVoiceModelType = modelTypeId
-        getPrefs(context).edit().putString(KEY_VOICE_MODEL_TYPE, modelTypeId).apply()
-    }
-
-    // Voice noise suppression (default: true). When on, voice capture uses the
-    // VOICE_RECOGNITION audio source plus the platform noise/gain/echo effects
-    // to improve recognition in noisy environments.
-    fun getVoiceNoiseSuppressionEnabled(context: Context): Boolean {
-        if (cachedVoiceNoiseSuppression == null) {
-            cachedVoiceNoiseSuppression = getPrefs(context).getBoolean(KEY_VOICE_NOISE_SUPPRESSION, true)
-        }
-        return cachedVoiceNoiseSuppression!!
-    }
-
-    fun setVoiceNoiseSuppressionEnabled(context: Context, enabled: Boolean) {
-        cachedVoiceNoiseSuppression = enabled
-        getPrefs(context).edit().putBoolean(KEY_VOICE_NOISE_SUPPRESSION, enabled).apply()
-    }
-
-    // Voice model download over unmetered networks only (default: true). Voice
-    // models are large (up to ~1 GB), so by default we don't spend cellular data
-    // on them; users can opt in to metered downloads here.
-    fun getVoiceDownloadWifiOnly(context: Context): Boolean {
-        if (cachedVoiceDownloadWifiOnly == null) {
-            cachedVoiceDownloadWifiOnly = getPrefs(context).getBoolean(KEY_VOICE_DOWNLOAD_WIFI_ONLY, true)
-        }
-        return cachedVoiceDownloadWifiOnly!!
-    }
-
-    fun setVoiceDownloadWifiOnly(context: Context, enabled: Boolean) {
-        cachedVoiceDownloadWifiOnly = enabled
-        getPrefs(context).edit().putBoolean(KEY_VOICE_DOWNLOAD_WIFI_ONLY, enabled).apply()
     }
 
     // Learned candidate frequency is enabled for new installations.
@@ -385,9 +321,6 @@ object ThemeManager {
         cachedShowComposition = null
         cachedCandidatesPerPage = -1
         cachedUseExtendedCharset = null
-        cachedVoiceInputEnabled = null
-        cachedVoiceModelType = null
-        cachedVoiceNoiseSuppression = null
         cachedRecentCandidatesEnabled = null
         cachedHapticFeedbackEnabled = null
         cachedDefaultSkinTone = -1

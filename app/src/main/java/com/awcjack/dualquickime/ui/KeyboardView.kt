@@ -22,7 +22,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
-import com.awcjack.dualquickime.BuildConfig
 import com.awcjack.dualquickime.R
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.NumericPadSpec
@@ -366,7 +365,7 @@ class KeyboardView @JvmOverloads constructor(
      * Top bar shown in full symbol mode. The candidate bar is unused there
      * (no Cangjie composition can happen on a digit/symbol keyboard), so we
      * reuse the space for utility buttons that would otherwise crowd the
-     * bottom row: emoji, clipboard, Chinese conversion, voice input.
+     * bottom row: emoji, clipboard, Chinese conversion.
      *
      * Candidate-bar field references are nulled out so any stray ?.-guarded
      * call (e.g. clearCandidates) doesn't touch detached views from the
@@ -399,11 +398,6 @@ class KeyboardView @JvmOverloads constructor(
                     onLongClick = { anchor -> showConvertDirectionPopup(anchor) }
                 ) {
                     onKeyPress?.invoke(KeyEvent.ConvertChinese(KeyEvent.ConvertDirection.AUTO))
-                })
-            }
-            if (BuildConfig.VOICE_INPUT_ENABLED && ThemeManager.getVoiceInputEnabled(context)) {
-                addView(createUtilBarButton("🎤") {
-                    onKeyPress?.invoke(KeyEvent.VoiceInput)
                 })
             }
             if (!isSensitiveField) retainedCalculatorResult?.let {
@@ -1208,13 +1202,6 @@ class KeyboardView @JvmOverloads constructor(
 
             addView(createSpecialKeyWithLongPress("，", ',', 1f))
 
-            // Voice input button (only in full version)
-            if (BuildConfig.VOICE_INPUT_ENABLED && ThemeManager.getVoiceInputEnabled(context)) {
-                addView(createSpecialKey("🎤", 1f) {
-                    onKeyPress?.invoke(KeyEvent.VoiceInput)
-                })
-            }
-
             addView(createSpaceKey())
 
             addView(createSpecialKeyWithLongPress("。", '.', 1f))
@@ -1572,7 +1559,7 @@ class KeyboardView @JvmOverloads constructor(
                 this@KeyboardView.post { onCandidateRefreshRequested?.invoke() }
             })
 
-            // Emoji, clipboard, 簡⇄繁 conversion, and voice input buttons live
+            // Emoji, clipboard, and 簡⇄繁 conversion buttons live
             // in the symbol-mode util bar (above the digit row) — see
             // createSymbolUtilBar — so the bottom row is only mode-toggle and
             // punctuation/whitespace.
@@ -1825,7 +1812,6 @@ class KeyboardView @JvmOverloads constructor(
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
         object HideKeyboard : KeyEvent()
-        object VoiceInput : KeyEvent()
         object OpenSettings : KeyEvent()
         // Tap = AUTO (detect from content). Long-press popup lets the user
         // force a specific direction regardless of what the text looks like.
