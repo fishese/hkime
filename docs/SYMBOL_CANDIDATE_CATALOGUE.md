@@ -658,3 +658,176 @@ From a numeric field, tapping the full-keyboard utility action opens the normal 
 ### Return icon
 
 The Enter/Return key occupies the same physical space as before, but its arrow is visibly larger and easier to recognize.
+
+
+## Calculator utility
+
+A small calculator is a sensible fit for the keyboard utility bar, particularly in number-pad mode. Keep it deliberately lightweight: it is a typing aid, not a replacement for a calculator app.
+
+### Entry point and presentation
+
+Add a calculator button to the number-pad utility bar. It can also be exposed from the ordinary symbol utility bar if there is enough room, but number-pad mode is the primary home.
+
+Tapping it should open a compact calculator panel in the keyboard area while keeping the target text field active. Reuse HKIME's existing concept of specialized keyboard subviews where practical.
+
+The calculator should provide:
+
+- digits 0-9;
+- decimal separator;
+- `+`, `−`, `×`, `÷`;
+- equals;
+- clear / all-clear;
+- backspace;
+- optional `±` and percent if they do not crowd the layout.
+
+Avoid scientific functions, history, memory registers, unit conversion, parentheses-heavy expression editing, or other scope creep in the first pass.
+
+### Result workflow
+
+The calculator display should always show the current expression/result clearly.
+
+After a result is available, provide two distinct actions:
+
+- **Insert result**: commit the displayed numeric result at the current cursor position in the target editor.
+- **Keep/show result**: return to the previous keyboard while retaining the result in the utility bar as a tappable value, so the user can refer to it while typing manually.
+
+A retained result should be visually distinguishable from a normal utility button. Tapping the retained result can insert it; provide an obvious way to dismiss/clear it.
+
+Do not automatically insert a calculation result when `=` is pressed. Calculation and text insertion should remain separate actions to avoid accidental edits.
+
+### Arithmetic behaviour
+
+Use deterministic decimal arithmetic suitable for everyday typed values rather than relying blindly on binary floating-point display.
+
+Requirements:
+
+- no visible floating-point artifacts such as `0.1 + 0.2 = 0.30000000000000004`;
+- division by zero produces a clear error and never inserts `Infinity`/`NaN`;
+- trim unnecessary trailing zeroes;
+- cap unreasonable expression/result length so the keyboard remains responsive;
+- preserve a leading minus;
+- decide and test repeated operator presses and repeated equals rather than leaving accidental behaviour;
+- result insertion should use a representation the target numeric editor can accept.
+
+The first version can use immediate/basic calculator semantics if that is substantially simpler, but normal operator precedence is preferable if a small, well-tested evaluator can provide it without pulling in an oversized dependency. Do not evaluate arbitrary code or use a scripting engine.
+
+### Privacy/state
+
+Calculations should remain local. Do not add calculation history or persistence in the first pass.
+
+The current calculator value may survive temporarily when switching back to the keyboard so the user can type from it, but clear it when appropriate on a new editor/session rather than creating an implicit history.
+
+In password fields, do not retain/show a calculator result in a way that could reveal sensitive numeric input.
+
+### Calculator tests
+
+Cover decimal arithmetic, negative values, operator replacement, divide-by-zero, long input, decimal formatting, result insertion at the cursor, retained-result display, dismissal, mode switching, and password-field privacy.
+
+---
+
+## Commit composition when the caret moves
+
+### Problem
+
+HKIME currently writes Latin keystrokes with `InputConnection.setComposingText()` and keeps `composition.rawKeys` active until an explicit commit action such as space, symbol input, number input, or candidate selection.
+
+There is currently no `onUpdateSelection()` override in `HkInputMethodService`. Therefore, if the user moves the caret by tapping elsewhere in the editor, an English/Latin correction can remain underlined as active composing text even though the user has clearly moved on.
+
+Example:
+
+```
+eg if I edit here and then went back to type more
+             ^ edit here first
+
+then tap at the end:
+eg if I edit here and then went back to type more|
+```
+
+The edited Latin text should stop being composing/underlined as soon as the caret/selection moves away from it. The user should **not** need to press Space, because doing so would incorrectly insert whitespace into the middle of the sentence.
+
+### Desired behaviour
+
+Override the IME selection-update callback and treat a genuine user/editor caret move away from the active composition as an implicit commit.
+
+Conceptually:
+
+```kotlin
+override fun onUpdateSelection(
+    oldSelStart: Int,
+    oldSelEnd: Int,
+    newSelStart: Int,
+    newSelEnd: Int,
+    candidatesStart: Int,
+    candidatesEnd: Int
+) {
+    super.onUpdateSelection(...)
+
+    if (composition.rawKeys.isNotEmpty() && selectionMovedOutsideActiveComposition(...)) {
+        finishEnglishComposition()
+    }
+}
+```
+
+`finishEnglishComposition()` is already the right semantic operation: it calls `finishComposingText()` and clears HKIME's composition/candidate state **without adding a space**.
+
+### Important guard against false commits
+
+Do not simply commit on every `onUpdateSelection()` callback.
+
+Android can report selection changes caused by HKIME's own `setComposingText()`, `commitText()`, candidate replacement, deletion, or other editor updates. A naive "selection changed -> finish composition" implementation could therefore commit after every typed letter.
+
+The implementation must distinguish the expected selection/composing-region changes caused by HKIME itself from an external/user caret move.
+
+Prefer using the callback's `candidatesStart` / `candidatesEnd` composing range and the new selection position where reliable. The composition should remain active while the caret is at/in the active composing span as expected, and be finished when the new caret/selection clearly moves outside it.
+
+If editor behaviour is inconsistent, maintain minimal expected-selection state around IME-initiated edits rather than using timing/debounce hacks.
+
+### Selection as well as caret movement
+
+The same rule should cover the user creating a selection elsewhere in the document. Moving from the active composition to select earlier/later text should commit the composition and clear its candidates.
+
+Do not add a space or choose a dictionary candidate automatically. The literal Latin text already displayed by `setComposingText()` becomes ordinary committed text.
+
+### Other transient candidate states
+
+Review the same callback for stale transient state:
+
+- pending symbol replacement candidates should be cleared when the cursor moves away from the just-inserted symbol;
+- associated-phrase suggestions should not remain actionable against an unrelated cursor location;
+- email-domain suggestion state should be cleared if moving the caret makes it no longer applicable.
+
+Keep this conservative: the main required behaviour is committing active Latin composition correctly.
+
+### Selection-movement tests
+
+Add regression coverage for:
+
+1. type Latin text, tap elsewhere -> composing text is committed with no added space;
+2. type Latin correction in the middle of a sentence, tap the end -> correction remains exactly where typed and underline/candidates disappear;
+3. type Latin text normally -> IME-generated selection updates after each keystroke do **not** prematurely commit it;
+4. move the caret within the active composing span where supported -> do not incorrectly duplicate/delete text;
+5. select text elsewhere -> finish the composition safely;
+6. choose a candidate -> normal candidate commit still works;
+7. press Space -> existing explicit space behaviour still works;
+8. type a symbol/number -> existing explicit composition finishing still works;
+9. backspace while composing -> composition remains functional;
+10. editors that report unusual/invalid composing bounds do not crash or corrupt text.
+
+### Acceptance example
+
+Starting text:
+
+```
+eg if I edit here and then went back to type more
+```
+
+Tap after `edit`, type a Latin correction, then tap after `more`.
+
+Expected:
+
+- the correction stays in the earlier position;
+- its composing underline disappears;
+- the candidate strip clears/returns to the appropriate idle state;
+- the cursor is now after `more`;
+- **no extra space is inserted**;
+- subsequent typing starts a fresh composition at the new cursor position.
