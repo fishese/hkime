@@ -5,10 +5,13 @@ import org.junit.Test
 
 class CandidateSanitizerTest {
     @Test
-    fun removesEmptyWhitespaceAndDuplicateEntries() {
+    fun removesInvisibleAndDuplicateEntriesWithoutHidingVisibleText() {
         assertEquals(
-            listOf("你", "a"),
-            sanitizeCandidates(listOf("", "你", " ", "\u200B", "a", "你"))
+            listOf("你", "a", "e\u0301", "👩\u200D💻"),
+            sanitizeCandidates(listOf(
+                "", "你", " ", "\u00A0", "\u200B", "\u0301", "\uFE0F",
+                "\uDB40\uDD00", "a", "你", "e\u0301", "👩\u200D💻"
+            ))
         )
     }
 }

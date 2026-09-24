@@ -1,11 +1,16 @@
 package com.awcjack.dualquickime.data
 
-/** Removes malformed empty entries before candidates reach the keyboard UI. */
+/** Removes entries with no visible glyph before candidates reach the keyboard UI. */
 internal fun sanitizeCandidates(candidates: List<String>): List<String> =
     candidates.filter { candidate ->
-        candidate.any { char ->
-            !char.isWhitespace() &&
-                !char.isISOControl() &&
-                Character.getType(char) != Character.FORMAT
+        candidate.codePoints().anyMatch { codePoint ->
+            val type = Character.getType(codePoint)
+            !Character.isWhitespace(codePoint) &&
+                !Character.isSpaceChar(codePoint) &&
+                !Character.isISOControl(codePoint) &&
+                type != Character.FORMAT.toInt() &&
+                type != Character.NON_SPACING_MARK.toInt() &&
+                type != Character.ENCLOSING_MARK.toInt() &&
+                type != Character.SURROGATE.toInt()
         }
     }.distinct()

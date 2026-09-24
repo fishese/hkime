@@ -80,12 +80,12 @@ class KeyboardView @JvmOverloads constructor(
     private lateinit var colors: KeyboardColors
 
     // Settings
-    private var showComposition = true
+    private var showComposition = false
     private var candidatesPerPage = 6
     private var candidatePillPaddingDp = 8  // Horizontal padding inside each candidate pill (dp)
     private var keyHeightDp = ThemeManager.KEY_HEIGHT_DEFAULT
     private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
-    private var showKeyRadicals = false
+    private var showKeyRadicals = true
 
     // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null

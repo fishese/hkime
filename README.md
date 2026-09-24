@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest build: [HK IME 0.3.20 signed APK](https://github.com/fishese/hkime/releases/download/v0.3.20/HK-IME-0.3.20-release.apk).
+Download the latest build: [HK IME 0.3.21 signed APK](https://github.com/fishese/hkime/releases/download/v0.3.21/HK-IME-0.3.21-release.apk).
 This is a locally signed, minified, offline Android APK; Android may ask
 you to allow installation from your browser or file manager. It has the same
 signing key as recent release builds, but a new app ID (`cc.fishese.hkime`).
@@ -153,7 +153,7 @@ Mandarin Pinyin is not enabled yet.
 
 ### From this repository
 
-1. Download the [current signed APK](https://github.com/fishese/hkime/releases/download/v0.3.20/HK-IME-0.3.20-release.apk)
+1. Download the [current signed APK](https://github.com/fishese/hkime/releases/download/v0.3.21/HK-IME-0.3.21-release.apk)
 2. Install the APK on your Android device
 3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 

@@ -101,7 +101,7 @@ object ThemeManager {
     // Composition display settings
     fun getShowComposition(context: Context): Boolean {
         if (cachedShowComposition == null) {
-            cachedShowComposition = getPrefs(context).getBoolean(KEY_SHOW_COMPOSITION, true)
+            cachedShowComposition = getPrefs(context).getBoolean(KEY_SHOW_COMPOSITION, false)
         }
         return cachedShowComposition!!
     }
@@ -240,7 +240,7 @@ object ThemeManager {
 
     fun getShowKeyRadicals(context: Context): Boolean {
         if (cachedShowKeyRadicals == null) {
-            cachedShowKeyRadicals = getPrefs(context).getBoolean(KEY_SHOW_KEY_RADICALS, false)
+            cachedShowKeyRadicals = getPrefs(context).getBoolean(KEY_SHOW_KEY_RADICALS, true)
         }
         return cachedShowKeyRadicals!!
     }
