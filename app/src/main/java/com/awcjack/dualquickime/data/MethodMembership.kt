@@ -62,8 +62,7 @@ class MethodMembership(lines: Sequence<String>, phraseOverrides: Sequence<String
             phraseMethods[code.lowercase() to candidate].orEmpty().any { it in enabled }
         }
 
-    /** Keep MCK order, retaining unassigned candidates via the default-on
-     * Method uncertain option instead of silently discarding them. */
+    /** Keep MCK order and retain any unassigned candidates by default. */
     fun filter(code: String, candidates: List<String>, enabled: Set<Method>,
                includeUncertain: Boolean = true): List<String> {
         if (enabled.containsAll(Method.values().toSet()) && includeUncertain) return candidates.distinct()

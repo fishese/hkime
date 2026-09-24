@@ -285,6 +285,7 @@ class HkInputMethodService : InputMethodService() {
         }
 
         isPasswordField = isPasswordInputField(info)
+        keyboardView?.setSensitiveField(isPasswordField)
         isEmailField = info?.inputType?.let { type ->
             (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
                 (type and InputType.TYPE_MASK_VARIATION) in setOf(
@@ -464,7 +465,13 @@ class HkInputMethodService : InputMethodService() {
         // Then commit the number
         val text = digit.toString()
         commitText(text)
-        if (isSymbolMode) showSymbolCandidates(text, SymbolCatalogue.candidatesForSymbol(text))
+        if (isSymbolMode) {
+            // Use the whole contiguous number, so 12 can offer Ⅻ while 13
+            // does not incorrectly fall back to the alternatives for 3.
+            val number = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString()
+                ?.takeLastWhile { it in '0'..'9' }.orEmpty().ifEmpty { text }
+            showSymbolCandidates(number, SymbolCatalogue.candidatesForSymbol(number))
+        }
     }
 
     override fun onUpdateSelection(
@@ -839,8 +846,7 @@ class HkInputMethodService : InputMethodService() {
                 add(MethodMembership.Method.ENGLISH)
         }
         var candidates = methodMembership.filter(lookupKeys,
-            mixedDictionary.lookup(lookupKeys), enabledMethods,
-            ThemeManager.getMethodUncertain(this))
+            mixedDictionary.lookup(lookupKeys), enabledMethods)
         candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
         candidates = promoteReviewedCharacter(lookupKeys, candidates)
 

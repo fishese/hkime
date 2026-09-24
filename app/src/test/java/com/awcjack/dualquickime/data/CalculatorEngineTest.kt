@@ -47,4 +47,14 @@ class CalculatorEngineTest {
         calc.backspace()
         assertNull(calc.result)
     }
+
+    @Test fun keepAndInsertCanSettleAnExpressionOrSingleNumber() {
+        val expression = CalculatorEngine()
+        expression.digit('4'); expression.operator('+'); expression.digit('3')
+        assertEquals("7", expression.settledResult())
+        val single = CalculatorEngine()
+        single.digit('5')
+        assertEquals("5", single.settledResult())
+        assertEquals("5", single.settledResult())
+    }
 }

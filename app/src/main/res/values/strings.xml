@@ -38,12 +38,11 @@
     <string name="settings_switch_language">以中文顯示設定</string>
     <string name="settings_english_options">English input options</string>
     <string name="settings_history">History</string>
-    <string name="settings_input_methods_desc">Choose which suggestions appear together. Latin typing and your custom dictionary stay available. Unclassified merged-dictionary entries appear under Method uncertain by default.</string>
+    <string name="settings_input_methods_desc">Choose which suggestions appear together. Latin typing and your custom dictionary stay available.</string>
     <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
     <string name="settings_method_cangjie">倉頡 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
     <string name="settings_method_english">English suggestions</string>
-    <string name="settings_method_uncertain">未確定 · Method uncertain</string>
     <string name="settings_english_spell_check_desc">Only clear, one-edit corrections from a small offline word list; typed text stays unchanged unless tapped</string>
     <string name="settings_space_after_english_candidate">Add space after English candidate</string>
     <string name="settings_space_after_english_candidate_desc">When you tap a Latin word suggestion, insert a following space</string>

@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest build: [HK IME 0.3.12 signed APK](releases/HK-IME-0.3.12-release.apk).
+Download the latest build: [HK IME 0.3.18 signed APK](releases/HK-IME-0.3.18-release.apk).
 This is a locally signed, minified, offline-capable Android APK; Android may ask
 you to allow installation from your browser or file manager. It has the same
 app ID as previous HK IME test builds, but its release signing key differs from
@@ -163,7 +163,7 @@ columns and an original-order column for sorting back after batch edits.
 
 ### From this repository
 
-1. Download the [current signed APK](releases/HK-IME-0.3.12-release.apk)
+1. Download the [current signed APK](releases/HK-IME-0.3.18-release.apk)
 2. Install the APK on your Android device
 3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 
@@ -217,6 +217,10 @@ English table binaries are not included.
 `method-membership.tsv` is derived from the user-provided Cantonese, Cangjie,
 and Quick reference tables. It stores membership only, not their ranking or
 extra word choices; `tools/build_method_membership.py` regenerates it.
+`method-phrase-overrides.tsv` adds method labels from the reviewed attribution
+workbook. Confirmed labels take precedence over suggestions. Multi-character
+Cangjie/Changjie entries are also available under Quick; the `all` label
+includes all four methods. These labels do not change the MCK candidate order.
 
 Fallback Quick character data comes from [OpenVanilla](https://github.com/openvanilla/openvanilla):
 - **simplex-ext.cin** - Extended set with 63,190 characters (default)

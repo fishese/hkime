@@ -37,6 +37,13 @@ class MethodMembershipTest {
         "mrmt\tcangjie\t豉",
         "mt\tquick\t豉",
         "soy\tenglish\t豉",
+        "aby\tcangjie\t合肥市",
+        "aby\tquick\t合肥市",
+        "be\tcangjie\t是",
+        "abc\tcantonese\t🔤",
+        "abc\tcangjie\t🔤",
+        "abc\tquick\t🔤",
+        "abc\tenglish\t🔤",
     ))
 
     @Test fun keepsOriginalOrderWhenAllMethodsEnabled() {
@@ -160,6 +167,22 @@ class MethodMembershipTest {
         )) {
             assertEquals(listOf("𨋢"), membership.supplementalCandidates(code, setOf(method)))
             assertEquals(emptyList<String>(), membership.supplementalCandidates(code, emptySet()))
+        }
+    }
+
+    @Test fun reviewedMultiCharacterChangjieIsAlsoQuickButSingleCharacterIsNot() {
+        assertEquals(listOf("合肥市"), membership.filter("aby", listOf("合肥市"),
+            setOf(MethodMembership.Method.QUICK), false))
+        assertEquals(emptyList<String>(), membership.filter("be", listOf("是"),
+            setOf(MethodMembership.Method.QUICK), false))
+        assertEquals(listOf("是"), membership.filter("be", listOf("是"),
+            setOf(MethodMembership.Method.CANGJIE), false))
+    }
+
+    @Test fun reviewedAllSymbolAppearsForEveryEnabledMethod() {
+        for (method in MethodMembership.Method.values()) {
+            assertEquals(listOf("🔤"), membership.filter("abc", listOf("🔤"),
+                setOf(method), false))
         }
     }
 }

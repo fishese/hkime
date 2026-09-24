@@ -2,6 +2,7 @@ package com.awcjack.dualquickime.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
@@ -17,10 +18,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
 import com.awcjack.dualquickime.BuildConfig
+import com.awcjack.dualquickime.R
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.CalculatorEngine
@@ -55,9 +58,11 @@ class KeyboardView @JvmOverloads constructor(
     private var numericPadSpec = NumericPadSpec(NumericPadSpec.Kind.INTEGER)
     private var returnToNumberPadFromClipboard = false
     private var calculatorMode = false
+    private var calculatorReturnToSymbolPage: Int? = null
     private val calculator = CalculatorEngine()
     private var calculatorDisplay: TextView? = null
     private var retainedCalculatorResult: String? = null
+    private var isSensitiveField = false
     private var symbolPage = 0  // 0–4 = symbol pages; 99 = emoji, 100 = clipboard
     private var shiftKey: TextView? = null
     private var modeToggleKey: TextView? = null
@@ -137,8 +142,8 @@ class KeyboardView @JvmOverloads constructor(
 
     // Symbol rows (page 5) - Arrows, shapes, and cards
     private val symRow1Page5 = listOf('←', '→', '↑', '↓', '↔', '↕', '⇐', '⇒', '⇑', '⇓')
-    private val symRow2Page5 = listOf('▲', '▼', '◀', '▶', '◆', '◇', '□', '■', '△', '∆')
-    private val symRow3Page5 = listOf('♠', '♣', '♥', '♦', '★', '☆', '♪')
+    private val symRow2Page5 = listOf('▲', '▼', '◀', '▶', '◆', '◇', 'Ω', '■', '△', '∆')
+    private val symRow3Page5 = listOf('♠', '♣', '♥', '♦', '★', '╬', '♪')
 
     init {
         orientation = VERTICAL
@@ -157,7 +162,9 @@ class KeyboardView @JvmOverloads constructor(
         candidateTextSizeSp = ThemeManager.getCandidateTextSize(context)
         showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
         setBackgroundColor(colors.keyboardBackground)
-        setPadding(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(8))
+        // Key views fill rectangular row cells, including the transparent corners
+        // of their rounded backgrounds. Keep outer dead space small as well.
+        setPadding(dpToPx(3), 0, dpToPx(3), dpToPx(3))
     }
 
     /**
@@ -376,17 +383,19 @@ class KeyboardView @JvmOverloads constructor(
             setBackgroundColor(colors.candidateBarBackground)
             setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
 
-            addView(createUtilBarButton("😀") {
+            addView(createUtilBarButton("😀", textSizeSp = 21f) {
                 symbolPage = 99
                 buildKeyboard()
             })
-            addView(createUtilBarButton("📋") {
+            addView(createUtilBarButton("📋", textSizeSp = 21f) {
                 symbolPage = 100
                 buildKeyboard()
             })
+            if (!isSensitiveField) addView(createCalculatorButton())
             if (ChineseConverter.isAvailable() && ThemeManager.getChineseConvertEnabled(context)) {
                 addView(createUtilBarButton(
                     label = "簡⇄繁",
+                    textSizeSp = 18f,
                     onLongClick = { anchor -> showConvertDirectionPopup(anchor) }
                 ) {
                     onKeyPress?.invoke(KeyEvent.ConvertChinese(KeyEvent.ConvertDirection.AUTO))
@@ -396,6 +405,9 @@ class KeyboardView @JvmOverloads constructor(
                 addView(createUtilBarButton("🎤") {
                     onKeyPress?.invoke(KeyEvent.VoiceInput)
                 })
+            }
+            if (!isSensitiveField) retainedCalculatorResult?.let {
+                addView(createRetainedResultPill(it))
             }
 
             // Trailing spacer keeps buttons left-aligned. Without it the row
@@ -426,7 +438,7 @@ class KeyboardView @JvmOverloads constructor(
         gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(colors.candidateBarBackground)
         setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
-        addView(createUtilBarButton("📋") {
+        addView(createUtilBarButton("📋", textSizeSp = 21f) {
             returnToNumberPadFromClipboard = true
             isNumberPadMode = false
             isSymbolMode = true
@@ -438,29 +450,89 @@ class KeyboardView @JvmOverloads constructor(
             onModeChange?.invoke(false)
             buildKeyboard()
         })
-        if (!numericPadSpec.password) {
-            addView(createUtilBarButton("Calc") {
-                calculator.clear()
-                calculatorMode = true
-                isNumberPadMode = false
-                buildKeyboard()
-            })
-            retainedCalculatorResult?.let { value ->
-                addView(createUtilBarButton(value.take(10)) {
-                    onKeyPress?.invoke(KeyEvent.CalculatorInsert(value))
-                })
-                addView(createUtilBarButton("×") {
-                    retainedCalculatorResult = null
-                    buildKeyboard()
-                })
-            }
+        if (!numericPadSpec.password && !isSensitiveField) {
+            addView(createCalculatorButton())
+            retainedCalculatorResult?.let { addView(createRetainedResultPill(it)) }
         }
         addView(View(context).apply { layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f) })
     }
 
+    private fun openCalculator() {
+        calculator.clear()
+        calculatorReturnToSymbolPage = if (isSymbolMode) symbolPage else null
+        calculatorMode = true
+        isNumberPadMode = false
+        isSymbolMode = false
+        buildKeyboard()
+    }
+
+    private fun createCalculatorButton(): FrameLayout = FrameLayout(context).apply {
+        layoutParams = LinearLayout.LayoutParams(dpToPx(46), dpToPx(38)).apply {
+            setMargins(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(2))
+        }
+        background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
+        contentDescription = "Calculator"
+        addView(ImageView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(dpToPx(21), dpToPx(21), Gravity.CENTER)
+            setImageResource(R.drawable.ic_calculator)
+            imageTintList = ColorStateList.valueOf(colors.keyTextPrimary)
+        })
+        setOnClickListener {
+            performKeyHaptic(this)
+            openCalculator()
+        }
+    }
+
+    private fun createRetainedResultPill(value: String): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(38)).apply {
+            setMargins(dpToPx(3), dpToPx(2), dpToPx(3), dpToPx(2))
+        }
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
+        addView(TextView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            minWidth = dpToPx(46)
+            gravity = Gravity.CENTER
+            text = if (value.length > 10) value.take(9) + "…" else value
+            textSize = 16f
+            setTextColor(colors.keyTextPrimary)
+            setPadding(dpToPx(8), 0, dpToPx(8), 0)
+            contentDescription = "Insert result $value"
+            setOnClickListener {
+                performKeyHaptic(this)
+                onKeyPress?.invoke(KeyEvent.CalculatorInsert(value))
+            }
+        })
+        addView(View(context).apply {
+            layoutParams = LayoutParams(dpToPx(1), dpToPx(22))
+            setBackgroundColor(colors.keyTextSecondary)
+        })
+        addView(TextView(context).apply {
+            layoutParams = LayoutParams(dpToPx(38), LayoutParams.MATCH_PARENT)
+            gravity = Gravity.CENTER
+            text = "×"
+            textSize = 17f
+            setTextColor(colors.keyTextSecondary)
+            contentDescription = "Clear saved result"
+            setOnClickListener {
+                performKeyHaptic(this)
+                retainedCalculatorResult = null
+                buildKeyboard()
+            }
+        })
+    }
+
     private fun returnFromCalculator() {
         calculatorMode = false
-        isNumberPadMode = true
+        val returnPage = calculatorReturnToSymbolPage
+        calculatorReturnToSymbolPage = null
+        if (returnPage != null) {
+            isSymbolMode = true
+            symbolPage = returnPage
+        } else {
+            isNumberPadMode = true
+        }
         buildKeyboard()
     }
 
@@ -468,15 +540,27 @@ class KeyboardView @JvmOverloads constructor(
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(55))
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setBackgroundColor(colors.candidateBarBackground)
+        setBackgroundColor(colors.specialKeyBackground)
         addView(createUtilBarButton("‹") { returnFromCalculator() })
+        addView(TextView(context).apply {
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.25f)
+            gravity = Gravity.CENTER
+            text = "calculator/計數機"
+            textSize = 14f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextColor(colors.keyTextPrimary)
+        })
         val display = TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = LayoutParams(0, dpToPx(42), 1.4f).apply {
+                setMargins(0, dpToPx(6), dpToPx(6), dpToPx(6))
+            }
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
             textSize = 24f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.START
             setTextColor(colors.keyTextPrimary)
+            background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
             setPadding(dpToPx(8), 0, dpToPx(14), 0)
             text = calculator.summary
         }
@@ -498,8 +582,8 @@ class KeyboardView @JvmOverloads constructor(
                     "C" -> calculator.clear()
                     "⌫" -> calculator.backspace()
                     "↩" -> returnFromCalculator()
-                    "Keep" -> calculator.result?.let { retainedCalculatorResult = it; returnFromCalculator() }
-                    "Insert" -> calculator.result?.let {
+                    "Keep" -> calculator.settledResult()?.let { retainedCalculatorResult = it; returnFromCalculator() }
+                    "Insert" -> calculator.settledResult()?.let {
                         onKeyPress?.invoke(KeyEvent.CalculatorInsert(it))
                         returnFromCalculator()
                     }
@@ -540,6 +624,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createUtilBarButton(
         label: String,
+        textSizeSp: Float = 16f,
         onLongClick: ((View) -> Unit)? = null,
         onClick: () -> Unit
     ): TextView {
@@ -549,7 +634,7 @@ class KeyboardView @JvmOverloads constructor(
             }
             gravity = Gravity.CENTER
             text = label
-            textSize = 16f
+            textSize = textSizeSp
             typeface = Typeface.DEFAULT_BOLD
             minWidth = dpToPx(46)
             setPadding(dpToPx(10), dpToPx(4), dpToPx(10), dpToPx(4))
@@ -747,12 +832,12 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createCandidatePillSlot(): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, candidateBarHeightPx() - dpToPx(4)).apply {
                 setMargins(dpToPx(1), 0, dpToPx(1), 0)
             }
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setPadding(dpToPx(candidatePillPaddingDp), dpToPx(1), dpToPx(candidatePillPaddingDp), dpToPx(1))
+            setPadding(dpToPx(candidatePillPaddingDp), 0, dpToPx(candidatePillPaddingDp), 0)
             textSize = candidateTextSizeSp.toFloat()
             setTextColor(colors.candidateText)
             background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
@@ -787,14 +872,16 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun createPillBackground(normalColor: Int, pressedColor: Int): StateListDrawable {
+        // Drawable-only rounding: each View keeps its full rectangular touch area.
+        val cornerRadius = dpToPx(40).toFloat()
         val pressed = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dpToPx(18).toFloat()
+            this.cornerRadius = cornerRadius
             setColor(pressedColor)
         }
         val normal = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dpToPx(18).toFloat()
+            this.cornerRadius = cornerRadius
             setColor(normalColor)
         }
         return StateListDrawable().apply {
@@ -931,17 +1018,17 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
-            setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+            setPadding(dpToPx(4), dpToPx(1), dpToPx(4), dpToPx(1))
             visibility = View.GONE  // Hidden by default
 
             numbers.forEach { digit ->
                 val slot = TextView(context).apply {
-                    layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
-                        setMargins(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+                    layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
+                        setMargins(dpToPx(2), dpToPx(1), dpToPx(2), dpToPx(1))
                     }
                     gravity = Gravity.CENTER
-                    setPadding(dpToPx(4), dpToPx(8), dpToPx(4), dpToPx(8))
-                    textSize = 18f
+                    setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+                    textSize = 20f
                     setTextColor(colors.candidateText)
                     background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
                     elevation = dpToPx(1).toFloat()
@@ -1099,11 +1186,11 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
-            addView(createSpecialKey("⌄", 0.8f) {
+            addView(createSpecialKey("⌄", 0.55f) {
                 onKeyPress?.invoke(KeyEvent.HideKeyboard)
             })
 
-            modeToggleKey = createSpecialKey("123", 1.2f) {
+            modeToggleKey = createSpecialKey("123", 1.45f) {
                 // Commit any pending composition as English before switching to number keyboard
                 if (currentRawKeys.isNotEmpty()) {
                     onEnglishSelected?.invoke(currentRawKeys)
@@ -1263,8 +1350,9 @@ class KeyboardView @JvmOverloads constructor(
             addState(intArrayOf(android.R.attr.state_pressed), pressed)
             addState(intArrayOf(), normal)
         }
-        // Visual gaps no longer shrink the clickable view (especially at small key heights).
-        return InsetDrawable(states, dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+        // The drawable is inset, never the View: the entire square key cell is
+        // clickable, including every rounded corner and the narrow visual gap.
+        return InsetDrawable(states, dpToPx(1), dpToPx(1), dpToPx(1), dpToPx(1))
     }
 
     // ==================== SYMBOL/EMOJI KEYBOARD ====================
@@ -1471,11 +1559,11 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
-            addView(createSpecialKey("⌄", 0.8f) {
+            addView(createSpecialKey("⌄", 0.55f) {
                 onKeyPress?.invoke(KeyEvent.HideKeyboard)
             })
 
-            addView(createSpecialKey("ABC", 1.2f) {
+            addView(createSpecialKey("ABC", 1.45f) {
                 isSymbolMode = false
                 symbolPage = 0
                 onModeChange?.invoke(false)
@@ -1701,6 +1789,11 @@ class KeyboardView @JvmOverloads constructor(
         retainedCalculatorResult = null
         calculator.clear()
         buildKeyboard()
+    }
+
+    fun setSensitiveField(sensitive: Boolean) {
+        isSensitiveField = sensitive
+        if (sensitive) retainedCalculatorResult = null
     }
 
     fun isNumberPadMode(): Boolean = isNumberPadMode

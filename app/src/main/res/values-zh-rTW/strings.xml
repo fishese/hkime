@@ -20,12 +20,11 @@
     <string name="settings_english_options">英文輸入選項</string>
     <string name="settings_history">記錄</string>
     <string name="settings_input_methods">輸入方式</string>
-    <string name="settings_input_methods_desc">選擇要顯示的候選字。英文輸入與自訂詞庫仍可使用；來源未確定的詞語預設顯示。</string>
+    <string name="settings_input_methods_desc">選擇要顯示的候選字。英文輸入與自訂詞庫仍可使用。</string>
     <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
     <string name="settings_method_cangjie">倉頡 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
     <string name="settings_method_english">英文建議</string>
-    <string name="settings_method_uncertain">未確定 · Method uncertain</string>
     <string name="settings_appearance">外觀</string>
     <string name="settings_theme">主題</string>
     <string name="settings_candidate_bar">候選字列</string>

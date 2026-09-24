@@ -80,12 +80,27 @@ class CalculatorEngine {
     }
 
     fun equals() {
-        if (left == null || operation == null || startNewNumber || display == "Error") return
+        if (display == "Error") return
+        if (left == null || operation == null) {
+            if (!startNewNumber) {
+                display = display.toBigDecimalOrNull()?.let(::format) ?: "Error"
+                hasResult = display != "Error"
+                startNewNumber = true
+            }
+            return
+        }
+        if (startNewNumber) return
         evaluate()
         left = null
         operation = null
         startNewNumber = true
         hasResult = display != "Error"
+    }
+
+    /** Keep/Insert first completes the current calculation, just like tapping equals. */
+    fun settledResult(): String? {
+        equals()
+        return result
     }
 
     private fun evaluate() {

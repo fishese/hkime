@@ -89,6 +89,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The IME does not use AppCompat's activity theme. Apply the saved mode
+        // locally before AppCompat inflates Settings, including after process restarts.
+        delegate.localNightMode = settingsNightMode(ThemeManager.getThemeMode(this))
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         organizeSettings(savedInstanceState?.getInt(STATE_SETTINGS_TAB) ?: 0)
@@ -355,10 +358,6 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<SwitchCompat>(R.id.switchMethodEnglish).apply {
             isChecked = ThemeManager.getMethodEnglish(this@SettingsActivity)
             setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodEnglish(this@SettingsActivity, enabled) }
-        }
-        findViewById<SwitchCompat>(R.id.switchMethodUncertain).apply {
-            isChecked = ThemeManager.getMethodUncertain(this@SettingsActivity)
-            setOnCheckedChangeListener { _, enabled -> ThemeManager.setMethodUncertain(this@SettingsActivity, enabled) }
         }
     }
 
@@ -851,19 +850,20 @@ class SettingsActivity : AppCompatActivity() {
                 R.id.radioLight -> ThemeManager.THEME_LIGHT
                 R.id.radioDark -> ThemeManager.THEME_DARK
                 R.id.radioAuto -> ThemeManager.THEME_AUTO
-                else -> ThemeManager.THEME_AUTO
+                else -> return@setOnCheckedChangeListener
             }
+            if (mode == ThemeManager.getThemeMode(this)) return@setOnCheckedChangeListener
             ThemeManager.setThemeMode(this, mode)
             updatePreview()
 
-            // Update app theme
-            val nightMode = when (mode) {
-                ThemeManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
-                ThemeManager.THEME_DARK -> AppCompatDelegate.MODE_NIGHT_YES
-                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-            }
-            AppCompatDelegate.setDefaultNightMode(nightMode)
+            delegate.localNightMode = settingsNightMode(mode)
         }
+    }
+
+    private fun settingsNightMode(mode: Int): Int = when (mode) {
+        ThemeManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+        ThemeManager.THEME_DARK -> AppCompatDelegate.MODE_NIGHT_YES
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
     }
 
     private fun setupCompositionToggle() {

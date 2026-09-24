@@ -32,7 +32,6 @@ object ThemeManager {
     private const val KEY_METHOD_CANGJIE = "method_cangjie_enabled"
     private const val KEY_METHOD_QUICK = "method_quick_enabled"
     private const val KEY_METHOD_ENGLISH = "method_english_enabled"
-    private const val KEY_METHOD_UNCERTAIN = "method_uncertain_enabled"
     private const val KEY_SETTINGS_CHINESE = "settings_chinese_enabled"
 
     const val THEME_LIGHT = 0
@@ -79,7 +78,6 @@ object ThemeManager {
     fun getMethodCangjie(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANGJIE, true)
     fun getMethodQuick(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_QUICK, true)
     fun getMethodEnglish(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_ENGLISH, true)
-    fun getMethodUncertain(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_UNCERTAIN, true)
 
     fun setMethodCantonese(context: Context, enabled: Boolean) =
         getPrefs(context).edit().putBoolean(KEY_METHOD_CANTONESE, enabled).apply()
@@ -89,8 +87,6 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_METHOD_QUICK, enabled).apply()
     fun setMethodEnglish(context: Context, enabled: Boolean) =
         getPrefs(context).edit().putBoolean(KEY_METHOD_ENGLISH, enabled).apply()
-    fun setMethodUncertain(context: Context, enabled: Boolean) =
-        getPrefs(context).edit().putBoolean(KEY_METHOD_UNCERTAIN, enabled).apply()
 
     fun getSettingsChinese(context: Context) =
         getPrefs(context).getBoolean(KEY_SETTINGS_CHINESE,
