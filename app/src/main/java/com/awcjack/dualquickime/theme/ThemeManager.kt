@@ -240,7 +240,7 @@ object ThemeManager {
 
     fun getShowKeyRadicals(context: Context): Boolean {
         if (cachedShowKeyRadicals == null) {
-            cachedShowKeyRadicals = getPrefs(context).getBoolean(KEY_SHOW_KEY_RADICALS, true)
+            cachedShowKeyRadicals = getPrefs(context).getBoolean(KEY_SHOW_KEY_RADICALS, false)
         }
         return cachedShowKeyRadicals!!
     }

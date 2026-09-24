@@ -24,6 +24,7 @@ import com.awcjack.dualquickime.data.CompositionState
 import com.awcjack.dualquickime.data.CompositionSelection
 import com.awcjack.dualquickime.data.ContextualPunctuation
 import com.awcjack.dualquickime.data.CustomDictionaryManager
+import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.promoteReviewedCharacter
 import com.awcjack.dualquickime.data.MixedDictionary
@@ -842,7 +843,7 @@ class HkInputMethodService : InputMethodService() {
             candidates = (candidates + UnicodeWordSuggestions.lookupEnglish(rawKeys)).distinct()
         }
         // Cangjie and Quick often identify the same text; show it only once.
-        candidates = candidates.distinct()
+        candidates = sanitizeCandidates(candidates)
 
         composition = CompositionState(
             rawKeys = rawKeys,

@@ -26,6 +26,7 @@ import com.awcjack.dualquickime.R
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.CalculatorEngine
+import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.theme.KeyboardColors
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.util.KeyMapping
@@ -84,7 +85,7 @@ class KeyboardView @JvmOverloads constructor(
     private var candidatePillPaddingDp = 8  // Horizontal padding inside each candidate pill (dp)
     private var keyHeightDp = ThemeManager.KEY_HEIGHT_DEFAULT
     private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
-    private var showKeyRadicals = true
+    private var showKeyRadicals = false
 
     // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null
@@ -909,16 +910,17 @@ class KeyboardView @JvmOverloads constructor(
 
     /** Show all choices in a continuously scrollable strip. */
     fun setCandidates(candidates: List<String>) {
+        val visibleCandidates = sanitizeCandidates(candidates)
         if (isSymbolMode && symbolCandidateBar != null) {
             symbolUtilBar?.visibility = View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
         }
         hideNumberRow()
-        if (displayedCandidates != candidates) {
-            displayedCandidates = candidates.toList()
+        if (displayedCandidates != visibleCandidates) {
+            displayedCandidates = visibleCandidates
             candidateRow?.removeAllViews()
             candidateSlots.clear()
-            candidates.forEach { candidate ->
+            visibleCandidates.forEach { candidate ->
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
                     visibility = View.VISIBLE
@@ -932,7 +934,7 @@ class KeyboardView @JvmOverloads constructor(
             }
             candidateScroll?.scrollTo(0, 0)
         }
-        pageIndicator?.visibility = if (candidates.size > 1) View.VISIBLE else View.GONE
+        pageIndicator?.visibility = if (visibleCandidates.size > 1) View.VISIBLE else View.GONE
         updateCandidatePosition()
     }
 
