@@ -583,7 +583,7 @@ class HkInputMethodService : InputMethodService() {
         breakIterator.setText(textBefore)
 
         // Find the last grapheme cluster boundary
-        var end = breakIterator.last()
+        breakIterator.last()
         var start = breakIterator.previous()
 
         if (start == android.icu.text.BreakIterator.DONE) {
