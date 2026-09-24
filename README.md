@@ -204,16 +204,13 @@ byte-for-byte against that public source before being bundled.
 English autocomplete uses a small offline word list generated from that
 project's v2.1 English tables and the bundled mixed-input keys. The original
 English table binaries are not included.
-`method-membership.tsv` is derived from method-specific reference tables. It
-stores code/character membership, not their ranking; the separate source
-tables are not bundled here. See [third-party notices](THIRD_PARTY_NOTICES.md)
-for the current provenance review before redistributing this file.
+`method-membership.tsv` stores manually reviewed code/character membership,
+not candidate ranking. The source tables used as a quick reference are not
+bundled here.
 `method-phrase-overrides.tsv` adds method labels from the reviewed attribution
 workbook. Confirmed labels take precedence over suggestions. Multi-character
 Cangjie/Changjie entries are also available under Quick; the `all` label
 includes all four methods. These labels do not change the MCK candidate order.
-Before changing the repository to public, review the provenance notes and
-remaining checks in the [public-release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md).
 For future words, follow the [dictionary contribution checklist](CONTRIBUTING.md):
 check all four input methods and record each code or a deliberate omission.
 
