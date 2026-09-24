@@ -1,5 +1,9 @@
 # Symbol Candidate Catalogue Plan
 
+Historical design brief: the symbol catalogue is now implemented in
+`SymbolCatalogue.kt` and `KeyboardView.kt`. The current code and tests, not
+this plan, describe the shipped behavior.
+
 ## Goal
 
 Extend HKIME's existing symbol candidate mechanism rather than replacing the current five-page symbol keyboard.

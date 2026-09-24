@@ -105,10 +105,12 @@ object ClipboardHistoryManager {
         val inputVariation = inputType and android.text.InputType.TYPE_MASK_VARIATION
 
         // Check for password input types
-        return inputClass == android.text.InputType.TYPE_CLASS_TEXT &&
+        return (inputClass == android.text.InputType.TYPE_CLASS_TEXT &&
             (inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
              inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-             inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+             inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)) ||
+            (inputClass == android.text.InputType.TYPE_CLASS_NUMBER &&
+                inputVariation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD)
     }
 
     /**

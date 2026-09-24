@@ -58,7 +58,7 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">Clipboard</string>
     <string name="settings_clipboard_enable">Enable clipboard history</string>
-    <string name="settings_clipboard_enable_desc">Store typed text for quick access</string>
+    <string name="settings_clipboard_enable_desc">Save copied text locally, including from other apps</string>
     <string name="settings_clipboard_clear">Clear clipboard history</string>
     <string name="settings_clipboard_clear_confirm_title">Clear History?</string>
     <string name="settings_clipboard_clear_confirm_message">This will delete all clipboard history including pinned items.</string>

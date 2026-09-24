@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Network Security Configuration for DualQuickIME
+    Network Security Configuration for HK IME
 
     Security measures:
     - Enforces HTTPS-only connections (cleartextTrafficPermitted="false")

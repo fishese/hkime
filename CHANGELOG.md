@@ -1,9 +1,31 @@
-# Changelog
+# HK IME changelog
 
-All notable changes to DualQuickIME will be documented in this file.
+## 0.3.19 — 2026-09-24
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Corrected the privacy policy, clipboard-setting description, and third-party
+  notices for the HK IME lite APK.
+- Avoided learning candidate selections from password fields and improved
+  best-effort filtering of copied text when a password editor is active.
+- Removed an obsolete upstream voice-model workflow and marked historical
+  planning documents and changelog entries as reference material.
+
+## 0.3.18 — 2026-09-24
+
+- Fixed repeated Settings recreation when switching light/dark themes on some
+  phones and aligned the displayed theme with the saved selection at startup.
+- Narrowed the keyboard-hide key and gave the freed bottom-row space to the
+  `123`/`ABC` mode key.
+- Removed the obsolete “Method uncertain” settings switch; unassigned legacy
+  dictionary entries remain visible.
+- Added symbol alternatives, Greek and box-drawing keys, Roman numeral
+  candidates, calculator refinements, and reviewed method attribution.
+
+Earlier HK IME changes are documented in the Git history. The older entries
+below are retained **only as upstream DualQuickIME history**; they do not imply
+that the distributed HK IME lite APK includes those features (notably voice
+recognition).
+
+## Upstream DualQuickIME history (reference only)
 
 ## [1.9.3] - 2026-08-02
 ### Added

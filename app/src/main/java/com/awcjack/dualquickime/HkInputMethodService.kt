@@ -183,7 +183,9 @@ class HkInputMethodService : InputMethodService() {
         val text = item.coerceToText(this)?.toString()
 
         if (!text.isNullOrBlank()) {
-            ClipboardHistoryManager.addItem(this, text)
+            // Best-effort exclusion when the active editor is a password field.
+            // Android does not reveal the source field of an external copy.
+            ClipboardHistoryManager.addItem(this, text, currentInputEditorInfo)
         }
     }
 
@@ -321,7 +323,8 @@ class HkInputMethodService : InputMethodService() {
         val variation = type and InputType.TYPE_MASK_VARIATION
         return when (type and InputType.TYPE_MASK_CLASS) {
             InputType.TYPE_CLASS_TEXT -> variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
             InputType.TYPE_CLASS_NUMBER -> variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
             else -> false
         }
@@ -695,7 +698,8 @@ class HkInputMethodService : InputMethodService() {
 
     private fun commitCandidate(text: String) {
         // Record usage for recent candidates feature
-        if (ThemeManager.getRecentCandidatesEnabled(this) && composition.rawKeys.isNotEmpty()) {
+        if (!isPasswordField && ThemeManager.getRecentCandidatesEnabled(this) &&
+            composition.rawKeys.isNotEmpty()) {
             RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
         }
         val latinWord = EnglishSuggestions.isLatinWord(text)

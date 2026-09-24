@@ -1,19 +1,37 @@
-# Third-party notices
+# Third-party notices and data provenance
 
 HK IME is an independent app derived from
-[DualQuickIME](https://github.com/awcjack/DualQuickIME), copyright 2024 awcjack,
-used under the MIT License included in `LICENSE`. It is not an official
-DualQuickIME release.
+[DualQuickIME](https://github.com/awcjack/DualQuickIME), copyright 2024
+awcjack. The inherited application code is MIT-licensed; the root
+[LICENSE](LICENSE) retains that notice. HK IME is not an official upstream
+release.
 
-The bundled `app/src/main/assets/mck/mix_map_ext_*.cs2` dictionary shards and
-`app/src/main/assets/mck/phrases/phrase_*.cs2` related-word shards come
-from [Mixed-Chinese-Keyboard-Plus-Dicts](https://github.com/holleeb/Mixed-Chinese-Keyboard-Plus-Dicts),
-commit `8eb2435`, used under the Apache License 2.0. A copy of that license is
-included at `licenses/Mixed-Chinese-Keyboard-Plus-Dicts-LICENSE.txt`.
-The `english-autocomplete.txt` word list is generated from that project's v2.1
-`eng_*.cs2` tables, intersected with the bundled mixed-input keys, with a few
-common-word additions. The original English tables are not bundled.
+## Bundled dictionary data
 
-Other upstream components retained from DualQuickIME include OpenVanilla data,
-OpenCC/OpenCC Java, AndroidX, and Material Components. Their notices and source
-links remain in the upstream project documentation and dependency metadata.
+| Component | Files and origin | Terms |
+| --- | --- | --- |
+| Mixed Chinese Keyboard Plus dictionary and related words | `app/src/main/assets/mck/mix_map_ext_*.cs2` and `mck/phrases/phrase_*.cs2`, from [Mixed-Chinese-Keyboard-Plus-Dicts](https://github.com/holleeb/Mixed-Chinese-Keyboard-Plus-Dicts) commit `8eb2435` | Apache-2.0; [license copy](licenses/Mixed-Chinese-Keyboard-Plus-Dicts-LICENSE.txt) |
+| English autocomplete | `english-autocomplete.txt`, generated from that project's v2.1 `eng_*.cs2` tables, intersected with mixed-input keys, plus a small set of common-word additions | The source dictionaries are Apache-2.0; the original English binaries are not bundled |
+| OpenVanilla Quick and associated phrases | `simplex.cin`, `simplex-ext.cin`, and `associated-phrases.cin`, from [OpenVanilla DataTables](https://github.com/openvanilla/openvanilla/tree/master/DataTables) | OpenVanilla's root [MIT license](licenses/OpenVanilla-LICENSE.txt) is reproduced here. Its license asks users to check individual data-table terms; no separate license notice was found in these three files. Confirm table redistribution terms before making the repository public. |
+| Method-membership hints | `method-membership.tsv`, derived from method-specific reference tables supplied for this project; `tools/build_method_membership.py` documents the transformation | The external source tables are not bundled, but their redistribution terms have not been verified. Confirm them or regenerate this file from clearly licensed data before public release. |
+| Reviewed method overlay and curated phrases | `method-phrase-overrides.tsv` and `curated-associated-phrases.tsv` | Project-maintained additions; no upstream dictionary shards were edited |
+
+The MCK dictionary shards preserve their upstream candidate order. Derived
+method hints do not copy ranking. This is a provenance description, **not** a
+claim that a reference table is free of licensing restrictions.
+
+## Runtime libraries in the distributed lite APK
+
+- [OpenccJava](https://github.com/laisuk/OpenccJava) 1.2.0 provides local
+  Simplified/Traditional conversion. Its Java code is MIT-licensed
+  ([license copy](licenses/OpenccJava-LICENSE.txt)); its bundled OpenCC
+  dictionaries/configurations derive from [OpenCC](https://github.com/BYVoid/OpenCC)
+  and remain Apache-2.0. The Apache-2.0 text is included with the MCK notice
+  above.
+- AndroidX Core, AppCompat, CardView and Security Crypto, and Google Material
+  Components are Gradle dependencies. Their respective source and license
+  notices are available from [AndroidX](https://github.com/androidx/androidx)
+  and [Material Components for Android](https://github.com/material-components/material-components-android).
+
+The optional full flavor references Sherpa-ONNX voice code and a separately
+downloaded AAR. It is not included in the lite APK linked from the README.

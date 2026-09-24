@@ -88,7 +88,7 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">剪贴板</string>
     <string name="settings_clipboard_enable">启用剪贴板历史</string>
-    <string name="settings_clipboard_enable_desc">存储输入的文字以便快速访问</string>
+    <string name="settings_clipboard_enable_desc">在本机保存复制的文字，包括其他应用</string>
     <string name="settings_clipboard_clear">清除剪贴板历史</string>
     <string name="settings_clipboard_clear_confirm_title">清除历史？</string>
     <string name="settings_clipboard_clear_confirm_message">这将删除所有剪贴板历史，包括已固定的项目。</string>

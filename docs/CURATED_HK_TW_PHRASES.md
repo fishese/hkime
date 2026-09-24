@@ -1,5 +1,9 @@
 # Curated HK/TW modern phrase suggestions
 
+Historical design brief: this overlay has been implemented. The service was
+subsequently renamed to `HkInputMethodService.kt`; implementation details in
+this brief may differ from the current code and tests.
+
 ## Purpose
 
 Add a small first-party curated layer of recent/popular Hong Kong and Taiwan internet phrases to HK IME's **associated phrase** system.
@@ -10,7 +14,7 @@ This should supplement the existing MCK/OpenVanilla data. Do not replace or modi
 
 Before editing, inspect at least:
 
-- `app/src/main/java/com/awcjack/dualquickime/DualQuickInputMethodService.kt`
+- `app/src/main/java/com/awcjack/dualquickime/HkInputMethodService.kt`
 - `app/src/main/java/com/awcjack/dualquickime/data/AssociatedPhrasesTable.kt`
 - `app/src/main/java/com/awcjack/dualquickime/data/MckRelatedPhrases.kt`
 - `app/src/main/assets/associated-phrases.cin`
@@ -26,7 +30,7 @@ Confirm the current code still behaves this way before implementing.
 
 Add a small HK IME-owned curated phrase table/overlay.
 
-Prefer a simple UTF-8 asset plus a small parser/table class over hard-coding a large map in `DualQuickInputMethodService.kt`, unless inspection reveals a simpler existing mechanism.
+Prefer a simple UTF-8 asset plus a small parser/table class over hard-coding a large map in `HkInputMethodService.kt`, unless inspection reveals a simpler existing mechanism.
 
 Requirements:
 
