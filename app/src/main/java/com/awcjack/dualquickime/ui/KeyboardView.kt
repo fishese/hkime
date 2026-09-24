@@ -936,6 +936,10 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
+            addView(createSpecialKey("⌄", 0.8f) {
+                onKeyPress?.invoke(KeyEvent.HideKeyboard)
+            })
+
             modeToggleKey = createSpecialKey("123", 1.2f) {
                 // Commit any pending composition as English before switching to number keyboard
                 if (currentRawKeys.isNotEmpty()) {
@@ -965,9 +969,7 @@ class KeyboardView @JvmOverloads constructor(
 
             addView(createSpecialKeyWithLongPress("。", '.', 1f))
 
-            addView(createSpecialKey("↵", 1.2f) {
-                onKeyPress?.invoke(KeyEvent.Enter)
-            })
+            addView(createEnterKey())
         }
     }
 
@@ -1161,6 +1163,13 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun createEnterKey(): TextView = createSpecialKey("↵", 1.2f) {
+        onKeyPress?.invoke(KeyEvent.Enter)
+    }.apply {
+        textSize = 36f
+        setTypeface(typeface, Typeface.BOLD)
+    }
+
     /** Tap types the number; long-press expands its user-configured phrase. */
     @SuppressLint("ClickableViewAccessibility")
     private fun setupNumberKey(view: View, digit: Int) {
@@ -1293,6 +1302,10 @@ class KeyboardView @JvmOverloads constructor(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER
 
+            addView(createSpecialKey("⌄", 0.8f) {
+                onKeyPress?.invoke(KeyEvent.HideKeyboard)
+            })
+
             addView(createSpecialKey("ABC", 1.2f) {
                 isSymbolMode = false
                 symbolPage = 0
@@ -1313,9 +1326,7 @@ class KeyboardView @JvmOverloads constructor(
 
             addView(createSpecialKeyWithLongPress(".", '。', 1f))
 
-            addView(createSpecialKey("↵", 1.2f) {
-                onKeyPress?.invoke(KeyEvent.Enter)
-            })
+            addView(createEnterKey())
         }
     }
 
@@ -1533,6 +1544,7 @@ class KeyboardView @JvmOverloads constructor(
         object Space : KeyEvent()
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
+        object HideKeyboard : KeyEvent()
         object VoiceInput : KeyEvent()
         object OpenSettings : KeyEvent()
         // Tap = AUTO (detect from content). Long-press popup lets the user

@@ -1,6 +1,6 @@
 # HK IME
 
-Download the latest build: [HK IME 0.3.10 signed APK](releases/HK-IME-0.3.10-release.apk).
+Download the latest build: [HK IME 0.3.11 signed APK](releases/HK-IME-0.3.11-release.apk).
 This is a locally signed, minified, offline-capable Android APK; Android may ask
 you to allow installation from your browser or file manager. It has the same
 app ID as previous HK IME test builds, but its release signing key differs from
@@ -163,7 +163,7 @@ columns and an original-order column for sorting back after batch edits.
 
 ### From this repository
 
-1. Download the [current signed APK](releases/HK-IME-0.3.10-release.apk)
+1. Download the [current signed APK](releases/HK-IME-0.3.11-release.apk)
 2. Install the APK on your Android device
 3. Open HK IME from the app drawer for its settings, then enable the keyboard in Android Settings
 

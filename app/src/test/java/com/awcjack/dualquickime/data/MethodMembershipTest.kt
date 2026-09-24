@@ -25,6 +25,10 @@ class MethodMembershipTest {
         "juen\tcantonese\t專",
         "chai\tcantonese\t齊",
     ), sequenceOf(
+        "lip\tcantonese\t𨋢",
+        "jjyt\tcangjie\t𨋢",
+        "jt\tquick\t𨋢",
+        "lift\tenglish\t𨋢",
         "zzzz\tcantonese\t整整齊齊",
         "aac\tcangjie\t時間表",
         "aac\tquick\t時間表",
@@ -143,6 +147,18 @@ class MethodMembershipTest {
             "soy" to MethodMembership.Method.ENGLISH,
         )) {
             assertEquals(listOf("豉"), membership.supplementalCandidates(code, setOf(method)))
+            assertEquals(emptyList<String>(), membership.supplementalCandidates(code, emptySet()))
+        }
+    }
+
+    @Test fun liftCharacterUsesTheRequestedMethodsOnly() {
+        for ((code, method) in listOf(
+            "lip" to MethodMembership.Method.CANTONESE,
+            "jjyt" to MethodMembership.Method.CANGJIE,
+            "jt" to MethodMembership.Method.QUICK,
+            "lift" to MethodMembership.Method.ENGLISH,
+        )) {
+            assertEquals(listOf("𨋢"), membership.supplementalCandidates(code, setOf(method)))
             assertEquals(emptyList<String>(), membership.supplementalCandidates(code, emptySet()))
         }
     }

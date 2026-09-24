@@ -103,13 +103,6 @@ object EnglishSuggestions {
 /** Exact English keywords only; these always follow the dictionary candidates. */
 object UnicodeWordSuggestions {
     private val words = mapOf(
-        "star" to listOf("★", "☆"),
-        "heart" to listOf("♥", "♡"),
-        "arrow" to listOf("↑", "↓", "←", "→", "↔"),
-        "up" to listOf("↑", "⬆"),
-        "down" to listOf("↓", "⬇"),
-        "left" to listOf("←", "⬅"),
-        "right" to listOf("→", "➡"),
         "cat" to listOf("🐈", "🐈‍⬛", "🐱"),
         "dog" to listOf("🐕", "🐶", "🐕‍🦺"),
         "fish" to listOf("🐟", "🐠", "🐡"),
@@ -129,46 +122,15 @@ object UnicodeWordSuggestions {
         "tick" to listOf("✓", "✔"),
         "cross" to listOf("✗", "✘", "×"),
         "circle" to listOf("○", "●", "◯"),
-        "square" to listOf("□", "■", "▪"),
-        "triangle" to listOf("△", "▲", "▽", "▼"),
-        "diamond" to listOf("◇", "◆"),
-        "music" to listOf("♪", "♫", "♬"),
-        "note" to listOf("♪", "♫"),
         "sun" to listOf("☀", "☼"),
         "moon" to listOf("☾", "☽"),
-        "degree" to listOf("°", "℃", "℉"),
-        "infinity" to listOf("∞"),
-        "copyright" to listOf("©"),
-        "registered" to listOf("®"),
-        "trademark" to listOf("™"),
-        "bullet" to listOf("•", "◦"),
-        "bracket" to listOf("[", "]", "(", ")", "{", "}", "<", ">", "＜", "＞", "«", "»", "「", "」", "『", "』", "【", "】"),
-        "quote" to listOf("'", "\"", "‘", "’", "“", "”", "«", "»", "「", "」")
     )
 
-    fun lookupEnglish(word: String): List<String> = words[word.lowercase()].orEmpty()
+    fun lookupEnglish(word: String): List<String> =
+        (words[word.lowercase()].orEmpty() + SymbolCatalogue.lookupEnglish(word)).distinct()
 }
 
-/** Alternatives shown after tapping a bracket or quote key. */
+/** Compatibility entry point for symbol-key alternatives. */
 object SymbolAlternatives {
-    private val opening = listOf("[", "(", "{", "<", "（", "＜", "「", "『", "【", "〈", "《", "«", "“", "‘")
-    private val closing = listOf("]", ")", "}", ">", "）", "＞", "」", "』", "】", "〉", "》", "»", "”", "’")
-    private val preferred = mapOf(
-        '<' to listOf("＜", "〈", "《", "«"),
-        '>' to listOf("＞", "〉", "》", "»"),
-        '(' to listOf("（", "{", "["),
-        ')' to listOf("）", "}", "]"),
-        '[' to listOf("【", "{", "("),
-        ']' to listOf("】", "}", ")"),
-        '「' to listOf("『", "“", "‘", "【"),
-        '」' to listOf("』", "”", "’", "】"),
-    )
-
-    fun forKey(key: Char): List<String> = when (key.toString()) {
-        in opening -> (preferred[key].orEmpty() + opening).distinct().filterNot { it == key.toString() }
-        in closing -> (preferred[key].orEmpty() + closing).distinct().filterNot { it == key.toString() }
-        "'" -> listOf("‘", "’", "′")
-        "\"" -> listOf("“", "”", "「", "」")
-        else -> emptyList()
-    }
+    fun forKey(key: Char): List<String> = SymbolCatalogue.candidatesForSymbol(key.toString())
 }

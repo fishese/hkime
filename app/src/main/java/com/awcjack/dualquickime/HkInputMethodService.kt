@@ -19,16 +19,19 @@ import com.awcjack.dualquickime.data.MckRelatedPhrases
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.EnglishAutocomplete
 import com.awcjack.dualquickime.data.UnicodeWordSuggestions
-import com.awcjack.dualquickime.data.SymbolAlternatives
+import com.awcjack.dualquickime.data.SymbolCatalogue
+import com.awcjack.dualquickime.data.PendingSymbol
 import com.awcjack.dualquickime.data.AssociatedPhrasesTable
 import com.awcjack.dualquickime.data.AssociatedPhraseSuggestions
 import com.awcjack.dualquickime.data.CuratedAssociatedPhrases
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
 import com.awcjack.dualquickime.data.CompositionState
+import com.awcjack.dualquickime.data.CompositionSelection
 import com.awcjack.dualquickime.data.ContextualPunctuation
 import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
+import com.awcjack.dualquickime.data.promoteReviewedCharacter
 import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.MethodMembership
 import com.awcjack.dualquickime.data.RecentCandidateManager
@@ -64,7 +67,6 @@ class HkInputMethodService : InputMethodService() {
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
-    private data class PendingSymbol(val inserted: Char, val alternatives: List<String>)
     private var pendingSymbol: PendingSymbol? = null
 
     private var keyboardView: KeyboardView? = null
@@ -87,6 +89,7 @@ class HkInputMethodService : InputMethodService() {
 
     // Whether the currently focused field is a password field
     private var isPasswordField = false
+    private var isEmailField = false
     // Whether password masking is active (user can toggle with the eye button)
     private var isPasswordMaskEnabled = true
 
@@ -281,6 +284,12 @@ class HkInputMethodService : InputMethodService() {
         }
 
         isPasswordField = isPasswordInputField(info)
+        isEmailField = info?.inputType?.let { type ->
+            (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+                (type and InputType.TYPE_MASK_VARIATION) in setOf(
+                    InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+                    InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS)
+        } ?: false
         isPasswordMaskEnabled = true
         // Refresh theme in case it changed in settings
         keyboardView?.refreshTheme()
@@ -344,6 +353,13 @@ class HkInputMethodService : InputMethodService() {
             KeyboardView.KeyEvent.Space -> handleSpace()
             KeyboardView.KeyEvent.Backspace -> handleBackspace()
             KeyboardView.KeyEvent.Enter -> handleEnter()
+            KeyboardView.KeyEvent.HideKeyboard -> {
+                finishEnglishComposition()
+                pendingSymbol = null
+                clearAssociatedPhrases()
+                clearEmailSuggestions()
+                requestHideSelf(0)
+            }
             KeyboardView.KeyEvent.VoiceInput -> handleVoiceInput()
             KeyboardView.KeyEvent.OpenSettings -> {
                 finishEnglishComposition()
@@ -454,7 +470,23 @@ class HkInputMethodService : InputMethodService() {
         }
         finishEnglishComposition()
         // Then commit the number
-        commitText(digit.toString())
+        val text = digit.toString()
+        commitText(text)
+        if (isSymbolMode) showSymbolCandidates(text, SymbolCatalogue.candidatesForSymbol(text))
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+            candidatesStart, candidatesEnd)
+        if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
+                newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            // The literal Latin text is already displayed by setComposingText.
+            // Finish it in place without inserting a space or choosing a candidate.
+            finishEnglishComposition()
+        }
     }
 
     private fun handleShortcutPhrase(digit: Int) {
@@ -474,30 +506,34 @@ class HkInputMethodService : InputMethodService() {
         finishEnglishComposition()
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
-        val inserted = choice?.inserted ?: event.char
-        val alternatives = if (choice != null) listOf(choice.alternative.toString())
-            else SymbolAlternatives.forKey(inserted)
-        commitText(inserted.toString())
-        keyboardView?.clearCandidates()
-        if (alternatives.isNotEmpty() && !isPasswordField) {
-            pendingSymbol = PendingSymbol(inserted, alternatives)
-            keyboardView?.setCandidates(alternatives)
-        }
-        if (event.char == '@' && !isPasswordField) {
+        val inserted = (choice?.inserted ?: event.char).toString()
+        val alternatives = (listOfNotNull(choice?.alternative?.toString()) +
+            SymbolCatalogue.candidatesForSymbol(inserted)).filterNot { it == inserted }.distinct()
+        commitText(inserted)
+        if (event.char == '@' && isEmailField && !isPasswordField) {
+            // Email-domain mode owns the candidate bar after @; do not leave a
+            // pending symbol that would intercept domain selection.
             enterEmailSuggestionsMode()
+        } else {
+            showSymbolCandidates(inserted, alternatives)
         }
+    }
+
+    private fun showSymbolCandidates(inserted: String, alternatives: List<String>) {
+        keyboardView?.clearCandidates()
+        if (alternatives.isEmpty() || isPasswordField) return
+        pendingSymbol = PendingSymbol(inserted, alternatives)
+        keyboardView?.setCandidates(alternatives)
     }
 
     private fun handleSymbolCandidateSelected(candidate: String) {
         val pending = pendingSymbol ?: return
         pendingSymbol = null
         val ic = currentInputConnection
-        if (candidate in pending.alternatives &&
-            ic?.getSelectedText(0).isNullOrEmpty() &&
-            ic?.getTextBeforeCursor(1, 0)?.toString() == pending.inserted.toString()
-        ) {
+        if (pending.canReplace(candidate, ic?.getSelectedText(0)?.toString(),
+                ic?.getTextBeforeCursor(pending.insertedText.length, 0)?.toString())) {
             ic?.beginBatchEdit()
-            ic?.deleteSurroundingText(1, 0)
+            ic?.deleteSurroundingText(pending.insertedText.length, 0)
             ic?.commitText(candidate, 1)
             ic?.endBatchEdit()
         }
@@ -814,6 +850,7 @@ class HkInputMethodService : InputMethodService() {
             mixedDictionary.lookup(lookupKeys), enabledMethods,
             ThemeManager.getMethodUncertain(this))
         candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
+        candidates = promoteReviewedCharacter(lookupKeys, candidates)
 
         // Retain the original OpenVanilla Quick table as a resilient fallback.
         if (candidates.isEmpty() && rawKeys.length <= 2 && ThemeManager.getMethodQuick(this)) {

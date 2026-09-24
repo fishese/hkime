@@ -11,6 +11,10 @@ from openpyxl import load_workbook
 
 
 MANUAL = (
+    ('lip', 'cantonese', '𨋢'),
+    ('jjyt', 'cangjie', '𨋢'),
+    ('jt', 'quick', '𨋢'),
+    ('lift', 'english', '𨋢'),
     ('si', 'cantonese', '豉'),
     ('mrmt', 'cangjie', '豉'),
     ('mt', 'quick', '豉'),
