@@ -435,3 +435,226 @@ The catalogue should improve discoverability without making the normal keyboard 
 The first candidates answer "what would I most plausibly want instead of the key I just tapped?" The long Unicode tail answers "what is difficult to type manually but belongs to this family?"
 
 That distinction should guide future catalogue additions.
+
+
+---
+
+# Related keyboard UX follow-up
+
+This section records three related keyboard changes to implement alongside or after the symbol-candidate work.
+
+## Dedicated number-pad mode for numeric fields
+
+### Current behaviour
+
+`HkInputMethodService.onStartInputView()` already detects `TYPE_CLASS_NUMBER`, `TYPE_CLASS_PHONE`, and `TYPE_CLASS_DATETIME` through `isNumericField()`. At present these fields call `setSymbolMode()`, which opens page 0 of the full symbol keyboard.
+
+Keep the field detection, but route appropriate fields to a new dedicated number-pad layout instead of treating them as ordinary symbol mode.
+
+### Layout goal
+
+Use a calculator/phone-style large-key layout inspired by Android numeric keyboards:
+
+```
+        top utility bar
+       (clipboard, full keyboard, etc.)
+
+      1        2        3        -
+      4        5        6       [aux]
+      7        8        9        ⌫
+      ,        0        .        ↵
+```
+
+The exact auxiliary key must be derived from `EditorInfo.inputType`; do not blindly show every numeric symbol.
+
+The 3x4 numeric block should be visually dominant, with larger tap targets than the ordinary symbol keyboard. The right-hand action column may be narrower than the three digit columns but should still meet a comfortable touch target.
+
+### Input-type-aware keys
+
+Do not use one fixed number pad for every numeric field.
+
+For `TYPE_CLASS_NUMBER` inspect the flags:
+
+- plain integer: digits, backspace, enter/action; punctuation that the field does not accept should not be emphasized;
+- `TYPE_NUMBER_FLAG_DECIMAL`: expose the decimal separator prominently;
+- `TYPE_NUMBER_FLAG_SIGNED`: expose minus prominently;
+- signed + decimal: expose both;
+- numeric password: use the number pad but preserve all current password/candidate privacy rules.
+
+For `TYPE_CLASS_PHONE`, prefer telephone-relevant input. At minimum digits must be primary; consider `+`, `*`, and `#` where accepted rather than decimal-centric keys.
+
+For `TYPE_CLASS_DATETIME`, keep the layout numeric-first but expose separators appropriate to what Android/the target editor accepts. Do not assume that every datetime editor accepts the same punctuation.
+
+The IME should send literal numeric/punctuation input and let the target editor enforce its declared constraints.
+
+### Decimal separator
+
+Do not hard-code comma as a second decimal key merely because the visual reference contains both comma and period. Use locale/editor behaviour sensibly. The primary decimal key should correspond to the expected decimal separator where possible.
+
+If there is uncertainty about Android editor compatibility, prefer the editor's accepted ASCII decimal input over a visually localized character that an app might reject.
+
+### Top utility bar
+
+Number-pad mode does not need ordinary word/symbol candidates. Reuse the existing symbol-mode utility-bar idea rather than creating a second unrelated toolbar.
+
+The bar should contain the functions that remain useful while entering numbers, especially:
+
+- clipboard;
+- switch to full keyboard;
+- other existing utility actions only where they make sense and fit without crowding.
+
+A clearly labelled/iconized **full keyboard** action is important because some apps declare a numeric field even when the user needs to enter something exceptional. This switch should be an escape hatch and should not permanently change how future fields are detected.
+
+If clipboard is disabled/unavailable, handle the empty space gracefully rather than leaving a dead-looking control.
+
+### Switching behaviour
+
+Introduce a distinct keyboard state rather than overloading `symbolPage = 0`.
+
+Conceptually:
+
+```kotlin
+enum class KeyboardMode {
+    LETTERS,
+    SYMBOLS,
+    NUMBER_PAD,
+    // existing special views can remain represented however best fits the code
+}
+```
+
+A full enum refactor is optional if it would create unnecessary churn, but number-pad state must be distinguishable from normal symbol mode.
+
+Required transitions:
+
+- focus numeric field -> number pad;
+- tap full-keyboard button -> normal full letter keyboard;
+- from the full keyboard, `123` continues to mean the ordinary multi-page symbol keyboard, not number pad;
+- moving to another field reruns editor-type detection;
+- returning to a numeric field should normally start in number-pad mode again;
+- emoji/clipboard return paths must return to the mode from which they were opened, not accidentally force symbol page 0.
+
+### Candidate behaviour
+
+Do **not** show the symbol catalogue candidates merely because a digit or punctuation key was tapped in number-pad mode. Numeric entry should stay fast and predictable.
+
+The top area is a utility bar in number-pad mode. The symbol-candidate feature remains associated with the full symbol keyboard.
+
+### Number-pad tests
+
+Cover:
+
+- plain integer;
+- signed integer;
+- decimal;
+- signed decimal;
+- numeric password;
+- phone;
+- datetime;
+- full-keyboard escape and return;
+- switching between text and numeric fields;
+- clipboard opening/returning;
+- backspace hold/repeat;
+- IME action/enter behaviour;
+- orientation/width changes.
+
+## Hide-keyboard button on the full keyboard
+
+Add an explicit hide-keyboard action. It should dismiss the IME using the normal Android IME mechanism rather than merely hiding `KeyboardView`.
+
+### Placement
+
+Preferred placement: **bottom-left of the normal full keyboard**, as a dedicated small special key before the existing `123` key.
+
+Conceptually:
+
+```
+⌄ | 123 | ， | [voice if enabled] |     space     | 。 | ↵
+```
+
+Why bottom-left:
+
+- it is reachable with either hand;
+- it is separated from Enter/backspace, so an accidental tap is less likely to submit or alter text;
+- the existing bottom row already contains mode/actions rather than letters;
+- the down-chevron convention is familiar for dismissing a soft keyboard;
+- it avoids taking space from the candidate bar, whose contents change dynamically.
+
+Use a clear downward keyboard-dismiss chevron/icon such as `⌄`/a proper vector drawable rather than a tiny text glyph if a suitable Android/vector asset is practical.
+
+The hide key should be narrower than the spacebar and comparable to the other special keys. Do not make the hit target tiny merely to reduce accidental presses; separation and placement are better protection against mis-taps.
+
+### Where else it should appear
+
+Once implemented, use the same dismiss affordance consistently where practical:
+
+- normal letter keyboard;
+- ordinary symbol keyboard;
+- dedicated number pad.
+
+For specialized full-screen subviews such as emoji/clipboard, preserve their existing navigation unless adding the hide action is straightforward and visually consistent. Do not block the initial feature on redesigning those screens.
+
+### Behaviour
+
+Add a dedicated event such as `KeyEvent.HideKeyboard` and let `HkInputMethodService` perform the actual IME dismissal.
+
+Before hiding:
+
+- safely finish/commit any composition according to the same policy used when leaving the keyboard;
+- clear transient symbol-candidate state;
+- do not lose user-entered composing text.
+
+Use haptic feedback consistently with other special keys.
+
+## Larger Return/Enter icon
+
+The current bottom-row Enter key uses the generic `createSpecialKey("↵", 1.2f)`, so its label inherits the generic special-key text size.
+
+Keep the Enter key dimensions and weight unchanged, but increase only the icon/glyph size.
+
+Prefer a dedicated `createEnterKey()` (or an optional text-size/icon-size argument) so increasing Enter does not enlarge every special-key label.
+
+Target the visual size to be clearly comparable to Shift/Backspace rather than the current small punctuation-sized appearance. Start around the existing Shift icon scale (roughly 22-24sp) and tune visually across supported keyboard-height settings.
+
+The same Enter/IME-action rendering should be reused in letter, symbol, and number-pad modes.
+
+If the keyboard already varies the action based on `EditorInfo.imeOptions` elsewhere, preserve that behaviour. If not, this task is only a visual-size change; do not expand it into a separate IME-action redesign.
+
+## Suggested implementation order
+
+1. Add the hide-keyboard event/service handling and dedicated UI key.
+2. Extract/reuse a dedicated larger Enter key.
+3. Add explicit number-pad state and renderer.
+4. Pass numeric input-class/flag information from the service to the keyboard view.
+5. Add the input-type-specific number-pad keys.
+6. Reuse/adapt the existing utility bar for number-pad mode.
+7. Add state-transition and numeric-field tests.
+8. Test the combined work with the symbol-candidate catalogue so number-pad digits do not accidentally invoke symbol candidates.
+
+## Acceptance examples
+
+### Normal text field
+
+```
+Q W E R T Y U I O P
+ A S D F G H J K L
+⇧ Z X C V B N M ⌫
+⌄ 123 ， [voice]   space   。 ↵
+```
+
+The `⌄` dismisses the keyboard. `123` still opens the existing full symbol keyboard.
+
+### Decimal numeric field
+
+The field opens directly into the large-key number pad. Digits dominate the layout, the decimal key is readily available, backspace and the IME action are in the action column, and the utility bar offers clipboard plus a way back to the full keyboard.
+
+### Signed numeric field
+
+Minus is readily available without switching pages.
+
+### Full-keyboard escape
+
+From a numeric field, tapping the full-keyboard utility action opens the normal letter keyboard for that field. It must not reinterpret `123` as the dedicated number pad; `123` continues to open the normal symbol pages.
+
+### Return icon
+
+The Enter/Return key occupies the same physical space as before, but its arrow is visibly larger and easier to recognize.
