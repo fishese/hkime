@@ -37,6 +37,7 @@ class ClipboardKeyboardView @JvmOverloads constructor(
     private var onClipboardItemSelected: ((String) -> Unit)? = null
     private var onBackspacePressed: (() -> Unit)? = null
     private var onAbcPressed: (() -> Unit)? = null
+    private var returnKeyLabel = "ABC"
 
     // Backspace repeat handling
     private val backspaceHandler = Handler(Looper.getMainLooper())
@@ -310,8 +311,8 @@ class ClipboardKeyboardView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(6))
 
-            // ABC button
-            addView(createSpecialKey("ABC", 1.2f) {
+            // Return to the keyboard that opened clipboard history.
+            addView(createSpecialKey(returnKeyLabel, 1.2f) {
                 onAbcPressed?.invoke()
             })
 
@@ -407,6 +408,10 @@ class ClipboardKeyboardView @JvmOverloads constructor(
 
     fun setOnAbcPressedListener(listener: () -> Unit) {
         onAbcPressed = listener
+    }
+
+    fun setReturnKeyLabel(label: String) {
+        returnKeyLabel = label
     }
 
     @SuppressLint("ClickableViewAccessibility")

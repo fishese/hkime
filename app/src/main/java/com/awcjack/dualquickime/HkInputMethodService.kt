@@ -33,6 +33,7 @@ import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.promoteReviewedCharacter
 import com.awcjack.dualquickime.data.MixedDictionary
+import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.MethodMembership
 import com.awcjack.dualquickime.data.RecentCandidateManager
 import com.awcjack.dualquickime.data.SimplexTable
@@ -303,27 +304,14 @@ class HkInputMethodService : InputMethodService() {
         // shift indicator was already redrawn by buildKeyboard via refreshTheme,
         // but the underlying state needs to be cleared explicitly.
         keyboardView?.resetShiftState()
-        // Pick the layout that matches the field type. Numeric / phone / datetime
-        // fields land on the digit page; everything else gets the QWERTY layout.
-        if (isNumericField(info)) {
-            isSymbolMode = true
-            keyboardView?.setSymbolMode()
+        // Numeric editors have their own large, input-type-aware keypad.
+        val numericSpec = info?.inputType?.let(NumericPadSpec::fromInputType)
+        if (numericSpec != null) {
+            isSymbolMode = false
+            keyboardView?.setNumberPadMode(numericSpec)
         } else {
             isSymbolMode = false
             keyboardView?.setLetterMode()
-        }
-    }
-
-    /**
-     * True when the focused field only accepts digits (number / phone / datetime
-     * input classes). Variations like signed/decimal still count — the digit row
-     * already includes the relevant symbols on adjacent symbol pages.
-     */
-    private fun isNumericField(info: EditorInfo?): Boolean {
-        val type = info?.inputType ?: return false
-        return when (type and InputType.TYPE_MASK_CLASS) {
-            InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
-            else -> false
         }
     }
 
@@ -350,6 +338,10 @@ class HkInputMethodService : InputMethodService() {
             is KeyboardView.KeyEvent.Symbol -> handleSymbol(event)
             is KeyboardView.KeyEvent.Emoji -> handleEmoji(event.emoji)
             is KeyboardView.KeyEvent.ClipboardPaste -> handleClipboardPaste(event.text)
+            is KeyboardView.KeyEvent.CalculatorInsert -> if (!isPasswordField) {
+                finishEnglishComposition()
+                commitText(event.text)
+            }
             KeyboardView.KeyEvent.Space -> handleSpace()
             KeyboardView.KeyEvent.Backspace -> handleBackspace()
             KeyboardView.KeyEvent.Enter -> handleEnter()
@@ -514,7 +506,7 @@ class HkInputMethodService : InputMethodService() {
             // Email-domain mode owns the candidate bar after @; do not leave a
             // pending symbol that would intercept domain selection.
             enterEmailSuggestionsMode()
-        } else {
+        } else if (keyboardView?.isNumberPadMode() != true) {
             showSymbolCandidates(inserted, alternatives)
         }
     }

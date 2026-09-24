@@ -22,6 +22,8 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import com.awcjack.dualquickime.BuildConfig
 import com.awcjack.dualquickime.convert.ChineseConverter
+import com.awcjack.dualquickime.data.NumericPadSpec
+import com.awcjack.dualquickime.data.CalculatorEngine
 import com.awcjack.dualquickime.theme.KeyboardColors
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.util.KeyMapping
@@ -49,7 +51,14 @@ class KeyboardView @JvmOverloads constructor(
     private var lastShiftTapTime = 0L
     private val DOUBLE_TAP_INTERVAL = 300L  // milliseconds
     private var isSymbolMode = false
-    private var symbolPage = 0  // 0 = numbers, 1 = symbols, 2 = emoji
+    private var isNumberPadMode = false
+    private var numericPadSpec = NumericPadSpec(NumericPadSpec.Kind.INTEGER)
+    private var returnToNumberPadFromClipboard = false
+    private var calculatorMode = false
+    private val calculator = CalculatorEngine()
+    private var calculatorDisplay: TextView? = null
+    private var retainedCalculatorResult: String? = null
+    private var symbolPage = 0  // 0–4 = symbol pages; 99 = emoji, 100 = clipboard
     private var shiftKey: TextView? = null
     private var modeToggleKey: TextView? = null
 
@@ -111,12 +120,12 @@ class KeyboardView @JvmOverloads constructor(
     private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '*', '/', '(', ')')
     private val symRow3Page1 = listOf('<', '>', '×', '÷', '\'', '!', '?')
 
-    // Symbol rows (page 2) - Gboard "=\<" layout
+    // Utility/math symbols, shown after the common CJK punctuation page.
     private val symRow1Page2 = listOf('~', '`', '|', '•', '√', 'π', '§', '、', '“', '”')
     private val symRow2Page2 = listOf('£', '¢', '€', '¥', '^', '°', '=', '\\', ':', ';')
     private val symRow3Page2 = listOf('％', '‘', '’', '™', '℅', '[', ']')
 
-    // Symbol rows (page 3) - Chinese punctuation; bracket variants are candidates.
+    // Common Chinese punctuation; bracket variants are candidates.
     private val symRow1Page3 = listOf('「', '」', '，', '。', '：', '；')
     private val symRow2Page3 = listOf('！', '？', '—', '–', '_', '‖')
     private val symRow3Page3 = listOf('¦', '※', '·', '…', '±', '∞')
@@ -168,6 +177,8 @@ class KeyboardView @JvmOverloads constructor(
         } catch (t: Throwable) {
             Log.e("HKIME", "KeyboardView $reason failed; recovering to letter mode", t)
             isSymbolMode = false
+            isNumberPadMode = false
+            calculatorMode = false
             symbolPage = 0
             isCandidateGridMode = false
             try {
@@ -241,18 +252,48 @@ class KeyboardView @JvmOverloads constructor(
                         onKeyPress?.invoke(KeyEvent.Backspace)
                     }
                     setOnAbcPressedListener {
-                        isSymbolMode = false
-                        symbolPage = 0
-                        onModeChange?.invoke(false)
-                        buildKeyboard()
+                        if (returnToNumberPadFromClipboard) {
+                            returnToNumberPadFromClipboard = false
+                            isSymbolMode = false
+                            isNumberPadMode = true
+                            symbolPage = 0
+                            buildKeyboard()
+                        } else {
+                            isSymbolMode = false
+                            symbolPage = 0
+                            onModeChange?.invoke(false)
+                            buildKeyboard()
+                        }
                         // Request candidate refresh after layout completes
                         this@KeyboardView.post { onCandidateRefreshRequested?.invoke() }
                     }
                 }
             }
+            clipboardKeyboardView?.setReturnKeyLabel(if (returnToNumberPadFromClipboard) "123" else "ABC")
             clipboardKeyboardView?.refreshTheme()
             clipboardKeyboardView?.refreshContent()
             addView(clipboardKeyboardView)
+            return
+        }
+
+        if (isNumberPadMode) {
+            clearCandidateViewReferences()
+            addView(createNumericUtilBar())
+            numericPadSpec.rows.forEach { addView(createNumericRow(it)) }
+            return
+        }
+
+        if (calculatorMode) {
+            clearCandidateViewReferences()
+            addView(createCalculatorTopBar())
+            listOf(
+                listOf("7", "8", "9", "÷"),
+                listOf("4", "5", "6", "×"),
+                listOf("1", "2", "3", "-"),
+                listOf("±", "0", ".", "+"),
+                listOf("C", "⌫", "=", "↩"),
+                listOf("Keep", "Insert"),
+            ).forEach { addView(createCalculatorRow(it)) }
             return
         }
 
@@ -282,14 +323,14 @@ class KeyboardView @JvmOverloads constructor(
                     addView(createSymbolSpecialRow3(symRow3Page1))
                 }
                 1 -> {
-                    addView(createSymbolRow(symRow1Page2))
-                    addView(createSymbolRow(symRow2Page2, leftPadding = 0.5f))
-                    addView(createSymbolSpecialRow3(symRow3Page2))
-                }
-                2 -> {
                     addView(createSymbolRow(symRow1Page3))
                     addView(createSymbolRow(symRow2Page3, leftPadding = 0.5f))
                     addView(createSymbolSpecialRow3(symRow3Page3))
+                }
+                2 -> {
+                    addView(createSymbolRow(symRow1Page2))
+                    addView(createSymbolRow(symRow2Page2, leftPadding = 0.5f))
+                    addView(createSymbolSpecialRow3(symRow3Page2))
                 }
                 3 -> {
                     addView(createSymbolRow(symRow1Page4))
@@ -315,7 +356,7 @@ class KeyboardView @JvmOverloads constructor(
     // ==================== CANDIDATE BAR ====================
 
     /**
-     * Top bar shown in symbol/number mode. The candidate bar is unused there
+     * Top bar shown in full symbol mode. The candidate bar is unused there
      * (no Cangjie composition can happen on a digit/symbol keyboard), so we
      * reuse the space for utility buttons that would otherwise crowd the
      * bottom row: emoji, clipboard, Chinese conversion, voice input.
@@ -325,17 +366,7 @@ class KeyboardView @JvmOverloads constructor(
      * previous letter-mode build.
      */
     private fun createSymbolUtilBar(): LinearLayout {
-        candidateContainer = null
-        compositionText = null
-        candidateRow = null
-        candidateScroll = null
-        displayedCandidates = emptyList()
-        pageIndicator = null
-        englishPill = null
-        maskToggle = null
-        numberRow = null
-        candidateSlots.clear()
-        numberSlots.clear()
+        clearCandidateViewReferences()
 
         return LinearLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -372,6 +403,138 @@ class KeyboardView @JvmOverloads constructor(
             addView(View(context).apply {
                 layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
             })
+        }
+    }
+
+    private fun clearCandidateViewReferences() {
+        candidateContainer = null
+        compositionText = null
+        candidateRow = null
+        candidateScroll = null
+        displayedCandidates = emptyList()
+        pageIndicator = null
+        englishPill = null
+        maskToggle = null
+        numberRow = null
+        candidateSlots.clear()
+        numberSlots.clear()
+    }
+
+    private fun createNumericUtilBar(): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, candidateBarHeightPx())
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(colors.candidateBarBackground)
+        setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+        addView(createUtilBarButton("📋") {
+            returnToNumberPadFromClipboard = true
+            isNumberPadMode = false
+            isSymbolMode = true
+            symbolPage = 100
+            buildKeyboard()
+        })
+        addView(createUtilBarButton("ABC") {
+            isNumberPadMode = false
+            onModeChange?.invoke(false)
+            buildKeyboard()
+        })
+        if (!numericPadSpec.password) {
+            addView(createUtilBarButton("Calc") {
+                calculator.clear()
+                calculatorMode = true
+                isNumberPadMode = false
+                buildKeyboard()
+            })
+            retainedCalculatorResult?.let { value ->
+                addView(createUtilBarButton(value.take(10)) {
+                    onKeyPress?.invoke(KeyEvent.CalculatorInsert(value))
+                })
+                addView(createUtilBarButton("×") {
+                    retainedCalculatorResult = null
+                    buildKeyboard()
+                })
+            }
+        }
+        addView(View(context).apply { layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f) })
+    }
+
+    private fun returnFromCalculator() {
+        calculatorMode = false
+        isNumberPadMode = true
+        buildKeyboard()
+    }
+
+    private fun createCalculatorTopBar(): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(55))
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(colors.candidateBarBackground)
+        addView(createUtilBarButton("‹") { returnFromCalculator() })
+        val display = TextView(context).apply {
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            textSize = 24f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.START
+            setTextColor(colors.keyTextPrimary)
+            setPadding(dpToPx(8), 0, dpToPx(14), 0)
+            text = calculator.summary
+        }
+        calculatorDisplay = display
+        addView(display)
+    }
+
+    private fun createCalculatorRow(labels: List<String>): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(maxOf(keyHeightDp, 52)))
+        orientation = HORIZONTAL
+        labels.forEach { label ->
+            addView(createSpecialKey(label, 1f) {
+                when (label) {
+                    in listOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9") -> calculator.digit(label[0])
+                    "." -> calculator.decimal()
+                    "±" -> calculator.toggleSign()
+                    "+", "-", "×", "÷" -> calculator.operator(label[0])
+                    "=" -> calculator.equals()
+                    "C" -> calculator.clear()
+                    "⌫" -> calculator.backspace()
+                    "↩" -> returnFromCalculator()
+                    "Keep" -> calculator.result?.let { retainedCalculatorResult = it; returnFromCalculator() }
+                    "Insert" -> calculator.result?.let {
+                        onKeyPress?.invoke(KeyEvent.CalculatorInsert(it))
+                        returnFromCalculator()
+                    }
+                }
+                calculatorDisplay?.text = calculator.summary
+            }.apply { textSize = if (label.length > 1) 15f else 25f })
+        }
+    }
+
+    private fun createNumericRow(keys: List<NumericPadSpec.Key>): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(maxOf(keyHeightDp, 68)))
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER
+        keys.forEach { key ->
+            val button = createSpecialKey(key.label, key.weight) {
+                when (key.action) {
+                    NumericPadSpec.Action.DIGIT -> onKeyPress?.invoke(KeyEvent.Number(key.label.toInt()))
+                    NumericPadSpec.Action.SYMBOL -> onKeyPress?.invoke(KeyEvent.Symbol(key.label[0], forceLiteral = true))
+                    NumericPadSpec.Action.BACKSPACE -> onKeyPress?.invoke(KeyEvent.Backspace)
+                    NumericPadSpec.Action.ENTER -> onKeyPress?.invoke(KeyEvent.Enter)
+                    NumericPadSpec.Action.HIDE -> onKeyPress?.invoke(KeyEvent.HideKeyboard)
+                    NumericPadSpec.Action.LETTERS -> {
+                        isNumberPadMode = false
+                        onModeChange?.invoke(false)
+                        buildKeyboard()
+                    }
+                }
+            }.apply {
+                if (key.action == NumericPadSpec.Action.ENTER) styleEnterGlyph(this)
+                else textSize = 26f
+            }
+            if (key.action == NumericPadSpec.Action.BACKSPACE) {
+                setupKeyRepeat(button) { onKeyPress?.invoke(KeyEvent.Backspace) }
+            }
+            addView(button)
         }
     }
 
@@ -1165,9 +1328,15 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createEnterKey(): TextView = createSpecialKey("↵", 1.2f) {
         onKeyPress?.invoke(KeyEvent.Enter)
-    }.apply {
+    }.apply { styleEnterGlyph(this) }
+
+    private fun styleEnterGlyph(key: TextView) = key.apply {
         textSize = 36f
         setTypeface(typeface, Typeface.BOLD)
+        includeFontPadding = false
+        // The ↵ glyph has little ink above its baseline; compensate visually
+        // without moving the key itself or changing its touch target.
+        setPadding(0, 0, 0, dpToPx(6))
     }
 
     /** Tap types the number; long-press expands its user-configured phrase. */
@@ -1440,8 +1609,10 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     fun setLetterMode() {
-        if (isSymbolMode || isCandidateGridMode) {
+        if (isSymbolMode || isNumberPadMode || calculatorMode || isCandidateGridMode) {
             isSymbolMode = false
+            isNumberPadMode = false
+            calculatorMode = false
             symbolPage = 0
             isCandidateGridMode = false
             buildKeyboard()
@@ -1449,13 +1620,14 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     /**
-     * Switch to symbol/number mode (page 0 — digit row + common symbols).
-     * Used by the service when the focused field is numeric so the user
-     * lands on a number-friendly layout without an extra tap.
+     * Switch to the ordinary five-page symbol keyboard (page 0 has a digit row).
+     * Numeric fields instead use [setNumberPadMode].
      */
     fun setSymbolMode() {
         if (!isSymbolMode || symbolPage != 0 || isCandidateGridMode) {
             isSymbolMode = true
+            isNumberPadMode = false
+            calculatorMode = false
             symbolPage = 0
             isCandidateGridMode = false
             buildKeyboard()
@@ -1519,6 +1691,20 @@ class KeyboardView @JvmOverloads constructor(
         convertDirectionPopup = null
     }
 
+    fun setNumberPadMode(spec: NumericPadSpec) {
+        numericPadSpec = spec
+        isNumberPadMode = true
+        isSymbolMode = false
+        calculatorMode = false
+        isCandidateGridMode = false
+        returnToNumberPadFromClipboard = false
+        retainedCalculatorResult = null
+        calculator.clear()
+        buildKeyboard()
+    }
+
+    fun isNumberPadMode(): Boolean = isNumberPadMode
+
     private fun performKeyHaptic(view: View, longPress: Boolean = false) {
         if (!ThemeManager.getHapticFeedbackEnabled(context)) return
         view.performHapticFeedback(
@@ -1541,6 +1727,7 @@ class KeyboardView @JvmOverloads constructor(
         data class Symbol(val char: Char, val forceLiteral: Boolean = false) : KeyEvent()
         data class Emoji(val emoji: String) : KeyEvent()
         data class ClipboardPaste(val text: String) : KeyEvent()
+        data class CalculatorInsert(val text: String) : KeyEvent()
         object Space : KeyEvent()
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
