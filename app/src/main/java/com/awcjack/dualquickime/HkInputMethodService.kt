@@ -12,6 +12,7 @@ import com.awcjack.dualquickime.data.AssociatedPhrasesParser
 import com.awcjack.dualquickime.data.MckRelatedPhrases
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.EnglishAutocomplete
+import com.awcjack.dualquickime.data.EnglishTranslationOverlay
 import com.awcjack.dualquickime.data.UnicodeWordSuggestions
 import com.awcjack.dualquickime.data.SymbolCatalogue
 import com.awcjack.dualquickime.data.PendingSymbol
@@ -54,6 +55,7 @@ class HkInputMethodService : InputMethodService() {
     private lateinit var mixedDictionary: MixedDictionary
     private lateinit var methodMembership: MethodMembership
     private var englishAutocomplete = EnglishAutocomplete.EMPTY
+    private var englishTranslationOverlay = EnglishTranslationOverlay.EMPTY
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
@@ -107,6 +109,9 @@ class HkInputMethodService : InputMethodService() {
         englishAutocomplete = runCatching {
             EnglishAutocomplete.parse(assets.open("english-autocomplete.txt"))
         }.getOrDefault(EnglishAutocomplete.EMPTY)
+        englishTranslationOverlay = runCatching {
+            EnglishTranslationOverlay.parse(assets.open("english-translations.tsv"))
+        }.getOrDefault(EnglishTranslationOverlay.EMPTY)
         mckRelatedPhrases = MckRelatedPhrases(assets)
         // Load associated phrases table
         loadAssociatedPhrasesTable()
@@ -826,12 +831,20 @@ class HkInputMethodService : InputMethodService() {
         }
 
         // English autocomplete is below the bundled Chinese choices by default.
-        // Learned per-code usage can lift a frequently selected word above them.
+        // Apostrophe contractions are offered first so they are easy to enter
+        // without switching to the symbol page.
         if (!isPasswordField && ThemeManager.getMethodEnglish(this)) {
             val typed = getDisplayKeys(rawKeys)
+            val contractions = EnglishSuggestions.contractions(typed)
             val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
                 else EnglishSuggestions.completions(typed)
-            candidates = (candidates + english).distinct()
+            candidates = (candidates + contractions + english).distinct()
+
+            // Fill translation gaps for English words intentionally added outside
+            // the upstream mixed dictionary. Existing dictionary translations win.
+            englishTranslationOverlay.lookup(typed)?.let { translation ->
+                if (translation !in candidates) candidates = candidates + translation
+            }
         }
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
