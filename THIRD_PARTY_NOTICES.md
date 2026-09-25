@@ -1,10 +1,6 @@
 # Third-party notices and data provenance
 
-HK IME is an independent app derived from
-[DualQuickIME](https://github.com/awcjack/DualQuickIME), copyright 2024
-awcjack. The inherited application code is MIT-licensed; the root
-[LICENSE](LICENSE) retains that notice. HK IME is not an official upstream
-release.
+HK IME builds on [DualQuickIME](https://github.com/awcjack/DualQuickIME), copyright 2024 awcjack. The inherited application code is MIT-licensed; the root [LICENSE](LICENSE) retains that notice.
 
 ## Bundled dictionary data
 
@@ -15,19 +11,9 @@ release.
 | OpenVanilla Quick and associated phrases | `simplex.cin`, `simplex-ext.cin`, and `associated-phrases.cin`, from [OpenVanilla DataTables](https://github.com/openvanilla/openvanilla/tree/master/DataTables) | OpenVanilla's root [MIT license](licenses/OpenVanilla-LICENSE.txt) is reproduced here. Its license asks users to check individual data-table terms; no separate license notice was found in these three files. |
 | Reviewed method overlay and curated phrases | `method-phrase-overrides.tsv` and `curated-associated-phrases.tsv` | Project-maintained additions; no upstream dictionary shards were edited |
 
-The MCK dictionary shards preserve their upstream candidate order. Future new
-entries must explicitly identify each supported input method or intentionally
-omit it; see [CONTRIBUTING.md](CONTRIBUTING.md).
+The MCK dictionary shards preserve their upstream candidate order. New entries should identify each supported input method or intentionally omit it; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Runtime libraries in the distributed APK
+## Runtime libraries
 
-- [OpenccJava](https://github.com/laisuk/OpenccJava) 1.2.0 provides local
-  Simplified/Traditional conversion. Its Java code is MIT-licensed
-  ([license copy](licenses/OpenccJava-LICENSE.txt)); its bundled OpenCC
-  dictionaries/configurations derive from [OpenCC](https://github.com/BYVoid/OpenCC)
-  and remain Apache-2.0. The Apache-2.0 text is included with the MCK notice
-  above.
-- AndroidX Core, AppCompat, CardView and Security Crypto, and Google Material
-  Components are Gradle dependencies. Their respective source and license
-  notices are available from [AndroidX](https://github.com/androidx/androidx)
-  and [Material Components for Android](https://github.com/material-components/material-components-android).
+- [OpenccJava](https://github.com/laisuk/OpenccJava) 1.2.0 provides local Simplified/Traditional conversion. Its Java code is MIT-licensed ([license copy](licenses/OpenccJava-LICENSE.txt)); its bundled OpenCC dictionaries/configurations derive from [OpenCC](https://github.com/BYVoid/OpenCC) and remain Apache-2.0.
+- AndroidX Core, AppCompat, CardView and Security Crypto, and Google Material Components are Gradle dependencies. Their respective source and license notices are available from [AndroidX](https://github.com/androidx/androidx) and [Material Components for Android](https://github.com/material-components/material-components-android).
