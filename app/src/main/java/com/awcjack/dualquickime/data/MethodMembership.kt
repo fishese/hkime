@@ -56,6 +56,19 @@ class MethodMembership(lines: Sequence<String>, phraseOverrides: Sequence<String
         }
     }
 
+    /** Only enabled, known input codes participate in swipe decoding. */
+    fun swipeCodes(enabled: Set<Method>): Set<String> = buildSet {
+        for ((code, methods) in byCode) {
+            if (code.length in 2..12 && code.all { it in 'a'..'z' } &&
+                methods.keys.any { it in enabled }) add(code)
+        }
+        for ((key, methods) in phraseMethods) {
+            val code = key.first
+            if (code.length in 2..12 && code.all { it in 'a'..'z' } &&
+                methods.any { it in enabled }) add(code)
+        }
+    }
+
     /** Add reviewed/user-supplied entries missing from a bundled dictionary shard. */
     fun supplementalCandidates(code: String, enabled: Set<Method>): List<String> =
         overrideCandidatesByCode[code.lowercase()].orEmpty().filter { candidate ->
