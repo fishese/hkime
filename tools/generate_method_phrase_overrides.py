@@ -22,6 +22,11 @@ MANUAL = (
     ('zzzz', 'cantonese', '整整齊齊'),
     ('zzzzing', 'cantonese', '支支整整'),
     ('zzzzing', 'cantonese', '姿姿整整'),
+    ('apples', 'english', '蘋果'),
+    ('bananas', 'english', '香蕉'),
+    ('birthdays', 'english', '生日'),
+    ('oranges', 'english', '橙'),
+    ('painted', 'english', '上色'),
 )
 
 
