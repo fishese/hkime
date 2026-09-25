@@ -349,9 +349,9 @@ class KeyboardView @JvmOverloads constructor(
                 listOf("4", "5", "6", "×"),
                 listOf("1", "2", "3", "-"),
                 listOf("±", "0", ".", "+"),
-                listOf("C", "⌫", "=", "↩"),
-                listOf("Keep", "Insert"),
+                listOf("C", "⌫", "", "="),
             ).forEach { addView(createCalculatorRow(it)) }
+            addView(createCalculatorActionRow())
             return
         }
 
@@ -587,18 +587,26 @@ class KeyboardView @JvmOverloads constructor(
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(colors.specialKeyBackground)
-        addView(createUtilBarButton("‹") { returnFromCalculator() })
+        addView(createUtilBarButton("‹", 22f) { returnFromCalculator() }.apply {
+            minWidth = dpToPx(54)
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(44)).apply {
+                setMargins(dpToPx(4), dpToPx(2), dpToPx(2), dpToPx(2))
+            }
+        })
         addView(TextView(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.25f)
-            gravity = Gravity.CENTER
-            text = "calculator/計數機"
-            textSize = 14f
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(38)).apply {
+                setMargins(dpToPx(2), dpToPx(6), dpToPx(4), dpToPx(6))
+            }
+            gravity = Gravity.CENTER_VERTICAL
+            text = "Calculator/計數機"
+            textSize = 13f
             maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor(colors.keyTextPrimary)
+            background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
+            setPadding(dpToPx(12), 0, dpToPx(12), 0)
         })
         val display = TextView(context).apply {
-            layoutParams = LayoutParams(0, dpToPx(42), 1.4f).apply {
+            layoutParams = LayoutParams(0, dpToPx(42), 1f).apply {
                 setMargins(0, dpToPx(6), dpToPx(6), dpToPx(6))
             }
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
@@ -618,6 +626,12 @@ class KeyboardView @JvmOverloads constructor(
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(maxOf(keyHeightDp, 52)))
         orientation = HORIZONTAL
         labels.forEach { label ->
+            if (label.isEmpty()) {
+                addView(View(context).apply {
+                    layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+                })
+                return@forEach
+            }
             addView(createSpecialKey(label, 1f) {
                 when (label) {
                     in listOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9") -> calculator.digit(label[0])
@@ -627,17 +641,48 @@ class KeyboardView @JvmOverloads constructor(
                     "=" -> calculator.equals()
                     "C" -> calculator.clear()
                     "⌫" -> calculator.backspace()
-                    "↩" -> returnFromCalculator()
-                    "Keep" -> calculator.settledResult()?.let { retainedCalculatorResult = it; returnFromCalculator() }
-                    "Insert" -> calculator.settledResult()?.let {
-                        onKeyPress?.invoke(KeyEvent.CalculatorInsert(it))
-                        returnFromCalculator()
-                    }
                 }
                 calculatorDisplay?.text = calculator.summary
             }.apply { textSize = if (label.length > 1) 15f else 25f })
         }
     }
+
+    private fun createCalculatorActionRow(): LinearLayout = LinearLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(maxOf(keyHeightDp, 52)))
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(calculatorActionKey("Pin", 1f) {
+            calculator.settledResult()?.let { retainedCalculatorResult = it; returnFromCalculator() }
+        })
+        // Smaller than Pin and Insert so a formula is harder to insert by accident,
+        // especially into a number field that cannot accept it.
+        addView(calculatorActionKey("Eq", 0.46f) {
+            calculator.settledEquation()?.let {
+                onKeyPress?.invoke(KeyEvent.CalculatorInsert(it))
+                returnFromCalculator()
+            }
+        }.apply {
+            textSize = 13f
+            (layoutParams as LayoutParams).apply {
+                topMargin = dpToPx(12)
+                bottomMargin = dpToPx(12)
+                marginStart = dpToPx(8)
+                marginEnd = dpToPx(8)
+            }
+        })
+        addView(calculatorActionKey("Insert", 1f) {
+            calculator.settledResult()?.let {
+                onKeyPress?.invoke(KeyEvent.CalculatorInsert(it))
+                returnFromCalculator()
+            }
+        })
+    }
+
+    private fun calculatorActionKey(label: String, weight: Float, onClick: () -> Unit): TextView =
+        createSpecialKey(label, weight) {
+            onClick()
+            calculatorDisplay?.text = calculator.summary
+        }.apply { textSize = 15f }
 
     private fun createNumericRow(keys: List<NumericPadSpec.Key>): LinearLayout = LinearLayout(context).apply {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(maxOf(keyHeightDp, 68)))

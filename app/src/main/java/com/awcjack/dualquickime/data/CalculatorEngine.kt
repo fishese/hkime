@@ -11,6 +11,7 @@ class CalculatorEngine {
     private var operation: Char? = null
     private var startNewNumber = true
     private var hasResult = false
+    private var equation: String? = null
 
     val result: String? get() = display.takeIf { hasResult && it != "Error" }
     val summary: String get() = if (left != null && operation != null)
@@ -23,6 +24,7 @@ class CalculatorEngine {
         operation = null
         startNewNumber = true
         hasResult = false
+        equation = null
     }
 
     fun digit(value: Char) {
@@ -39,6 +41,7 @@ class CalculatorEngine {
             }
         }
         hasResult = false
+        equation = null
     }
 
     fun decimal() {
@@ -48,6 +51,7 @@ class CalculatorEngine {
             startNewNumber = false
         } else if ('.' !in display) display += "."
         hasResult = false
+        equation = null
     }
 
     fun toggleSign() {
@@ -57,6 +61,7 @@ class CalculatorEngine {
             else if (display.startsWith('-')) display.drop(1) else "-$display"
         startNewNumber = wasResult
         hasResult = wasResult
+        equation = null
     }
 
     fun backspace() {
@@ -65,6 +70,7 @@ class CalculatorEngine {
         startNewNumber = false
         display = display.dropLast(1).takeIf { it.isNotEmpty() && it != "-" } ?: "0"
         hasResult = false
+        equation = null
     }
 
     fun operator(value: Char) {
@@ -77,6 +83,7 @@ class CalculatorEngine {
         operation = value
         startNewNumber = true
         hasResult = false
+        equation = null
     }
 
     fun equals() {
@@ -86,21 +93,38 @@ class CalculatorEngine {
                 display = display.toBigDecimalOrNull()?.let(::format) ?: "Error"
                 hasResult = display != "Error"
                 startNewNumber = true
+                equation = null
             }
             return
         }
         if (startNewNumber) return
+        val storedLeft = format(left!!)
+        val storedOperation = operation!!
+        val storedRight = display.toBigDecimalOrNull()?.let(::format) ?: display
         evaluate()
         left = null
         operation = null
         startNewNumber = true
         hasResult = display != "Error"
+        equation = if (hasResult) "$storedLeft ${plainOperator(storedOperation)} $storedRight = $display" else null
     }
 
-    /** Keep/Insert first completes the current calculation, just like tapping equals. */
+    /** Pin/Insert/Eq first completes the current calculation, just like tapping equals. */
     fun settledResult(): String? {
         equals()
         return result
+    }
+
+    /** The completed formula, such as "100 * 1.1 = 110". Null when there is no operator. */
+    fun settledEquation(): String? {
+        equals()
+        return equation
+    }
+
+    private fun plainOperator(value: Char) = when (value) {
+        '×' -> '*'
+        '÷' -> '/'
+        else -> value
     }
 
     private fun evaluate() {

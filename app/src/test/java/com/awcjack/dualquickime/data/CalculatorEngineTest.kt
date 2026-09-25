@@ -48,6 +48,17 @@ class CalculatorEngineTest {
         assertNull(calc.result)
     }
 
+    @Test fun equationInsertsTheCompletedFormula() {
+        val calc = CalculatorEngine()
+        calc.digit('1'); calc.digit('0'); calc.digit('0')
+        calc.operator('×'); calc.digit('1'); calc.decimal(); calc.digit('1')
+        assertEquals("100 * 1.1 = 110", calc.settledEquation())
+        assertEquals("110", calc.settledResult())
+        val single = CalculatorEngine()
+        single.digit('5')
+        assertNull(single.settledEquation())
+    }
+
     @Test fun keepAndInsertCanSettleAnExpressionOrSingleNumber() {
         val expression = CalculatorEngine()
         expression.digit('4'); expression.operator('+'); expression.digit('3')
