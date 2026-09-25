@@ -81,9 +81,14 @@ class KeyboardView @JvmOverloads constructor(
     )
     private var swipeTouch: SwipeTouch? = null
     private var swipeWords: Collection<String> = EnglishSuggestions.swipeWords()
+    private var swipeCodes: Collection<String> = emptySet()
 
     fun setSwipeWords(words: Collection<String>) {
         swipeWords = words.ifEmpty { EnglishSuggestions.swipeWords() }
+    }
+
+    fun setSwipeCodes(codes: Collection<String>) {
+        swipeCodes = codes
     }
 
     // Backspace repeat handling
@@ -1800,9 +1805,10 @@ class KeyboardView @JvmOverloads constructor(
             MotionEvent.ACTION_MOVE -> {
                 val touch = swipeTouch ?: return super.dispatchTouchEvent(event)
                 for (index in 0 until event.historySize) {
-                    touch.points.add(SwipeTypingDecoder.Point(event.getHistoricalX(index), event.getHistoricalY(index)))
+                    touch.points.add(SwipeTypingDecoder.Point(event.getHistoricalX(index),
+                        event.getHistoricalY(index), event.getHistoricalEventTime(index)))
                 }
-                touch.points.add(SwipeTypingDecoder.Point(event.x, event.y))
+                touch.points.add(SwipeTypingDecoder.Point(event.x, event.y, event.eventTime))
                 if (!touch.active && shouldActivateSwipe(touch)) {
                     touch.active = true
                     val cancel = MotionEvent.obtain(event)
@@ -1816,7 +1822,7 @@ class KeyboardView @JvmOverloads constructor(
                 val touch = swipeTouch
                 swipeTouch = null
                 if (touch?.active == true) {
-                    touch.points.add(SwipeTypingDecoder.Point(event.x, event.y))
+                    touch.points.add(SwipeTypingDecoder.Point(event.x, event.y, event.eventTime))
                     if (touch.deleting) {
                         performKeyHaptic(this)
                         onKeyPress?.invoke(KeyEvent.SwipeDelete)
@@ -1824,9 +1830,9 @@ class KeyboardView @JvmOverloads constructor(
                         val words = if (ThemeManager.getMethodEnglish(context))
                             swipeWords else emptySet()
                         val result = SwipeTypingDecoder.decode(touch.points, touch.centers,
-                            touch.keyWidth, words)
+                            touch.keyWidth, words, swipeCodes)
                         if (result != null) {
-                            onKeyPress?.invoke(KeyEvent.SwipeCode(result.code, result.words))
+                            onKeyPress?.invoke(KeyEvent.SwipeCode(result.code, result.words, result.codes))
                         } else {
                             touch.initialLetter?.let { onKeyPress?.invoke(KeyEvent.Letter(it)) }
                         }
@@ -1855,7 +1861,7 @@ class KeyboardView @JvmOverloads constructor(
         val centers = letterKeyViews.mapValues { (_, view) -> center(view) }
         val keyWidth = letterKeyViews.values.firstOrNull()?.width?.toFloat() ?: return null
         if (keyWidth <= 0f) return null
-        val position = SwipeTypingDecoder.Point(event.x, event.y)
+        val position = SwipeTypingDecoder.Point(event.x, event.y, event.eventTime)
         val fromSpace = spaceKeyView?.let { view ->
             val middle = center(view)
             kotlin.math.abs(position.x - middle.x) <= view.width / 2f &&
@@ -1935,7 +1941,8 @@ class KeyboardView @JvmOverloads constructor(
 
     sealed class KeyEvent {
         data class Letter(val char: Char) : KeyEvent()
-        data class SwipeCode(val code: String, val englishWords: List<String>) : KeyEvent()
+        data class SwipeCode(val code: String, val englishWords: List<String>,
+            val chineseCodes: List<String>) : KeyEvent()
         object SwipeDelete : KeyEvent()
         data class Number(val digit: Int) : KeyEvent()
         data class ShortcutPhrase(val digit: Int) : KeyEvent()

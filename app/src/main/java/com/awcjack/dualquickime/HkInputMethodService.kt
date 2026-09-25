@@ -60,6 +60,7 @@ class HkInputMethodService : InputMethodService() {
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
     private var swipeEnglishWords: List<String> = emptyList()
+    private var swipeChineseCodes: List<String> = emptyList()
     private var lastSelectedText = ""
     private var pendingSymbol: PendingSymbol? = null
 
@@ -180,6 +181,7 @@ class HkInputMethodService : InputMethodService() {
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this).apply {
             setSwipeWords(englishAutocomplete.allWords())
+            setSwipeCodes(methodMembership.swipeCodes(enabledMethods()))
             setOnKeyPressListener { event ->
                 handleKeyEvent(event)
             }
@@ -233,6 +235,7 @@ class HkInputMethodService : InputMethodService() {
         super.onStartInputView(info, restarting)
         // Invalidate caches to pick up any settings changes
         ThemeManager.invalidateCache()
+        keyboardView?.setSwipeCodes(methodMembership.swipeCodes(enabledMethods()))
         ClipboardHistoryManager.invalidateCache()
         RecentCandidateManager.invalidateCache()
         CustomDictionaryManager.invalidateCache()
@@ -395,6 +398,7 @@ class HkInputMethodService : InputMethodService() {
 
     private fun handleLetter(char: Char) {
         swipeEnglishWords = emptyList()
+        swipeChineseCodes = emptyList()
         if (isEmailSuggestionsMode) {
             val lowerChar = char.lowercaseChar()
             commitText(lowerChar.toString())
@@ -423,6 +427,7 @@ class HkInputMethodService : InputMethodService() {
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         finishEnglishComposition()
         swipeEnglishWords = event.englishWords.filterNot { it == event.code }
+        swipeChineseCodes = event.chineseCodes.filterNot { it == event.code }
         letterCases.clear()
         repeat(event.code.length) { letterCases.add(false) }
         currentInputConnection?.setComposingText(event.code, 1)
@@ -562,6 +567,7 @@ class HkInputMethodService : InputMethodService() {
 
     private fun handleBackspace() {
         swipeEnglishWords = emptyList()
+        swipeChineseCodes = emptyList()
         lastSelectedText = ""
         if (isEmailSuggestionsMode) {
             if (emailTypedSoFar.isNotEmpty()) {
@@ -832,26 +838,38 @@ class HkInputMethodService : InputMethodService() {
         clearEmailSuggestions()
     }
 
+    private fun enabledMethods(): Set<MethodMembership.Method> = buildSet {
+        if (ThemeManager.getMethodCantonese(this@HkInputMethodService))
+            add(MethodMembership.Method.CANTONESE)
+        if (ThemeManager.getMethodCangjie(this@HkInputMethodService))
+            add(MethodMembership.Method.CANGJIE)
+        if (ThemeManager.getMethodQuick(this@HkInputMethodService))
+            add(MethodMembership.Method.QUICK)
+        if (ThemeManager.getMethodEnglish(this@HkInputMethodService))
+            add(MethodMembership.Method.ENGLISH)
+    }
+
     private fun updateComposition(rawKeys: String) {
         val pageSize = ThemeManager.getCandidatesPerPage(this)
 
         // Filter the merged dictionary using method-specific membership hints,
         // retaining its ranking and the uninterrupted Latin composition.
         val lookupKeys = rawKeys
-        val enabledMethods = buildSet {
-            if (ThemeManager.getMethodCantonese(this@HkInputMethodService))
-                add(MethodMembership.Method.CANTONESE)
-            if (ThemeManager.getMethodCangjie(this@HkInputMethodService))
-                add(MethodMembership.Method.CANGJIE)
-            if (ThemeManager.getMethodQuick(this@HkInputMethodService))
-                add(MethodMembership.Method.QUICK)
-            if (ThemeManager.getMethodEnglish(this@HkInputMethodService))
-                add(MethodMembership.Method.ENGLISH)
-        }
+        val enabledMethods = enabledMethods()
         var candidates = methodMembership.filter(lookupKeys,
             mixedDictionary.lookup(lookupKeys), enabledMethods)
         candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
         candidates = promoteReviewedCharacter(lookupKeys, candidates)
+
+        // A glide can be ambiguous between short Chinese codes. Keep the best
+        // visible Latin code, but expose nearby valid codes' Chinese candidates.
+        if (swipeChineseCodes.isNotEmpty()) {
+            val alternatives = swipeChineseCodes.flatMap { code ->
+                methodMembership.filter(code, mixedDictionary.lookup(code), enabledMethods) +
+                    methodMembership.supplementalCandidates(code, enabledMethods)
+            }
+            candidates = (candidates + alternatives).distinct()
+        }
 
         // Retain the original OpenVanilla Quick table as a resilient fallback.
         if (candidates.isEmpty() && rawKeys.length <= 2 && ThemeManager.getMethodQuick(this)) {
@@ -904,6 +922,7 @@ class HkInputMethodService : InputMethodService() {
     private fun clearComposition() {
         composition = CompositionState.EMPTY
         swipeEnglishWords = emptyList()
+        swipeChineseCodes = emptyList()
         letterCases.clear()
         keyboardView?.clearCandidates()
     }

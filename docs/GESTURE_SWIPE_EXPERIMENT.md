@@ -8,14 +8,15 @@ This branch keeps both features off by default while touch behavior is tested on
   word (including trailing whitespace), or one Chinese/emoji grapheme. When
   swipe typing is off, a left swipe across letter keys also deletes.
 - **Swipe typing:** glide across QWERTY letter keys. The path is matched against
-  the bundled offline English autocomplete lexicon by geometry; a confident match becomes one
-  composing word. Other close English matches and the existing Chinese/English
-  dictionary candidates appear in the normal candidate bar. An unmatched path
-  becomes a literal sequence of traversed keys for the existing input methods.
+  enabled Cantonese, Cangjie, and Quick codes as well as the bundled offline
+  English lexicon. Touch pauses near a key strengthen its evidence. A confident
+  match becomes one visible Latin composition, with close English words and
+  Chinese candidates from close valid codes shown in the normal candidate bar.
+  An unmatched path uses its turns rather than every crossed key as a fallback.
   No automatic candidate selection or automatic space occurs. Disabled in
   password fields. The decoder is intentionally small/offline and will need
-  real-device tuning, particularly for short words, repeated letters, and
-  Cantonese/Cangjie code paths.
+  real-device tuning, particularly for short codes, repeated letters, and
+  similarly shaped English and Chinese paths.
 
 The gesture and swipe toggles are independent. With both on, Space is reserved
 for deletion and letter-key paths for typing, avoiding ambiguous straight-left

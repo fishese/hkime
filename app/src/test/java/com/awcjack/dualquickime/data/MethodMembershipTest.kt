@@ -46,6 +46,18 @@ class MethodMembershipTest {
         "abc\tenglish\t🔤",
     ))
 
+    @Test fun swipeLexiconRespectsEnabledMethodsAndIncludesReviewedOverrides() {
+        val cantonese = membership.swipeCodes(setOf(MethodMembership.Method.CANTONESE))
+        org.junit.Assert.assertTrue("ng" in cantonese)
+        org.junit.Assert.assertTrue("lip" in cantonese)
+        org.junit.Assert.assertTrue("zzzz" in cantonese)
+        org.junit.Assert.assertFalse("jjyt" in cantonese)
+        org.junit.Assert.assertFalse("a" in cantonese)
+        val quick = membership.swipeCodes(setOf(MethodMembership.Method.QUICK))
+        org.junit.Assert.assertTrue("jt" in quick)
+        org.junit.Assert.assertFalse("lip" in quick)
+    }
+
     @Test fun keepsOriginalOrderWhenAllMethodsEnabled() {
         assertEquals(listOf("魚", "唔", "phrase", "吳"), membership.filter(
             "ng", listOf("魚", "唔", "phrase", "吳"), MethodMembership.Method.values().toSet()))
