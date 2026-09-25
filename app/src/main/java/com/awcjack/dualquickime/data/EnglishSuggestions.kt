@@ -58,7 +58,7 @@ object EnglishSuggestions {
             .toList()
     }
 
-    private val contractions = listOf(
+    private val contractionWords = listOf(
         "aren't", "can't", "couldn't", "didn't", "doesn't", "don't", "hadn't", "hasn't", "haven't",
         "he's", "here's", "how's", "I'd", "I'll", "I'm", "I've", "isn't", "it's", "let's", "she's",
         "shouldn't", "that's", "there's", "they'd", "they'll", "they're", "they've", "wasn't", "we'd",
@@ -73,7 +73,7 @@ object EnglishSuggestions {
     fun contractions(typed: String): List<String> {
         if (typed.length !in 2..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return emptyList()
         val lower = typed.lowercase()
-        val matches = contractions.asSequence()
+        val matches = contractionWords.asSequence()
             .filter { contraction ->
                 val plain = contraction.replace("'", "")
                 plain.startsWith(lower)
