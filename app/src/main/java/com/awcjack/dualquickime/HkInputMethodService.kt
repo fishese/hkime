@@ -838,7 +838,7 @@ class HkInputMethodService : InputMethodService() {
             val contractions = EnglishSuggestions.contractions(typed)
             val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
                 else EnglishSuggestions.completions(typed)
-            candidates = (candidates + contractions + english).distinct()
+            candidates = (contractions + candidates + english).distinct()
 
             // Fill translation gaps for English words intentionally added outside
             // the upstream mixed dictionary. Existing dictionary translations win.
