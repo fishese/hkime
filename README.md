@@ -1,6 +1,6 @@
 # HK IME
 
-HK IME is an offline Android keyboard built for natural Hong Kong Chinese–English typing. Cantonese romanization, Cangjie (倉頡), Quick/Simplex (速成), English, emoji, symbols and utilities are available from one keyboard.
+HK IME is an offline Android keyboard built for natural Hong Kong Chinese–English typing. Cantonese romanization (廣東話拼音), Cangjie (倉頡), Quick/Simplex (速成), English, emoji, symbols and utilities are available from one keyboard.
 
 > **Type “幫我check下” in one go — no keyboard or mode switching needed.**
 
