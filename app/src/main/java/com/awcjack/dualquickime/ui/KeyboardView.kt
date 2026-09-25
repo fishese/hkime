@@ -3,6 +3,9 @@ package com.awcjack.dualquickime.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
@@ -26,6 +29,7 @@ import com.awcjack.dualquickime.R
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.CalculatorEngine
+import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.SwipeTypingDecoder
 import com.awcjack.dualquickime.data.sanitizeCandidates
@@ -80,6 +84,21 @@ class KeyboardView @JvmOverloads constructor(
         var deleting: Boolean = false
     )
     private var swipeTouch: SwipeTouch? = null
+    private var swipeTrail = emptyList<SwipeTypingDecoder.Point>()
+    private val clearSwipeTrail = Runnable {
+        swipeTrail = emptyList()
+        invalidate()
+    }
+    private val swipeTrailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        color = 0xE61A73E8.toInt()
+    }
+    private var spaceCursorActive = false
+    private var spaceCursorOriginX = 0f
+    private var spaceCursorSteps = 0
+    private var spaceCursorArm: Runnable? = null
     private var swipeWords: Collection<String> = EnglishSuggestions.swipeWords()
     private var swipeCodes: Collection<String> = emptySet()
 
@@ -189,6 +208,7 @@ class KeyboardView @JvmOverloads constructor(
         showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
         gestureDeleteEnabled = ThemeManager.getGestureDelete(context)
         swipeTypingEnabled = ThemeManager.getSwipeTyping(context)
+        swipeTrailPaint.color = colors.compositionText
         setBackgroundColor(colors.keyboardBackground)
         // Key views fill rectangular row cells, including the transparent corners
         // of their rounded backgrounds. Keep outer dead space small as well.
@@ -1244,6 +1264,7 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun createSpaceKey(): TextView {
         return TextView(context).apply {
             spaceKeyView = this
@@ -1255,11 +1276,82 @@ class KeyboardView @JvmOverloads constructor(
             background = createKeyBackground(colors.spaceKeyBackground, colors.keyBackgroundPressed)
             elevation = dpToPx(2).toFloat()
 
-            setOnClickListener {
-                performKeyHaptic(this)
-                onKeyPress?.invoke(KeyEvent.Space)
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.isPressed = true
+                        spaceCursorActive = false
+                        cancelSpaceCursorArm()
+                        val originX = event.rawX
+                        val arm = Runnable {
+                            spaceCursorActive = true
+                            swipeTouch = null
+                            spaceCursorOriginX = originX
+                            spaceCursorSteps = 0
+                            performKeyHaptic(view, longPress = true)
+                        }
+                        spaceCursorArm = arm
+                        longPressHandler.postDelayed(arm, LONG_PRESS_DELAY)
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        view.isPressed = false
+                        val wasCursor = spaceCursorActive
+                        cancelSpaceCursorArm()
+                        spaceCursorActive = false
+                        if (!wasCursor) {
+                            performKeyHaptic(view)
+                            onKeyPress?.invoke(KeyEvent.Space)
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        view.isPressed = false
+                        cancelSpaceCursorArm()
+                        spaceCursorActive = false
+                        true
+                    }
+                    else -> false
+                }
             }
         }
+    }
+
+    private fun trackSpaceCursor(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                val steps = CursorMotion.stepsForDrag(event.rawX - spaceCursorOriginX, dpToPx(18).toFloat())
+                val delta = steps - spaceCursorSteps
+                if (delta != 0) {
+                    spaceCursorSteps = steps
+                    onKeyPress?.invoke(KeyEvent.MoveCursor(delta))
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                spaceCursorActive = false
+                spaceKeyView?.isPressed = false
+            }
+        }
+        return true
+    }
+
+    private fun cancelSpaceCursorArm() {
+        spaceCursorArm?.let { longPressHandler.removeCallbacks(it) }
+        spaceCursorArm = null
+    }
+
+    private fun showSwipeTrail(points: List<SwipeTypingDecoder.Point>) {
+        longPressHandler.removeCallbacks(clearSwipeTrail)
+        swipeTrailPaint.strokeWidth = dpToPx(9).toFloat()
+        swipeTrail = points.toList()
+        invalidate()
+    }
+
+    private fun hideSwipeTrail() {
+        longPressHandler.removeCallbacks(clearSwipeTrail)
+        if (swipeTrail.isEmpty()) return
+        swipeTrail = emptyList()
+        invalidate()
     }
 
     private fun createSpecialKey(label: String, weight: Float, onClick: () -> Unit): TextView {
@@ -1791,15 +1883,33 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (swipeTrail.size < 2) return
+        val path = Path()
+        val first = swipeTrail.first()
+        path.moveTo(first.x, first.y)
+        for (index in 1 until swipeTrail.lastIndex) {
+            val point = swipeTrail[index]
+            val next = swipeTrail[index + 1]
+            path.quadTo(point.x, point.y, (point.x + next.x) / 2f, (point.y + next.y) / 2f)
+        }
+        val last = swipeTrail.last()
+        path.lineTo(last.x, last.y)
+        canvas.drawPath(path, swipeTrailPaint)
+    }
+
     /** Watch the entire keyboard so a glide can cross child key views. Ordinary taps
      * still go through their existing listeners; only a confirmed swipe cancels them. */
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (spaceCursorActive) return trackSpaceCursor(event)
         if (isSymbolMode || isNumberPadMode || calculatorMode || isCandidateGridMode || isSensitiveField ||
             (!gestureDeleteEnabled && !swipeTypingEnabled)) {
             return super.dispatchTouchEvent(event)
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                hideSwipeTrail()
                 swipeTouch = startSwipeTouch(event)
             }
             MotionEvent.ACTION_MOVE -> {
@@ -1811,18 +1921,24 @@ class KeyboardView @JvmOverloads constructor(
                 touch.points.add(SwipeTypingDecoder.Point(event.x, event.y, event.eventTime))
                 if (!touch.active && shouldActivateSwipe(touch)) {
                     touch.active = true
+                    cancelSpaceCursorArm()
                     val cancel = MotionEvent.obtain(event)
                     cancel.action = MotionEvent.ACTION_CANCEL
                     super.dispatchTouchEvent(cancel)
                     cancel.recycle()
                 }
-                if (touch.active) return true
+                if (touch.active) {
+                    showSwipeTrail(touch.points)
+                    return true
+                }
             }
             MotionEvent.ACTION_UP -> {
                 val touch = swipeTouch
                 swipeTouch = null
                 if (touch?.active == true) {
                     touch.points.add(SwipeTypingDecoder.Point(event.x, event.y, event.eventTime))
+                    showSwipeTrail(touch.points)
+                    longPressHandler.postDelayed(clearSwipeTrail, SWIPE_TRAIL_LINGER_MS)
                     if (touch.deleting) {
                         performKeyHaptic(this)
                         onKeyPress?.invoke(KeyEvent.SwipeDelete)
@@ -1842,6 +1958,7 @@ class KeyboardView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
                 swipeTouch = null
+                hideSwipeTrail()
             }
         }
         return super.dispatchTouchEvent(event)
@@ -1897,6 +2014,9 @@ class KeyboardView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         swipeTouch = null
+        hideSwipeTrail()
+        cancelSpaceCursorArm()
+        spaceCursorActive = false
         backspaceRepeatRunnable?.let { backspaceHandler.removeCallbacks(it) }
         backspaceRepeatRunnable = null
         longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
@@ -1951,6 +2071,7 @@ class KeyboardView @JvmOverloads constructor(
         data class ClipboardPaste(val text: String) : KeyEvent()
         data class CalculatorInsert(val text: String) : KeyEvent()
         object Space : KeyEvent()
+        data class MoveCursor(val delta: Int) : KeyEvent()
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
         object HideKeyboard : KeyEvent()
@@ -1966,6 +2087,7 @@ class KeyboardView @JvmOverloads constructor(
         private const val BACKSPACE_INITIAL_DELAY = 400L  // ms before first repeat
         private const val BACKSPACE_REPEAT_INTERVAL = 50L  // ms between subsequent repeats
         private const val LONG_PRESS_DELAY = 300L  // ms before long-press triggers
+        private const val SWIPE_TRAIL_LINGER_MS = 320L
 
         // Half-width to full-width punctuation mapping
         // Used in symbol keyboard: tap half-width, long-press full-width

@@ -47,13 +47,18 @@ internal object SwipeTypingDecoder {
                     val endpoints = (distance(first, wordPath.first()) + distance(last, wordPath.last())) /
                         keyWidth * 0.3
                     val missingAnchors = anchors.count { it !in word } * 0.5
-                    Triple(word, english, deviation + endpoints + missingAnchors +
+                    val geometry = deviation + endpoints + missingAnchors +
                         0.018 * abs(word.length - anchors.size.coerceAtLeast(2)) -
-                        if (english) 0.05 else 0.0)
+                        if (english) 0.05 else 0.0
+                    // A repeated letter adds no movement. Count it only when the
+                    // finger never paused on that key, so "mo" beats "moo" while
+                    // a real pause on "happy" still counts.
+                    val dwells = anchors.toSet()
+                    val unpausedRepeats = word.zipWithNext().count { (a, b) -> a == b && b !in dwells }
+                    Scored(word, english, geometry, geometry + unpausedRepeats * 0.12)
                 }
             }
-            .sortedWith(compareBy<Triple<String, Boolean, Double>> { it.third }
-                .thenBy { it.first.length })
+            .sortedWith(compareBy<Scored> { it.rank }.thenBy { it.word.length })
             .take(20)
             .toList()
         // Transit keys are not typed keys. On a weak match, retain only turns in
@@ -64,13 +69,16 @@ internal object SwipeTypingDecoder {
             if (code.lastOrNull() != letter) code.append(letter)
             code
         }.toString().let { if (traversed.length <= 3) traversed else it.ifEmpty { traversed } }
-        val bestScore = ranked.firstOrNull()?.third ?: Double.POSITIVE_INFINITY
-        val plausible = ranked.filter { it.third < 1.0 && it.third <= bestScore + 0.28 }
-        val best = plausible.firstOrNull()?.first ?: fallback
+        val bestGeometry = ranked.minOfOrNull { it.geometry } ?: Double.POSITIVE_INFINITY
+        val plausible = ranked.filter { it.geometry < 1.0 && it.geometry <= bestGeometry + 0.28 }
+            .sortedWith(compareBy<Scored> { it.rank }.thenBy { it.word.length })
+        val best = plausible.firstOrNull()?.word ?: fallback
         return Result(best,
-            plausible.filter { it.second }.map { it.first }.distinct().take(6),
-            plausible.filterNot { it.second }.map { it.first }.distinct().take(8))
+            plausible.filter { it.english }.map { it.word }.distinct().take(6),
+            plausible.filterNot { it.english }.map { it.word }.distinct().take(8))
     }
+
+    private data class Scored(val word: String, val english: Boolean, val geometry: Double, val rank: Double)
 
     private fun dwellAnchors(trace: List<Point>, keys: Map<Char, Point>, width: Float): List<Char> {
         val anchors = mutableListOf<Char>()

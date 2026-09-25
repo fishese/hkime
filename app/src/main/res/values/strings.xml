@@ -36,6 +36,8 @@
     <string name="settings_tab_input">Input</string>
     <string name="settings_tab_other">Other</string>
     <string name="settings_switch_language">以中文顯示設定</string>
+    <string name="settings_language_toggle">中/EN</string>
+    <string name="settings_enable_keyboard">Enable HK IME in system settings</string>
     <string name="settings_english_options">English input options</string>
     <string name="settings_history">History</string>
     <string name="settings_input_methods_desc">Choose which suggestions appear together. Latin typing and your custom dictionary stay available.</string>

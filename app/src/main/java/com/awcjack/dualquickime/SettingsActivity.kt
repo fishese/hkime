@@ -2,6 +2,8 @@ package com.awcjack.dualquickime
 
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import android.content.DialogInterface
 import android.content.res.Configuration
 import android.graphics.Color
@@ -76,6 +78,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_settings)
         organizeSettings(savedInstanceState?.getInt(STATE_SETTINGS_TAB) ?: 0)
         setupSettingsLanguage()
+        refreshKeyboardEnabledLink()
 
         themeRadioGroup = findViewById(R.id.themeRadioGroup)
         previewContainer = findViewById(R.id.previewContainer)
@@ -140,17 +143,33 @@ class SettingsActivity : AppCompatActivity() {
         val container = findViewById<LinearLayout>(R.id.behaviorOptionsContainer)
         fun addBehaviorSwitch(title: Int, description: Int, checked: Boolean,
                               onChange: (Boolean) -> Unit) {
-            container.addView(SwitchCompat(this).apply {
-                setText(title)
-                isChecked = checked
-                setOnCheckedChangeListener { _, enabled -> onChange(enabled) }
+            container.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
-                ).apply { topMargin = dp(12) }
-            })
-            container.addView(TextView(this).apply {
-                setText(description)
-                textSize = 12f
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(10) }
+                addView(LinearLayout(this@SettingsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    addView(TextView(this@SettingsActivity).apply {
+                        setText(title)
+                        textSize = 15f
+                        setTextColor(themeColor(android.R.attr.textColorPrimary))
+                    })
+                    addView(TextView(this@SettingsActivity).apply {
+                        setText(description)
+                        textSize = 12f
+                        setTextColor(themeColor(android.R.attr.textColorSecondary))
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = dp(2) }
+                    })
+                })
+                addView(SwitchCompat(this@SettingsActivity).apply {
+                    isChecked = checked
+                    setOnCheckedChangeListener { _, enabled -> onChange(enabled) }
+                })
             })
         }
         addBehaviorSwitch(R.string.settings_gesture_delete, R.string.settings_gesture_delete_desc,
@@ -164,14 +183,28 @@ class SettingsActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshKeyboardEnabledLink()
+    }
+
     private fun setupSettingsLanguage() {
-        findViewById<SwitchCompat>(R.id.switchSettingsChinese).apply {
-            isChecked = ThemeManager.getSettingsChinese(this@SettingsActivity)
-            setOnCheckedChangeListener { _, chinese ->
-                ThemeManager.setSettingsChinese(this@SettingsActivity, chinese)
-                recreate()
-            }
+        findViewById<View>(R.id.buttonSettingsLanguage).setOnClickListener {
+            val chinese = ThemeManager.getSettingsChinese(this)
+            ThemeManager.setSettingsChinese(this, !chinese)
+            recreate()
         }
+        findViewById<View>(R.id.linkEnableKeyboard).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        }
+    }
+
+    private fun refreshKeyboardEnabledLink() {
+        val enabled = getSystemService(InputMethodManager::class.java)
+            ?.enabledInputMethodList
+            ?.any { it.packageName == packageName } == true
+        findViewById<View>(R.id.linkEnableKeyboard).visibility =
+            if (enabled) View.GONE else View.VISIBLE
     }
 
     private fun organizeSettings(initialTab: Int) {
@@ -229,8 +262,8 @@ class SettingsActivity : AppCompatActivity() {
         val input = settingsPages[1]
         moveSection(R.id.sectionMethodsHeader, input)
         val englishOptions = addSettingsSection(input, R.string.settings_english_options)
-        moveWithFollowingDescription(R.id.switchEnglishSpellCheck, englishOptions)
-        moveWithFollowingDescription(R.id.switchSpaceAfterEnglishCandidate, englishOptions)
+        moveView(findViewById(R.id.englishSpellCheckRow), englishOptions)
+        moveView(findViewById(R.id.englishSpaceAfterRow), englishOptions)
         moveSection(R.id.shortcutSectionHeader, input)
         moveSection(R.id.customDictionarySectionHeader, input)
         moveSection(R.id.sectionCharsetHeader, input)
@@ -578,6 +611,13 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun themeColor(attr: Int): Int {
+        val typed = obtainStyledAttributes(intArrayOf(attr))
+        val color = typed.getColor(0, Color.BLACK)
+        typed.recycle()
+        return color
+    }
 
     private fun setupChineseConvertSettings() {
         // Keep the section hidden only if the conversion library is unavailable.

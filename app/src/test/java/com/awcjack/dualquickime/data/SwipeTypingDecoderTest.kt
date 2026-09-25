@@ -71,6 +71,13 @@ class SwipeTypingDecoderTest {
         assertEquals("happy", result?.words?.first())
     }
 
+    @Test fun codeWithoutARepeatedLetterOutranksTheRepeatedForm() {
+        val result = SwipeTypingDecoder.decode(glide("mo", 25), qwerty, 1f,
+            listOf("moo", "mood", "moon"), listOf("mo", "moo"))
+        assertEquals("mo", result?.code)
+        assertEquals("mo", result?.codes?.first())
+    }
+
     @Test fun unknownGlideDoesNotTypeEveryCrossedKey() {
         val result = SwipeTypingDecoder.decode(glide("nei", 25), qwerty, 1f,
             emptyList(), emptyList())

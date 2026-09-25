@@ -17,6 +17,8 @@
     <string name="settings_tab_input">輸入</string>
     <string name="settings_tab_other">其他</string>
     <string name="settings_switch_language">Show settings in English</string>
+    <string name="settings_language_toggle">中/EN</string>
+    <string name="settings_enable_keyboard">到系統設定啟用鍵盤</string>
     <string name="settings_english_options">英文輸入選項</string>
     <string name="settings_history">記錄</string>
     <string name="settings_input_methods">輸入方式</string>
