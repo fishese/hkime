@@ -146,6 +146,29 @@ class MethodMembershipTest {
             setOf(MethodMembership.Method.CANGJIE), false))
     }
 
+    @Test fun projectEnglishAdditionsUseTheExistingSupplementalDictionaryPath() {
+        val english = setOf(MethodMembership.Method.ENGLISH)
+        val additions = mapOf(
+            "apples" to "蘋果",
+            "bananas" to "香蕉",
+            "birthdays" to "生日",
+            "oranges" to "橙",
+            "painted" to "上色",
+        )
+        val supplemented = MethodMembership(emptySequence(), sequenceOf(
+            "apples\tenglish\t蘋果",
+            "bananas\tenglish\t香蕉",
+            "birthdays\tenglish\t生日",
+            "oranges\tenglish\t橙",
+            "painted\tenglish\t上色",
+        ))
+        for ((code, candidate) in additions) {
+            assertEquals(listOf(candidate), supplemented.supplementalCandidates(code, english))
+            assertEquals(emptyList<String>(), supplemented.supplementalCandidates(
+                code, setOf(MethodMembership.Method.CANTONESE)))
+        }
+    }
+
     @Test fun suppliedCharacterAppearsEvenIfBundledShardLacksIt() {
         for ((code, method) in listOf(
             "si" to MethodMembership.Method.CANTONESE,
