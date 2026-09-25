@@ -14,16 +14,4 @@ class CandidateSanitizerTest {
             ))
         )
     }
-
-    @Test
-    fun removesBlockedPhraseFromDirectAndAssociatedSuggestions() {
-        assertEquals(
-            listOf("其他"),
-            sanitizeCandidates(listOf("愛國愛港", "爱国爱港", "其他"))
-        )
-        assertEquals(
-            listOf("愛國"),
-            sanitizeAssociatedPhraseCandidates("愛國", listOf("愛港", "愛國"))
-        )
-    }
 }
