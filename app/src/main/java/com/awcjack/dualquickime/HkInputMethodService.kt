@@ -826,8 +826,7 @@ class HkInputMethodService : InputMethodService() {
         }
 
         // English autocomplete is below the bundled Chinese choices by default.
-        // Apostrophe contractions are offered first so they are easy to enter
-        // without switching to the symbol page.
+        // Learned per-code usage can lift a frequently selected word above them.
         if (!isPasswordField && ThemeManager.getMethodEnglish(this)) {
             val typed = getDisplayKeys(rawKeys)
             val contractions = EnglishSuggestions.contractions(typed)

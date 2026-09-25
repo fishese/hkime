@@ -146,26 +146,17 @@ class MethodMembershipTest {
             setOf(MethodMembership.Method.CANGJIE), false))
     }
 
-    @Test fun projectEnglishAdditionsUseTheExistingSupplementalDictionaryPath() {
+    @Test fun englishInflectionsMissingFromBundledShardsUseEnglishOnly() {
         val english = setOf(MethodMembership.Method.ENGLISH)
-        val additions = mapOf(
+        val additions = listOf(
             "apples" to "蘋果",
-            "bananas" to "香蕉",
-            "birthdays" to "生日",
-            "oranges" to "橙",
+            "asked" to "問",
+            "clipboard" to "剪貼簿",
             "painted" to "上色",
-            "suggest" to "建議",
-            "suggestion" to "建議",
+            "would" to "會",
         )
-        val supplemented = MethodMembership(emptySequence(), sequenceOf(
-            "apples\tenglish\t蘋果",
-            "bananas\tenglish\t香蕉",
-            "birthdays\tenglish\t生日",
-            "oranges\tenglish\t橙",
-            "painted\tenglish\t上色",
-            "suggest\tenglish\t建議",
-            "suggestion\tenglish\t建議",
-        ))
+        val lines = additions.map { (code, candidate) -> "$code\tenglish\t$candidate" }
+        val supplemented = MethodMembership(emptySequence(), lines.asSequence())
         for ((code, candidate) in additions) {
             assertEquals(listOf(candidate), supplemented.supplementalCandidates(code, english))
             assertEquals(emptyList<String>(), supplemented.supplementalCandidates(

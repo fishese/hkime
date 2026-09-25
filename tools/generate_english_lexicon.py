@@ -64,10 +64,11 @@ def main() -> None:
     english = upstream_english_words()
     mixed = bundled_mixed_codes()
     selected = english & mixed
-    # Common inflections intentionally supplied by the project overlay because
-    # the bundled mixed dictionary has no Chinese mapping for these exact spellings.
+    # Very common words and ordinary inflections can be useful even when
+    # upstream has no Chinese mapping for that precise spelling.
     selected.update({
-        "apples", "bananas", "birthdays", "oranges", "painted",
+        "apple", "apples", "paint", "painting", "painted", "birthday", "birthdays",
+        "banana", "bananas", "orange", "oranges", "school", "friend", "family",
     })
     with OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write("\n".join(sorted(selected)) + "\n")
