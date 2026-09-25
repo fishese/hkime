@@ -1,5 +1,5 @@
 # English method dictionary: word<TAB>Traditional Chinese candidate
-# Generated from MCK-compatible English keys; project choices may override ambiguous mappings.
+# Generated from MCK-compatible English keys; project choices override ambiguous mappings and fill common gaps.
 aardvark	土豬
 abacus	算盤
 abalone	鮑魚
@@ -801,6 +801,7 @@ appetizing	香
 applaud	叫好
 applause	掌聲
 apple	蘋果
+apples	蘋果
 appliance	用具
 applicable	應用
 applicant	申請人
@@ -975,7 +976,9 @@ asiapacific	亞太
 asic	專用集成電路
 aside	一旁
 ask	要求
+asked	詢問
 askew	歪
+asking	詢問
 asleep	睡著
 asmara	阿斯馬拉
 asparagus	蘆筍
@@ -1259,6 +1262,7 @@ ban	孟加拉國
 banal	俗氣
 banality	陳腐
 banana	香蕉
+bananas	香蕉
 band	樂隊
 bandage	敷布
 bandaid	創可貼
@@ -1435,6 +1439,7 @@ before	以前
 beforehand	在此之前
 befuddled	昏沉
 beg	請求
+began	開始
 beggar	乞人
 begin	開場
 beginning	開頭
@@ -1616,6 +1621,7 @@ birds	鳥類
 birmingham	伯明翰
 birth	出生
 birthday	生日
+birthdays	生日
 birthmark	痣
 birthplace	出生地
 birthrate	出生率
@@ -2201,6 +2207,7 @@ cancel	中止
 cancer	癌症
 candid	直率
 candidate	應徵者
+candidates	候選字
 candle	蠟燭
 candlewick	炷
 candy	糖果
@@ -2475,6 +2482,7 @@ chandelier	吊燈
 changchun	長春市
 change	交換
 changeable	無常
+changed	改變
 changes	變遷
 changsha	長沙市
 changzhou	常州市
@@ -2775,6 +2783,7 @@ clinic	門診室
 clinical	臨床
 clinograph	角規
 clip	呫囁
+clipboard	剪貼簿
 clippings	剪報
 clique	朋黨
 clitoris	陰蒂
@@ -3905,6 +3914,7 @@ decentralize	下放
 deceptive	疑似
 decibel	分貝
 decide	作出抉擇
+decided	決定
 deciduous	落葉
 decigram	公釐
 decimal	十進制
@@ -3955,6 +3965,7 @@ deeply	在深處
 deepwater	深水
 deer	東涌河
 defame	醜化
+default	預設
 defeat	大敗
 defeated	敝
 defecate	大便
@@ -4556,11 +4567,13 @@ dodecagon	十二邊形
 dodecahedron	十二面體
 dodge	規避
 dodger	孱
+does	做
 dog	大阿哥
 doggie	小狗
 doggystyle	狗交媾般
 dogmatic	一意孤行
 dogmatism	教條主義
+doing	做
 doleful	凄婉
 dolerite	輝綠岩
 doll	想入非非
@@ -5626,7 +5639,7 @@ falter	衰退
 fame	名目
 familiar	密切
 familiarlooking	眼熟
-family	家人
+family	家庭
 famine	災荒
 famished	忍飢挨餓
 famous	有名
@@ -6253,7 +6266,7 @@ friction	摩擦
 friday	星期五
 fridge	電冰箱
 fried	炒
-friend	友人
+friend	朋友
 friendliness	親切
 friendly	好客
 friends	儔
@@ -6497,6 +6510,7 @@ gestation	懷孕
 gesticulate	比畫
 gesture	比畫
 get	得到
+getting	取得
 ghana	加納
 ghent	根特
 ghetto	居民區
@@ -6624,6 +6638,7 @@ godhead	神體
 godmother	教母
 gods	神明
 goggleeyed	睍
+going	去
 goiter	癭
 gold	金子
 golden	金色
@@ -6804,6 +6819,7 @@ grouse	松雞
 grove	小樹林
 grovel	拜倒
 grow	生長
+growing	成長
 growl	咆哮
 grownup	大人
 growth	成長
@@ -7031,6 +7047,7 @@ haunt	常去
 haunted	困擾
 have	有著
 haven	避難所
+having	擁有
 hawaii	夏威夷
 hawk	兜售
 hawks	主戰派
@@ -8177,6 +8194,7 @@ intestines	腸道
 intimacy	昵愛
 intimate	知心
 intimidate	威迫
+into	進入
 intolerable	要不得
 intolerant	心窄
 intonation	發聲法
@@ -8939,6 +8957,7 @@ lonesome	想念
 long	里昂
 longcherished	夙
 longdistance	遠距離
+longer	更長
 longest	最長
 longevity	高壽
 longhaired	毿
@@ -8952,6 +8971,7 @@ longshoreman	裝卸工
 longterm	長期性
 longwinded	羅嗦
 look	看來
+looking	看
 lookout	眺望
 looks	樣子
 loom	織布機
@@ -9060,6 +9080,33 @@ lyon	裡昂
 lyric	歌詞
 lyrics	歌詞
 lysosome	溶脢體
+make	製作
+making	製作
+manage	管理
+many	很多
+matter	事情
+may	可能
+maybe	可能
+me	我
+meaning	意思
+member	成員
+message	訊息
+method	方法
+middle	中間
+might	可能
+minute	分鐘
+model	模型
+money	金錢
+month	月
+more	更多
+morning	早上
+mother	母親
+mouse	老鼠
+move	移動
+much	很多
+music	音樂
+must	必須
+my	我的
 na	阿曼
 nadir	最低谷
 nag	多量
@@ -9647,7 +9694,8 @@ or	條嘢
 ora	無咁易
 oracle	神諭
 oral	口頭
-orange	橙子
+orange	橙
+oranges	橙
 orangutan	人猿
 orator	演說者
 orbit	盤旋
@@ -9730,6 +9778,7 @@ otto	樂陶陶
 ouch	哎喲
 ought	活該
 ounce	盎司
+our	我們的
 ourselves	我們
 out	外頭
 outandout	不折不扣
@@ -9890,9 +9939,10 @@ pain	痛苦
 pained	苦澀
 painful	痛苦
 painstaking	細緻
-paint	作畫
+paint	繪畫
+painted	上色
 painter	畫家
-painting	上油漆
+painting	繪畫
 pair	一對
 pajamas	睡衣
 pakistan	巴基斯坦
@@ -12462,6 +12512,8 @@ seize	把握
 seizure	疾病突發
 seldom	不常
 select	選出
+selected	已選取
+selection	選擇
 selector	選舉人
 self	自我
 selfanalysis	剖析
@@ -12591,6 +12643,7 @@ session	會期
 set	設定
 setback	周折
 setting	場景
+settings	設定
 settle	了結
 settled	著落
 settlement	定居點
@@ -13465,6 +13518,7 @@ starling	椋鳥
 starry	多星
 stars	星斗
 start	下手
+started	開始
 startle	駭
 startled	嚇一跳
 startling	噩
@@ -13800,8 +13854,8 @@ suffrage	選舉
 sugar	砂糖
 sugarapple	釋迦
 suger	糖
-suggest	提出
-suggestion	提議
+suggest	建議
+suggestion	建議
 suharto	蘇哈托
 suicidal	自殺式
 suicide	自殺
@@ -14042,6 +14096,51 @@ system	系統
 systematic	有系統
 systematically	有條有理地
 systematics	分類學
+table	表格
+take	拿
+taking	拿取
+talk	說話
+teacher	老師
+tell	告訴
+test	測試
+text	文字
+than	比
+thank	感謝
+thanks	謝謝
+that	那個
+the	該
+their	他們的
+them	他們
+there	那裡
+these	這些
+they	他們
+thing	東西
+think	想
+thinking	思考
+this	這個
+those	那些
+though	雖然
+through	通過
+tiger	老虎
+time	時間
+to	到
+today	今天
+together	一起
+tomorrow	明天
+too	也
+tool	工具
+total	總數
+touch	觸碰
+toward	朝向
+track	追蹤
+traditional	傳統
+translate	翻譯
+true	正確
+trying	嘗試
+turn	轉
+type	類型
+typed	已輸入
+typing	輸入
 ubiquitous	無處不在
 ubiquity	普遍性
 ucla	加利福尼亞大學洛杉磯分校
@@ -14424,6 +14523,7 @@ usage	用法
 usb	岩屑
 use	用法
 useable	用得著
+used	使用
 useful	有用
 usefulness	用處
 useless	不中用
@@ -14785,6 +14885,7 @@ wangle	搞定
 wanker	無能者
 wanna	想
 want	想要
+wanted	想要
 wanton	淫賤
 wantonly	大肆
 war	點開口
@@ -14976,6 +15077,7 @@ whereas	鑑於
 wherefore	何故
 wherein	在其中
 wherever	無論何處
+whether	是否
 whetstone	研磨
 which	哪一個
 whichever	任何
@@ -15159,6 +15261,7 @@ worker	工人
 workers	職工
 workface	工作面
 workhouse	廠
+working	工作
 workload	工作量
 workmanship	手藝
 workplace	職場
@@ -15187,6 +15290,7 @@ worth	價值
 worthless	無用
 worthwhile	合算
 worthy	名士
+would	會
 wound	傷口
 wove	國家級
 wrangle	口角
@@ -15244,6 +15348,14 @@ xylem	木質部
 xylene	二甲苯
 xylitol	木糖醇
 xylophone	木琴
+year	年
+yellow	黃色
+yes	是
+yesterday	昨天
+you	你
+young	年輕
+your	你的
+yourself	你自己
 zagreb	薩格勒布
 zaire	扎伊爾
 zambia	贊比亞
