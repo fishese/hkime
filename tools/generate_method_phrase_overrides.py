@@ -27,6 +27,8 @@ MANUAL = (
     ('birthdays', 'english', '生日'),
     ('oranges', 'english', '橙'),
     ('painted', 'english', '上色'),
+    ('suggest', 'english', '建議'),
+    ('suggestion', 'english', '建議'),
 )
 
 
