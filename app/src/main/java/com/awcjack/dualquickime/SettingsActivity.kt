@@ -136,6 +136,27 @@ class SettingsActivity : AppCompatActivity() {
         switchHaptic.setOnCheckedChangeListener { _, isChecked ->
             ThemeManager.setHapticFeedbackEnabled(this, isChecked)
         }
+
+        val container = findViewById<LinearLayout>(R.id.behaviorOptionsContainer)
+        fun addBehaviorSwitch(title: Int, description: Int, checked: Boolean,
+                              onChange: (Boolean) -> Unit) {
+            container.addView(SwitchCompat(this).apply {
+                setText(title)
+                isChecked = checked
+                setOnCheckedChangeListener { _, enabled -> onChange(enabled) }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
+                ).apply { topMargin = dp(12) }
+            })
+            container.addView(TextView(this).apply {
+                setText(description)
+                textSize = 12f
+            })
+        }
+        addBehaviorSwitch(R.string.settings_gesture_delete, R.string.settings_gesture_delete_desc,
+            ThemeManager.getGestureDelete(this)) { ThemeManager.setGestureDelete(this, it) }
+        addBehaviorSwitch(R.string.settings_swipe_typing, R.string.settings_swipe_typing_desc,
+            ThemeManager.getSwipeTyping(this)) { ThemeManager.setSwipeTyping(this, it) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

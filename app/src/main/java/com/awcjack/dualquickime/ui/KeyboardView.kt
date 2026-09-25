@@ -26,6 +26,8 @@ import com.awcjack.dualquickime.R
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.CalculatorEngine
+import com.awcjack.dualquickime.data.EnglishSuggestions
+import com.awcjack.dualquickime.data.SwipeTypingDecoder
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.theme.KeyboardColors
 import com.awcjack.dualquickime.theme.ThemeManager
@@ -66,6 +68,23 @@ class KeyboardView @JvmOverloads constructor(
     private var symbolPage = 0  // 0–4 = symbol pages; 99 = emoji, 100 = clipboard
     private var shiftKey: TextView? = null
     private var modeToggleKey: TextView? = null
+    private val letterKeyViews = mutableMapOf<Char, View>()
+    private var spaceKeyView: View? = null
+    private data class SwipeTouch(
+        val fromSpace: Boolean,
+        val initialLetter: Char?,
+        val centers: Map<Char, SwipeTypingDecoder.Point>,
+        val keyWidth: Float,
+        val points: MutableList<SwipeTypingDecoder.Point>,
+        var active: Boolean = false,
+        var deleting: Boolean = false
+    )
+    private var swipeTouch: SwipeTouch? = null
+    private var swipeWords: Collection<String> = EnglishSuggestions.swipeWords()
+
+    fun setSwipeWords(words: Collection<String>) {
+        swipeWords = words.ifEmpty { EnglishSuggestions.swipeWords() }
+    }
 
     // Backspace repeat handling
     private val backspaceHandler = Handler(Looper.getMainLooper())
@@ -86,6 +105,8 @@ class KeyboardView @JvmOverloads constructor(
     private var keyHeightDp = ThemeManager.KEY_HEIGHT_DEFAULT
     private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
     private var showKeyRadicals = true
+    private var gestureDeleteEnabled = false
+    private var swipeTypingEnabled = false
 
     // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null
@@ -161,6 +182,8 @@ class KeyboardView @JvmOverloads constructor(
         keyHeightDp = ThemeManager.getKeyHeight(context)
         candidateTextSizeSp = ThemeManager.getCandidateTextSize(context)
         showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
+        gestureDeleteEnabled = ThemeManager.getGestureDelete(context)
+        swipeTypingEnabled = ThemeManager.getSwipeTyping(context)
         setBackgroundColor(colors.keyboardBackground)
         // Key views fill rectangular row cells, including the transparent corners
         // of their rounded backgrounds. Keep outer dead space small as well.
@@ -199,6 +222,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun buildKeyboard() {
         removeAllViews()
+        letterKeyViews.clear()
+        spaceKeyView = null
+        swipeTouch = null
         symbolUtilBar = null
         symbolCandidateBar = null
 
@@ -1089,6 +1115,7 @@ class KeyboardView @JvmOverloads constructor(
         val radical = KeyMapping.getRadical(char) ?: ""
 
         return LinearLayout(context).apply {
+            letterKeyViews[char] = this
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
             orientation = VERTICAL
             gravity = Gravity.CENTER
@@ -1214,6 +1241,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpaceKey(): TextView {
         return TextView(context).apply {
+            spaceKeyView = this
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 4f)
             gravity = Gravity.CENTER
             text = "space"
@@ -1758,8 +1786,111 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    /** Watch the entire keyboard so a glide can cross child key views. Ordinary taps
+     * still go through their existing listeners; only a confirmed swipe cancels them. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (isSymbolMode || isNumberPadMode || calculatorMode || isCandidateGridMode || isSensitiveField ||
+            (!gestureDeleteEnabled && !swipeTypingEnabled)) {
+            return super.dispatchTouchEvent(event)
+        }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeTouch = startSwipeTouch(event)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val touch = swipeTouch ?: return super.dispatchTouchEvent(event)
+                for (index in 0 until event.historySize) {
+                    touch.points.add(SwipeTypingDecoder.Point(event.getHistoricalX(index), event.getHistoricalY(index)))
+                }
+                touch.points.add(SwipeTypingDecoder.Point(event.x, event.y))
+                if (!touch.active && shouldActivateSwipe(touch)) {
+                    touch.active = true
+                    val cancel = MotionEvent.obtain(event)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                }
+                if (touch.active) return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val touch = swipeTouch
+                swipeTouch = null
+                if (touch?.active == true) {
+                    touch.points.add(SwipeTypingDecoder.Point(event.x, event.y))
+                    if (touch.deleting) {
+                        performKeyHaptic(this)
+                        onKeyPress?.invoke(KeyEvent.SwipeDelete)
+                    } else {
+                        val words = if (ThemeManager.getMethodEnglish(context))
+                            swipeWords else emptySet()
+                        val result = SwipeTypingDecoder.decode(touch.points, touch.centers,
+                            touch.keyWidth, words)
+                        if (result != null) {
+                            onKeyPress?.invoke(KeyEvent.SwipeCode(result.code, result.words))
+                        } else {
+                            touch.initialLetter?.let { onKeyPress?.invoke(KeyEvent.Letter(it)) }
+                        }
+                    }
+                    return true
+                }
+            }
+            MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
+                swipeTouch = null
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun startSwipeTouch(event: MotionEvent): SwipeTouch? {
+        val rootLocation = IntArray(2)
+        getLocationOnScreen(rootLocation)
+        fun center(view: View): SwipeTypingDecoder.Point {
+            val location = IntArray(2)
+            view.getLocationOnScreen(location)
+            return SwipeTypingDecoder.Point(
+                location[0] - rootLocation[0] + view.width / 2f,
+                location[1] - rootLocation[1] + view.height / 2f
+            )
+        }
+        val centers = letterKeyViews.mapValues { (_, view) -> center(view) }
+        val keyWidth = letterKeyViews.values.firstOrNull()?.width?.toFloat() ?: return null
+        if (keyWidth <= 0f) return null
+        val position = SwipeTypingDecoder.Point(event.x, event.y)
+        val fromSpace = spaceKeyView?.let { view ->
+            val middle = center(view)
+            kotlin.math.abs(position.x - middle.x) <= view.width / 2f &&
+                kotlin.math.abs(position.y - middle.y) <= view.height / 2f
+        } == true
+        val letter = centers.minByOrNull { (_, point) ->
+            kotlin.math.hypot(position.x - point.x, position.y - point.y)
+        }?.takeIf { (_, point) ->
+            kotlin.math.abs(position.x - point.x) <= keyWidth * 0.7f &&
+                kotlin.math.abs(position.y - point.y) <= keyHeightDp.let(::dpToPx) * 0.5f
+        }?.key
+        if ((!fromSpace || !gestureDeleteEnabled) && letter == null) return null
+        return SwipeTouch(fromSpace, letter, centers, keyWidth, mutableListOf(position))
+    }
+
+    private fun shouldActivateSwipe(touch: SwipeTouch): Boolean {
+        val start = touch.points.first()
+        val end = touch.points.last()
+        val dx = end.x - start.x
+        val dy = end.y - start.y
+        val threshold = maxOf(dpToPx(34).toFloat(), touch.keyWidth * 0.7f)
+        val left = dx < -threshold && kotlin.math.abs(dy) < touch.keyWidth * 0.7f
+        if (gestureDeleteEnabled && left &&
+            (touch.fromSpace || !swipeTypingEnabled)) {
+            touch.deleting = true
+            return true
+        }
+        return !touch.fromSpace && touch.initialLetter != null &&
+            swipeTypingEnabled &&
+            kotlin.math.hypot(dx, dy) > threshold
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        swipeTouch = null
         backspaceRepeatRunnable?.let { backspaceHandler.removeCallbacks(it) }
         backspaceRepeatRunnable = null
         longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
@@ -1804,6 +1935,8 @@ class KeyboardView @JvmOverloads constructor(
 
     sealed class KeyEvent {
         data class Letter(val char: Char) : KeyEvent()
+        data class SwipeCode(val code: String, val englishWords: List<String>) : KeyEvent()
+        object SwipeDelete : KeyEvent()
         data class Number(val digit: Int) : KeyEvent()
         data class ShortcutPhrase(val digit: Int) : KeyEvent()
         data class Symbol(val char: Char, val forceLiteral: Boolean = false) : KeyEvent()

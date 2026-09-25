@@ -5,6 +5,7 @@ import java.io.InputStream
 /** Offline English completions, independent of the conservative typo-correction lexicon. */
 class EnglishAutocomplete private constructor(private val words: List<String>) {
     val size: Int get() = words.size
+    internal fun allWords(): List<String> = words
 
     fun contains(word: String): Boolean = words.binarySearch(word.lowercase()) >= 0
 

@@ -68,6 +68,10 @@
     <string name="settings_keyboard_behavior">Keyboard</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
     <string name="settings_haptic_feedback_desc">Vibrate on key taps and long presses when device haptics are enabled</string>
+    <string name="settings_gesture_delete">Swipe-left deletion</string>
+    <string name="settings_gesture_delete_desc">Swipe left on the space bar to remove the current composition, then the last selected word or character. With swipe typing off, you can also swipe left across letter keys.</string>
+    <string name="settings_swipe_typing">Swipe typing (experimental)</string>
+    <string name="settings_swipe_typing_desc">Glide across letter keys to enter one word or input code, then choose from its candidates. Disabled in password fields.</string>
     <string name="settings_shortcuts">Phrase Shortcuts</string>
     <string name="settings_expand_section">Expand %1$s</string>
     <string name="settings_collapse_section">Collapse %1$s</string>
