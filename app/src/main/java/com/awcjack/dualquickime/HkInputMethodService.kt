@@ -829,9 +829,10 @@ class HkInputMethodService : InputMethodService() {
         // Learned per-code usage can lift a frequently selected word above them.
         if (!isPasswordField && ThemeManager.getMethodEnglish(this)) {
             val typed = getDisplayKeys(rawKeys)
+            val contractions = EnglishSuggestions.contractions(typed)
             val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
                 else EnglishSuggestions.completions(typed)
-            candidates = (candidates + english).distinct()
+            candidates = (contractions + candidates + english).distinct()
         }
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)

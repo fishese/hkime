@@ -18,6 +18,14 @@ class EnglishSuggestionsTest {
         assertNull(EnglishSuggestions.correction("qxzrrr"))
     }
 
+    @Test fun suggestsCommonApostropheContractionsWithoutTypingApostrophe() {
+        assertEquals("don't", EnglishSuggestions.contractions("dont").first())
+        assertTrue("don't" in EnglishSuggestions.contractions("don"))
+        assertEquals("hadn't", EnglishSuggestions.contractions("hadn").first())
+        assertEquals("Don't", EnglishSuggestions.contractions("Dont").first())
+        assertEquals("DON'T", EnglishSuggestions.contractions("DONT").first())
+    }
+
     @Test fun unicodeKeywordsAreExactEnglishOnly() {
         assertEquals(listOf("★", "☆"), UnicodeWordSuggestions.lookupEnglish("star").take(2))
         assertEquals(emptyList<String>(), UnicodeWordSuggestions.lookupEnglish("sing"))

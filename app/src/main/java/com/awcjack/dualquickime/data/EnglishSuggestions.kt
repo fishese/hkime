@@ -58,6 +58,41 @@ object EnglishSuggestions {
             .toList()
     }
 
+    private val contractionWords = listOf(
+        "aren't", "can't", "couldn't", "didn't", "doesn't", "don't", "hadn't", "hasn't", "haven't",
+        "he's", "here's", "how's", "I'd", "I'll", "I'm", "I've", "isn't", "it's", "let's", "she's",
+        "shouldn't", "that's", "there's", "they'd", "they'll", "they're", "they've", "wasn't", "we'd",
+        "we'll", "we're", "we've", "weren't", "what's", "when's", "where's", "who's", "why's", "won't",
+        "wouldn't", "you'd", "you'll", "you're", "you've"
+    ).map { it.lowercase() }
+
+    /**
+     * Suggest common apostrophe contractions from ordinary letter-only typing.
+     * This lets e.g. "don"/"dont" offer "don't" without opening the symbol page.
+     */
+    fun contractions(typed: String): List<String> {
+        if (typed.length !in 2..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return emptyList()
+        val lower = typed.lowercase()
+        val matches = contractionWords.asSequence()
+            .filter { contraction ->
+                val plain = contraction.replace("'", "")
+                plain.startsWith(lower)
+            }
+            .sortedWith(compareBy<String> {
+                if (it.replace("'", "") == lower) 0 else 1
+            }.thenBy { it.length }.thenBy { it })
+            .take(4)
+
+        return matches.map { contraction ->
+            when {
+                typed.all { it.isUpperCase() } -> contraction.uppercase()
+                typed.first().isUpperCase() && typed.drop(1).all { it.isLowerCase() } ->
+                    contraction.replaceFirstChar { it.uppercase() }
+                else -> contraction
+            }
+        }.toList()
+    }
+
     fun correction(typed: String): String? {
         if (typed.length !in 5..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return null
         val lower = typed.lowercase()

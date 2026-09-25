@@ -146,6 +146,24 @@ class MethodMembershipTest {
             setOf(MethodMembership.Method.CANGJIE), false))
     }
 
+    @Test fun englishInflectionsMissingFromBundledShardsUseEnglishOnly() {
+        val english = setOf(MethodMembership.Method.ENGLISH)
+        val additions = listOf(
+            "apples" to "蘋果",
+            "asked" to "問",
+            "clipboard" to "剪貼簿",
+            "painted" to "上色",
+            "would" to "會",
+        )
+        val lines = additions.map { (code, candidate) -> "$code\tenglish\t$candidate" }
+        val supplemented = MethodMembership(emptySequence(), lines.asSequence())
+        for ((code, candidate) in additions) {
+            assertEquals(listOf(candidate), supplemented.supplementalCandidates(code, english))
+            assertEquals(emptyList<String>(), supplemented.supplementalCandidates(
+                code, setOf(MethodMembership.Method.CANTONESE)))
+        }
+    }
+
     @Test fun suppliedCharacterAppearsEvenIfBundledShardLacksIt() {
         for ((code, method) in listOf(
             "si" to MethodMembership.Method.CANTONESE,
