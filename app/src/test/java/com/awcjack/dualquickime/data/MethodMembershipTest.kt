@@ -154,6 +154,8 @@ class MethodMembershipTest {
             "birthdays" to "生日",
             "oranges" to "橙",
             "painted" to "上色",
+            "suggest" to "建議",
+            "suggestion" to "建議",
         )
         val supplemented = MethodMembership(emptySequence(), sequenceOf(
             "apples\tenglish\t蘋果",
@@ -161,6 +163,8 @@ class MethodMembershipTest {
             "birthdays\tenglish\t生日",
             "oranges\tenglish\t橙",
             "painted\tenglish\t上色",
+            "suggest\tenglish\t建議",
+            "suggestion\tenglish\t建議",
         ))
         for ((code, candidate) in additions) {
             assertEquals(listOf(candidate), supplemented.supplementalCandidates(code, english))
