@@ -29,6 +29,8 @@ object ThemeManager {
     private const val KEY_METHOD_QUICK = "method_quick_enabled"
     private const val KEY_METHOD_ENGLISH = "method_english_enabled"
     private const val KEY_SETTINGS_CHINESE = "settings_chinese_enabled"
+    private const val KEY_GESTURE_DELETE = "gesture_delete_enabled"
+    private const val KEY_SWIPE_TYPING = "swipe_typing_enabled"
 
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
@@ -79,6 +81,15 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_METHOD_QUICK, enabled).apply()
     fun setMethodEnglish(context: Context, enabled: Boolean) =
         getPrefs(context).edit().putBoolean(KEY_METHOD_ENGLISH, enabled).apply()
+
+    fun getGestureDelete(context: Context) =
+        getPrefs(context).getBoolean(KEY_GESTURE_DELETE, false)
+    fun setGestureDelete(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_GESTURE_DELETE, enabled).apply()
+    fun getSwipeTyping(context: Context) =
+        getPrefs(context).getBoolean(KEY_SWIPE_TYPING, false)
+    fun setSwipeTyping(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_SWIPE_TYPING, enabled).apply()
 
     fun getSettingsChinese(context: Context) =
         getPrefs(context).getBoolean(KEY_SETTINGS_CHINESE,

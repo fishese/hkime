@@ -41,6 +41,8 @@ object EnglishSuggestions {
         english keyboard clipboard shortcut convert conversion correction dictionary frequency suggestion
     """.trimIndent().split(Regex("\\s+")).toSet()
 
+    internal fun swipeWords(): Set<String> = commonWords
+
     /** A small, deterministic prefix list; the caller ranks it after Chinese candidates. */
     fun completions(typed: String): List<String> {
         if (typed.length !in 2..20 || typed.any { !it.isLetter() || it.code > 127 }) return emptyList()

@@ -20,6 +20,7 @@ import com.awcjack.dualquickime.data.AssociatedPhraseSuggestions
 import com.awcjack.dualquickime.data.CuratedAssociatedPhrases
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
+import com.awcjack.dualquickime.data.SwipeDeletion
 import com.awcjack.dualquickime.data.CompositionState
 import com.awcjack.dualquickime.data.CompositionSelection
 import com.awcjack.dualquickime.data.ContextualPunctuation
@@ -58,6 +59,8 @@ class HkInputMethodService : InputMethodService() {
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
+    private var swipeEnglishWords: List<String> = emptyList()
+    private var lastSelectedText = ""
     private var pendingSymbol: PendingSymbol? = null
 
     private var keyboardView: KeyboardView? = null
@@ -176,6 +179,7 @@ class HkInputMethodService : InputMethodService() {
 
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this).apply {
+            setSwipeWords(englishAutocomplete.allWords())
             setOnKeyPressListener { event ->
                 handleKeyEvent(event)
             }
@@ -253,6 +257,7 @@ class HkInputMethodService : InputMethodService() {
         keyboardView?.refreshTheme()
         // Clear composition when starting new input
         pendingSymbol = null
+        lastSelectedText = ""
         clearComposition()
         // Clear associated phrases mode
         clearAssociatedPhrases()
@@ -291,6 +296,8 @@ class HkInputMethodService : InputMethodService() {
         }
         when (event) {
             is KeyboardView.KeyEvent.Letter -> handleLetter(event.char)
+            is KeyboardView.KeyEvent.SwipeCode -> handleSwipeCode(event)
+            KeyboardView.KeyEvent.SwipeDelete -> handleSwipeDelete()
             is KeyboardView.KeyEvent.Number -> handleNumber(event.digit)
             is KeyboardView.KeyEvent.ShortcutPhrase -> handleShortcutPhrase(event.digit)
             is KeyboardView.KeyEvent.Symbol -> handleSymbol(event)
@@ -387,6 +394,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleLetter(char: Char) {
+        swipeEnglishWords = emptyList()
         if (isEmailSuggestionsMode) {
             val lowerChar = char.lowercaseChar()
             commitText(lowerChar.toString())
@@ -407,6 +415,40 @@ class HkInputMethodService : InputMethodService() {
         letterCases.add(isUpperCase)
         currentInputConnection?.setComposingText(getDisplayKeys(newRawKeys), 1)
         updateComposition(newRawKeys)
+    }
+
+    private fun handleSwipeCode(event: KeyboardView.KeyEvent.SwipeCode) {
+        if (isPasswordField || event.code.isEmpty()) return
+        if (isEmailSuggestionsMode) clearEmailSuggestions()
+        if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        finishEnglishComposition()
+        swipeEnglishWords = event.englishWords.filterNot { it == event.code }
+        letterCases.clear()
+        repeat(event.code.length) { letterCases.add(false) }
+        currentInputConnection?.setComposingText(event.code, 1)
+        updateComposition(event.code)
+    }
+
+    private fun handleSwipeDelete() {
+        if (isPasswordField) return
+        if (isEmailSuggestionsMode) clearEmailSuggestions()
+        if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        if (composition.rawKeys.isNotEmpty()) {
+            currentInputConnection?.setComposingText("", 1)
+            currentInputConnection?.finishComposingText()
+            clearComposition()
+            return
+        }
+        val ic = currentInputConnection ?: return
+        if (!ic.getSelectedText(0).isNullOrEmpty()) {
+            ic.commitText("", 1)
+            lastSelectedText = ""
+            return
+        }
+        val before = ic.getTextBeforeCursor(128, 0)?.toString().orEmpty()
+        val length = SwipeDeletion.lengthBeforeCursor(before, lastSelectedText)
+        lastSelectedText = ""
+        if (length > 0) ic.deleteSurroundingText(length, 0) else deleteOneGrapheme()
     }
 
     private fun handleNumber(digit: Int) {
@@ -519,6 +561,8 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleBackspace() {
+        swipeEnglishWords = emptyList()
+        lastSelectedText = ""
         if (isEmailSuggestionsMode) {
             if (emailTypedSoFar.isNotEmpty()) {
                 emailTypedSoFar = emailTypedSoFar.dropLast(1)
@@ -658,7 +702,8 @@ class HkInputMethodService : InputMethodService() {
         val latinWord = EnglishSuggestions.isLatinWord(text)
         val needsSpace = latinWord && ThemeManager.getSpaceAfterEnglishCandidate(this) &&
             currentInputConnection?.getTextAfterCursor(1, 0)?.firstOrNull()?.isWhitespace() != true
-        commitText(text + if (needsSpace) " " else "")
+        lastSelectedText = text + if (needsSpace) " " else ""
+        commitText(lastSelectedText)
         clearComposition()
         // Associated phrases follow Chinese selections, not Latin autocomplete.
         if (!latinWord) showAssociatedPhrases(text.lastOrNull()?.toString() ?: "")
@@ -741,6 +786,7 @@ class HkInputMethodService : InputMethodService() {
      * Handle associated phrase selection.
      */
     private fun handleAssociatedPhraseSelected(phrase: String) {
+        lastSelectedText = phrase
         commitText(phrase)
         // Show associated phrases for the last character of the selected phrase
         val lastChar = phrase.lastOrNull()?.toString() ?: ""
@@ -832,7 +878,7 @@ class HkInputMethodService : InputMethodService() {
             val contractions = EnglishSuggestions.contractions(typed)
             val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
                 else EnglishSuggestions.completions(typed)
-            candidates = (contractions + candidates + english).distinct()
+            candidates = (contractions + candidates + swipeEnglishWords + english).distinct()
         }
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
@@ -858,6 +904,7 @@ class HkInputMethodService : InputMethodService() {
 
     private fun clearComposition() {
         composition = CompositionState.EMPTY
+        swipeEnglishWords = emptyList()
         letterCases.clear()
         keyboardView?.clearCandidates()
     }

@@ -79,6 +79,10 @@
     <string name="settings_keyboard_behavior">鍵盤</string>
     <string name="settings_haptic_feedback">觸感回饋</string>
     <string name="settings_haptic_feedback_desc">按鍵及長按時震動提示（須啟用裝置觸感回饋）</string>
+    <string name="settings_gesture_delete">左滑刪除</string>
+    <string name="settings_gesture_delete_desc">喺空白鍵向左滑，先刪除目前輸入碼，再刪除上一個選取的詞語或字。關閉滑動輸入時，也可以喺字母鍵向左滑。</string>
+    <string name="settings_swipe_typing">滑動輸入（測試中）</string>
+    <string name="settings_swipe_typing_desc">連續滑過字母鍵，輸入一個詞語或輸入碼，再揀選候選字。密碼欄位停用。</string>
 
     <!-- Recent Candidates -->
     <string name="settings_recent_candidates">優先顯示最近使用嘅候選字</string>
