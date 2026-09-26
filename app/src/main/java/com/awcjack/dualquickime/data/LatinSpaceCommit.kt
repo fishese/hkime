@@ -2,8 +2,8 @@ package com.awcjack.dualquickime.data
 
 /**
  * Space can finish uncommitted Latin letters without being inserted yet.
- * That held space is written back when the next commit stays Latin: an English
- * word or any unrecognized string left as typed letters. Chinese drops it.
+ * That held space is written back when the next commit stays Latin, or before a
+ * number. Further digits in that number stay together. Chinese drops it.
  * An explicit later space, once nothing is left to commit, still inserts one.
  */
 object LatinSpaceCommit {
@@ -20,13 +20,14 @@ object LatinSpaceCommit {
         return ignoreCommitSpace && restoreBetweenLatin && committedRawLatin
     }
 
-    /** Put a held space back in front of a Latin commit, and drop it for anything else. */
+    /** Put a held space back before Latin text or the first digit of a number. */
     fun restoreDeferredSpace(
         restoreBetweenLatin: Boolean,
         deferred: Boolean,
-        nextCommitIsLatin: Boolean
+        nextCommitIsLatin: Boolean,
+        nextCommitIsNumber: Boolean = false
     ): Boolean {
-        return restoreBetweenLatin && deferred && nextCommitIsLatin
+        return restoreBetweenLatin && deferred && (nextCommitIsLatin || nextCommitIsNumber)
     }
 
     /** English words, contractions, and unrecognized text left in Latin letters. */

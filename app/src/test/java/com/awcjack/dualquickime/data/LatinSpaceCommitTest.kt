@@ -40,6 +40,18 @@ class LatinSpaceCommitTest {
             restoreBetweenLatin = true, deferred = false, nextCommitIsLatin = true))
     }
 
+    @Test fun deferredSpaceReturnsBeforeANumberButNotOnceAlreadyUsed() {
+        assertTrue(LatinSpaceCommit.restoreDeferredSpace(
+            restoreBetweenLatin = true, deferred = true,
+            nextCommitIsLatin = false, nextCommitIsNumber = true))
+        assertFalse(LatinSpaceCommit.restoreDeferredSpace(
+            restoreBetweenLatin = true, deferred = false,
+            nextCommitIsLatin = false, nextCommitIsNumber = true))
+        assertFalse(LatinSpaceCommit.restoreDeferredSpace(
+            restoreBetweenLatin = false, deferred = true,
+            nextCommitIsLatin = false, nextCommitIsNumber = true))
+    }
+
     @Test fun unrecognizedLetterStringsStayLatin() {
         assertTrue(LatinSpaceCommit.keptAsLatin("check"))
         assertTrue(LatinSpaceCommit.keptAsLatin("asdf"))

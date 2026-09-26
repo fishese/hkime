@@ -81,7 +81,7 @@
     <string name="settings_ignore_space_after_latin">空格键确认拉丁字母时不加空格</string>
     <string name="settings_ignore_space_after_latin_desc">用空格确认已输入的拉丁字母时，不会同时输入空格。再按一次空格会立即输入空格。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之间补回空格</string>
-    <string name="settings_restore_space_between_latin_desc">下一个如果是英文，或者仍然保留为拉丁字母的字符串，会自动补回刚才略过的空格。如果接着是中文，就保持没有空格。</string>
+    <string name="settings_restore_space_between_latin_desc">下一个如果是英文、仍然保留为拉丁字母的字符串，或者数字，会自动补回刚才略过的空格。同一组数字之间不会加空格。如果接着是中文，就保持没有空格。</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字符集</string>

@@ -500,8 +500,16 @@ class HkInputMethodService : InputMethodService() {
             updateEmailSuggestionsView()
             return
         }
-        finishLatinOrDropDeferredSpace()
-        // Then commit the number
+        val committingRawLatin = composition.rawKeys.isNotEmpty()
+        finishEnglishComposition()
+        // A held space returns once before the number. Later digits stay attached,
+        // so 20 is not written as 2 0. A space between numbers still requires a space press.
+        if (!committingRawLatin && LatinSpaceCommit.restoreDeferredSpace(
+                restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin,
+                nextCommitIsLatin = false, nextCommitIsNumber = true)) {
+            commitText(" ")
+        }
+        spaceDeferredUntilNextLatin = false
         val text = digit.toString()
         commitText(text)
         if (isSymbolMode) {

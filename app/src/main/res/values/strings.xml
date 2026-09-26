@@ -51,7 +51,7 @@
     <string name="settings_ignore_space_after_latin">Space bar commits Latin without adding a space</string>
     <string name="settings_ignore_space_after_latin_desc">The space that finishes typed Latin letters is not inserted. Press space again to insert one immediately.</string>
     <string name="settings_restore_space_between_latin">Add space back between Latin texts</string>
-    <string name="settings_restore_space_between_latin_desc">Insert that held space when the next commit is also Latin, including an English word or an unrecognized string left as typed letters. Chinese stays without the space.</string>
+    <string name="settings_restore_space_between_latin_desc">Insert that held space when the next input is also Latin, or before a number. Digits in that number stay together. Chinese stays without the space.</string>
     <string name="settings_preview">Preview</string>
     <string name="settings_about">About</string>
 

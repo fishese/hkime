@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.33 — 2026-09-26
+
+- Offer common email domains after `@` when an address is being typed, including in chat.
+- A held space is also put back before a number. Digits in that number stay together.
+
 ## 0.3.32 — 2026-09-26
 
 - The space that commits typed Latin can be held and put back when the next commit is also Latin, including an English word or an unrecognized string left as typed letters. Chinese stays without that space.
