@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## 0.3.31 — 2026-09-26
+
+- Rank everyday Cantonese characters such as 咗, 啦 and 冇 ahead of uncommon characters. Common characters stay in front.
+
 ## 0.3.30 — 2026-09-26
 
 - Added a setting so the space that commits typed Latin is not inserted. A second space still inserts one.

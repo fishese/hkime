@@ -30,6 +30,7 @@ import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.promoteReviewedCharacter
+import com.awcjack.dualquickime.data.promoteEverydayCantonese
 import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.MethodMembership
@@ -909,6 +910,9 @@ class HkInputMethodService : InputMethodService() {
                     methodMembership.supplementalCandidates(code, enabledMethods)
             }
             candidates = (candidates + alternatives).distinct()
+        }
+        if (MethodMembership.Method.CANTONESE in enabledMethods) {
+            candidates = promoteEverydayCantonese(candidates)
         }
 
         // Retain the original OpenVanilla Quick table as a resilient fallback.

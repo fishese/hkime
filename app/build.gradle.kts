@@ -21,8 +21,8 @@ android {
         applicationId = "cc.fishese.hkime"
         minSdk = 24
         targetSdk = 34
-        versionCode = 34
-        versionName = "0.3.30"
+        versionCode = 35
+        versionName = "0.3.31"
     }
 
     // Release signing configuration (only if keystore.properties exists)
