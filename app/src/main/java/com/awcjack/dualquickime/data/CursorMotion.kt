@@ -4,6 +4,17 @@ import java.text.BreakIterator
 
 /** Grapheme-aware caret movement for the space-bar drag gesture. */
 internal object CursorMotion {
+    /** Selection indices are local to an excerpt; setSelection needs document indices. */
+    fun selectionInExcerpt(
+        text: String, startOffset: Int, selectionStart: Int, selectionEnd: Int, delta: Int
+    ): Int? {
+        if (startOffset < 0 || selectionStart !in 0..text.length ||
+            selectionEnd !in 0..text.length) return null
+        val cursor = if (delta < 0) minOf(selectionStart, selectionEnd)
+            else maxOf(selectionStart, selectionEnd)
+        return startOffset + offsetByGraphemes(text, cursor, delta)
+    }
+
     fun stepsForDrag(dxPx: Float, stepPx: Float): Int =
         if (stepPx <= 0f) 0 else (dxPx / stepPx).toInt()
 

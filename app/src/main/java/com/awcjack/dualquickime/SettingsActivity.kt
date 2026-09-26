@@ -394,13 +394,14 @@ class SettingsActivity : AppCompatActivity() {
                 gravity = Gravity.END
             }
             container.addView(SeekBar(this).apply {
-                this.min = min
-                this.max = max
-                progress = current
+                // SeekBar.min is API 26+. Use a zero-based range on every device.
+                this.max = max - min
+                progress = current.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
-                        valueText.text = "$progress $unit"
-                        if (fromUser) save(progress)
+                        val value = progress + min
+                        valueText.text = "$value $unit"
+                        if (fromUser) save(value)
                     }
                     override fun onStartTrackingTouch(bar: SeekBar?) {}
                     override fun onStopTrackingTouch(bar: SeekBar?) {}

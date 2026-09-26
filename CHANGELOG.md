@@ -1,5 +1,12 @@
 # HK IME changelog
 
+## 0.3.36 — 2026-09-27
+
+- Keep Settings compatible with Android 7 by using zero-based slider ranges.
+- Move the cursor correctly when editors return a text excerpt from a long document.
+- Insert only one space when the space bar confirms an English swipe choice.
+- Cancel held spaces and email-domain suggestions when the caret moves away, and validate email prefixes before inserting a domain.
+
 ## 0.3.35 — 2026-09-27
 
 - Reorganized the symbol pages. `*` and `/` type `×` and `÷` on a long press, and `-` types `_`. `:` and `"` are on the first page.

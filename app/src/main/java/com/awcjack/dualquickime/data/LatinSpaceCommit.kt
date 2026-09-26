@@ -7,8 +7,10 @@ package com.awcjack.dualquickime.data
  * An explicit later space, once nothing is left to commit, still inserts one.
  */
 object LatinSpaceCommit {
-    fun insertsSpace(ignoreCommitSpace: Boolean, committingLatin: Boolean): Boolean {
-        return !(ignoreCommitSpace && committingLatin)
+    fun insertsSpace(
+        ignoreCommitSpace: Boolean, committingLatin: Boolean, candidateInsertedSpace: Boolean = false
+    ): Boolean {
+        return !candidateInsertedSpace && !(ignoreCommitSpace && committingLatin)
     }
 
     /** Hold the commit space only when both the swallow option and the restore option are on. */

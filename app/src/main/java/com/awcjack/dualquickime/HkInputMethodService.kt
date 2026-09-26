@@ -7,6 +7,8 @@ import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
+import com.awcjack.dualquickime.data.EditorAnchor
 import com.awcjack.dualquickime.convert.ChineseConverter
 import com.awcjack.dualquickime.data.AssociatedPhrasesParser
 import com.awcjack.dualquickime.data.MckRelatedPhrases
@@ -66,7 +68,12 @@ class HkInputMethodService : InputMethodService() {
     private var swipeEnglishWords: List<String> = emptyList()
     private var swipeChineseCodes: List<String> = emptyList()
     private var pendingSwipeChoice = false
+    private var deferredSpaceAnchor: EditorAnchor? = null
     private var spaceDeferredUntilNextLatin = false
+        set(value) {
+            field = value
+            deferredSpaceAnchor = if (value) captureEditorAnchor() else null
+        }
     private var lastSelectedText = ""
     private var pendingSymbol: PendingSymbol? = null
 
@@ -87,6 +94,7 @@ class HkInputMethodService : InputMethodService() {
     // Email domain suggestion mode: triggered when @ is typed
     private var isEmailSuggestionsMode = false
     private var emailTypedSoFar = ""
+    private var emailAnchor: EditorAnchor? = null
 
     // Whether the currently focused field is a password field
     private var isPasswordField = false
@@ -236,7 +244,10 @@ class HkInputMethodService : InputMethodService() {
     // The framework default hides the soft keyboard when it thinks a hardware
     // keyboard is attached (docks, Bluetooth keyboards, some OEMs that report one
     // spuriously). Always show our IME — if the user invoked us they want to type.
-    override fun onEvaluateInputViewShown(): Boolean = true
+    override fun onEvaluateInputViewShown(): Boolean {
+        super.onEvaluateInputViewShown()
+        return true
+    }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
@@ -301,6 +312,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
+        invalidateEditorAnchors()
         if (pendingSymbol != null && event !is KeyboardView.KeyEvent.Symbol) {
             pendingSymbol = null
             keyboardView?.clearCandidates()
@@ -419,6 +431,7 @@ class HkInputMethodService : InputMethodService() {
             val lowerChar = char.lowercaseChar()
             commitText(lowerChar.toString())
             emailTypedSoFar += lowerChar
+            emailAnchor = captureEditorAnchor()
             updateEmailSuggestionsView()
             return
         }
@@ -455,15 +468,24 @@ class HkInputMethodService : InputMethodService() {
 
     private fun moveCursorBy(delta: Int) {
         if (delta == 0) return
-        val committingRawLatin = composition.rawKeys.isNotEmpty()
         pendingSwipeChoice = false
         finishEnglishComposition()
-        if (!committingRawLatin) spaceDeferredUntilNextLatin = false
+        spaceDeferredUntilNextLatin = false
+        if (isEmailSuggestionsMode) clearEmailSuggestions()
         val connection = currentInputConnection ?: return
-        val before = connection.getTextBeforeCursor(10000, 0)?.toString() ?: return
-        val after = connection.getTextAfterCursor(10000, 0)?.toString() ?: return
-        val next = CursorMotion.offsetByGraphemes(before + after, before.length, delta)
-        connection.setSelection(next, next)
+        val extracted = connection.getExtractedText(ExtractedTextRequest(), 0)
+        val next = extracted?.takeIf { it.partialStartOffset < 0 && it.text != null }?.let {
+            CursorMotion.selectionInExcerpt(it.text?.toString().orEmpty(), it.startOffset,
+                it.selectionStart, it.selectionEnd, delta)
+        }
+        if (next != null) {
+            connection.setSelection(next, next)
+        } else {
+            // Editors that do not expose document offsets can handle native caret keys.
+            val key = if (delta < 0) android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                else android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+            repeat(kotlin.math.abs(delta)) { sendDownUpKeyEvents(key) }
+        }
     }
 
     private fun handleSwipeDelete() {
@@ -497,6 +519,7 @@ class HkInputMethodService : InputMethodService() {
             val digitStr = digit.toString()
             commitText(digitStr)
             emailTypedSoFar += digitStr
+            emailAnchor = captureEditorAnchor()
             updateEmailSuggestionsView()
             return
         }
@@ -529,10 +552,40 @@ class HkInputMethodService : InputMethodService() {
             candidatesStart, candidatesEnd)
         if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
-            // The literal Latin text is already displayed by setComposingText.
-            // Finish those letters in place instead of choosing a candidate.
-            finishEnglishComposition()
+            // Finish in place; navigation must not insert a held space or move the caret back.
+            spaceDeferredUntilNextLatin = false
+            currentInputConnection?.finishComposingText()
+            clearComposition()
         }
+        invalidateEditorAnchors()
+    }
+
+    private fun editorCursor(): Int? {
+        val extracted = currentInputConnection?.getExtractedText(ExtractedTextRequest(), 0)
+            ?: return null
+        if (extracted.startOffset < 0 || extracted.selectionStart < 0 ||
+            extracted.selectionStart != extracted.selectionEnd) return null
+        return extracted.startOffset + extracted.selectionEnd
+    }
+
+    private fun captureEditorAnchor(): EditorAnchor? {
+        val connection = currentInputConnection ?: return null
+        if (!connection.getSelectedText(0).isNullOrEmpty()) return null
+        val prefix = connection.getTextBeforeCursor(64, 0)?.toString() ?: return null
+        return EditorAnchor(editorCursor(), prefix)
+    }
+
+    private fun anchorMatches(anchor: EditorAnchor?): Boolean {
+        val connection = currentInputConnection ?: return false
+        return anchor?.matches(editorCursor(), connection.getSelectedText(0)?.toString(),
+            connection.getTextBeforeCursor(64, 0)?.toString()) == true
+    }
+
+    private fun invalidateEditorAnchors() {
+        // Read current editor state instead of trusting delayed selection callbacks from our own edits.
+        if (composition.rawKeys.isEmpty() && spaceDeferredUntilNextLatin &&
+            !anchorMatches(deferredSpaceAnchor)) spaceDeferredUntilNextLatin = false
+        if (isEmailSuggestionsMode && !anchorMatches(emailAnchor)) clearEmailSuggestions()
     }
 
     private fun handleShortcutPhrase(digit: Int) {
@@ -616,11 +669,14 @@ class HkInputMethodService : InputMethodService() {
         val ignoreCommitSpace = ThemeManager.getIgnoreSpaceAfterLatin(this)
         val rawLatin = composition.rawKeys.isNotEmpty() && !pendingSwipeChoice
         val hadComposition = composition.rawKeys.isNotEmpty()
+        val candidateInsertedSpace = pendingSwipeChoice &&
+            composition.candidates.firstOrNull()?.let(::candidateNeedsSpace) == true
         finishEnglishComposition()
         if (LatinSpaceCommit.deferCommitSpace(
                 ignoreCommitSpace, ThemeManager.getRestoreSpaceBetweenLatin(this), rawLatin)) {
             spaceDeferredUntilNextLatin = true
-        } else if (LatinSpaceCommit.insertsSpace(ignoreCommitSpace, hadComposition)) {
+        } else if (LatinSpaceCommit.insertsSpace(ignoreCommitSpace, hadComposition,
+                candidateInsertedSpace)) {
             commitText(" ")
             spaceDeferredUntilNextLatin = false
         } else {
@@ -637,6 +693,7 @@ class HkInputMethodService : InputMethodService() {
             if (emailTypedSoFar.isNotEmpty()) {
                 emailTypedSoFar = emailTypedSoFar.dropLast(1)
                 deleteOneGrapheme()
+                emailAnchor = captureEditorAnchor()
                 updateEmailSuggestionsView()
             } else {
                 clearEmailSuggestions()
@@ -778,8 +835,7 @@ class HkInputMethodService : InputMethodService() {
         val leadingSpace = if (LatinSpaceCommit.restoreDeferredSpace(
                 restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, keptLatin)) " " else ""
         spaceDeferredUntilNextLatin = false
-        val needsSpace = latinWord && ThemeManager.getSpaceAfterEnglishCandidate(this) &&
-            currentInputConnection?.getTextAfterCursor(1, 0)?.firstOrNull()?.isWhitespace() != true
+        val needsSpace = candidateNeedsSpace(text)
         lastSelectedText = leadingSpace + text + if (needsSpace) " " else ""
         commitText(lastSelectedText)
         clearComposition()
@@ -796,6 +852,10 @@ class HkInputMethodService : InputMethodService() {
         }
         return result.toString()
     }
+
+    private fun candidateNeedsSpace(text: String): Boolean =
+        EnglishSuggestions.isLatinWord(text) && ThemeManager.getSpaceAfterEnglishCandidate(this) &&
+            currentInputConnection?.getTextAfterCursor(1, 0)?.firstOrNull()?.isWhitespace() != true
 
     private fun confirmPendingSwipeChoice() {
         if (!pendingSwipeChoice) return
@@ -911,6 +971,7 @@ class HkInputMethodService : InputMethodService() {
     private fun enterEmailSuggestionsMode() {
         isEmailSuggestionsMode = true
         emailTypedSoFar = ""
+        emailAnchor = captureEditorAnchor()
         // @ is on the symbol keyboard; return to letter mode so the candidate bar is visible
         if (isSymbolMode) {
             isSymbolMode = false
@@ -922,6 +983,7 @@ class HkInputMethodService : InputMethodService() {
     private fun clearEmailSuggestions() {
         isEmailSuggestionsMode = false
         emailTypedSoFar = ""
+        emailAnchor = null
         keyboardView?.clearCandidates()
     }
 
@@ -938,6 +1000,12 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleEmailSuggestionSelected(domain: String) {
+        val expectedPrefix = "@" + emailTypedSoFar
+        if (!anchorMatches(emailAnchor) || domain !in EmailDomains.matching(emailTypedSoFar) ||
+            currentInputConnection?.getTextBeforeCursor(expectedPrefix.length, 0)?.toString() != expectedPrefix) {
+            clearEmailSuggestions()
+            return
+        }
         val remaining = domain.drop(emailTypedSoFar.length)
         if (remaining.isNotEmpty()) {
             commitText(remaining)
@@ -1032,6 +1100,7 @@ class HkInputMethodService : InputMethodService() {
 
     private fun clearComposition() {
         composition = CompositionState.EMPTY
+        pendingSwipeChoice = false
         swipeEnglishWords = emptyList()
         swipeChineseCodes = emptyList()
         letterCases.clear()
