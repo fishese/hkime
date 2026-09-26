@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.34 — 2026-09-26
+
+- Hold the space bar still for a second to turn Latin space-swallow on or off. The key turns blue while it is on. Sliding the space bar still moves the cursor.
+- Caps lock is shown by the blue shift-key highlight only.
+
 ## 0.3.33 — 2026-09-26
 
 - Offer common email domains after `@` when an address is being typed, including in chat.

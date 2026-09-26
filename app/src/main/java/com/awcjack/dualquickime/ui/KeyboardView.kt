@@ -99,6 +99,7 @@ class KeyboardView @JvmOverloads constructor(
     private var spaceCursorOriginX = 0f
     private var spaceCursorSteps = 0
     private var spaceCursorArm: Runnable? = null
+    private var spaceToggleArm: Runnable? = null
     private var swipeWords: Collection<String> = EnglishSuggestions.swipeWords()
     private var swipeCodes: Collection<String> = emptySet()
 
@@ -1318,7 +1319,7 @@ class KeyboardView @JvmOverloads constructor(
             text = "space"
             textSize = 14f
             setTextColor(colors.keyTextSecondary)
-            background = createKeyBackground(colors.spaceKeyBackground, colors.keyBackgroundPressed)
+            applySpaceKeyAppearance(this)
             elevation = dpToPx(2).toFloat()
 
             setOnTouchListener { view, event ->
@@ -1327,22 +1328,37 @@ class KeyboardView @JvmOverloads constructor(
                         view.isPressed = true
                         spaceCursorActive = false
                         cancelSpaceCursorArm()
-                        val originX = event.rawX
+                        cancelSpaceToggleArm()
+                        spaceCursorOriginX = event.rawX
+                        spaceCursorSteps = 0
                         val arm = Runnable {
                             spaceCursorActive = true
                             swipeTouch = null
-                            spaceCursorOriginX = originX
-                            spaceCursorSteps = 0
                             performKeyHaptic(view, longPress = true)
                         }
                         spaceCursorArm = arm
                         longPressHandler.postDelayed(arm, LONG_PRESS_DELAY)
+                        val toggle = Runnable {
+                            if (spaceCursorSteps == 0) {
+                                toggleIgnoreSpaceAfterLatin()
+                                performKeyHaptic(view, longPress = true)
+                            }
+                        }
+                        spaceToggleArm = toggle
+                        longPressHandler.postDelayed(toggle, SPACE_TOGGLE_HOLD_MS)
                         true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (kotlin.math.abs(event.rawX - spaceCursorOriginX) > dpToPx(18)) {
+                            cancelSpaceToggleArm()
+                        }
+                        false
                     }
                     MotionEvent.ACTION_UP -> {
                         view.isPressed = false
                         val wasCursor = spaceCursorActive
                         cancelSpaceCursorArm()
+                        cancelSpaceToggleArm()
                         spaceCursorActive = false
                         if (!wasCursor) {
                             performKeyHaptic(view)
@@ -1353,6 +1369,7 @@ class KeyboardView @JvmOverloads constructor(
                     MotionEvent.ACTION_CANCEL -> {
                         view.isPressed = false
                         cancelSpaceCursorArm()
+                        cancelSpaceToggleArm()
                         spaceCursorActive = false
                         true
                     }
@@ -1369,10 +1386,12 @@ class KeyboardView @JvmOverloads constructor(
                 val delta = steps - spaceCursorSteps
                 if (delta != 0) {
                     spaceCursorSteps = steps
+                    cancelSpaceToggleArm()
                     onKeyPress?.invoke(KeyEvent.MoveCursor(delta))
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                cancelSpaceToggleArm()
                 spaceCursorActive = false
                 spaceKeyView?.isPressed = false
             }
@@ -1383,6 +1402,28 @@ class KeyboardView @JvmOverloads constructor(
     private fun cancelSpaceCursorArm() {
         spaceCursorArm?.let { longPressHandler.removeCallbacks(it) }
         spaceCursorArm = null
+    }
+
+    private fun cancelSpaceToggleArm() {
+        spaceToggleArm?.let { longPressHandler.removeCallbacks(it) }
+        spaceToggleArm = null
+    }
+
+    /** A still hold toggles Latin space-swallow. Sliding, or releasing sooner, does not. */
+    private fun toggleIgnoreSpaceAfterLatin() {
+        val enabled = !ThemeManager.getIgnoreSpaceAfterLatin(context)
+        ThemeManager.setIgnoreSpaceAfterLatin(context, enabled)
+        (spaceKeyView as? TextView)?.let { applySpaceKeyAppearance(it) }
+    }
+
+    private fun applySpaceKeyAppearance(key: TextView) {
+        if (ThemeManager.getIgnoreSpaceAfterLatin(context)) {
+            key.background = createKeyBackground(colors.compositionText, colors.keyBackgroundPressed)
+            key.setTextColor(colors.keyBackground)
+        } else {
+            key.background = createKeyBackground(colors.spaceKeyBackground, colors.keyBackgroundPressed)
+            key.setTextColor(colors.keyTextSecondary)
+        }
     }
 
     private fun showSwipeTrail(points: List<SwipeTypingDecoder.Point>) {
@@ -1750,11 +1791,11 @@ class KeyboardView @JvmOverloads constructor(
         shiftKey?.apply {
             when {
                 isCapsLock -> {
-                    // Caps lock: filled arrow with underline, accent color
-                    text = "⇧̲"  // Shift with combining underline
-                    setTextColor(colors.compositionText)
+                    // Caps lock uses the filled highlight only. A combining underline
+                    // does not draw reliably on the key font.
+                    text = "⇧"
                     background = createKeyBackground(colors.compositionText, colors.specialKeyBackgroundPressed)
-                    setTextColor(colors.keyBackground)  // Inverted color for visibility
+                    setTextColor(colors.keyBackground)
                 }
                 isShiftOn -> {
                     // Shift on: accent color
@@ -2132,6 +2173,7 @@ class KeyboardView @JvmOverloads constructor(
         private const val BACKSPACE_INITIAL_DELAY = 400L  // ms before first repeat
         private const val BACKSPACE_REPEAT_INTERVAL = 50L  // ms between subsequent repeats
         private const val LONG_PRESS_DELAY = 300L  // ms before long-press triggers
+        private const val SPACE_TOGGLE_HOLD_MS = 1000L
         private const val SWIPE_TRAIL_LINGER_MS = 320L
 
         // Half-width to full-width punctuation mapping

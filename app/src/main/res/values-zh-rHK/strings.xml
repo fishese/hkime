@@ -99,7 +99,7 @@
     <string name="settings_space_after_english_candidate">選擇英文字後加入空格</string>
     <string name="settings_space_after_english_candidate_desc">點選英文字候選項時，自動在後面加一個空格</string>
     <string name="settings_ignore_space_after_latin">空格鍵確認拉丁字母時不加空格</string>
-    <string name="settings_ignore_space_after_latin_desc">用空格確認已打的拉丁字母時，不會同時輸入空格。再按一次空格會立即輸入空格。</string>
+    <string name="settings_ignore_space_after_latin_desc">用空格確認已打的拉丁字母時，不會同時輸入空格。再按一次空格會立即輸入空格。按住空格鍵約一秒可開關此選項，滑動則仍然移動游標。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之間補回空格</string>
     <string name="settings_restore_space_between_latin_desc">下一個如果是英文、仍然保留為拉丁字母的字串，或者數字，會自動補回剛才略過的空格。同一組數字之間不會加空格。如果接著是中文，就保持沒有空格。</string>
 
