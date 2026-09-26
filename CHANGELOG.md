@@ -1,5 +1,12 @@
 # HK IME changelog
 
+## 0.3.35 — 2026-09-27
+
+- Reorganized the symbol pages. `*` and `/` type `×` and `÷` on a long press, and `-` types `_`. `:` and `"` are on the first page.
+- The second page keeps brackets, dashes, and maths signs together, including `{` `}` and `×` `÷`.
+- The third page ends with zhuyin, hiragana, katakana, and hangul pickers. Zhuyin also offers Tâi-lô tone letters, and each picker lists its own key glyph first.
+- Copyright and registered marks sit on the fourth page’s middle row. `?` offers `⁉️` `❓` `❔` and `¿`.
+
 ## 0.3.34 — 2026-09-26
 
 - Hold the space bar still for a second to turn Latin space-swallow on or off. The key turns blue while it is on. Sliding the space bar still moves the cursor.

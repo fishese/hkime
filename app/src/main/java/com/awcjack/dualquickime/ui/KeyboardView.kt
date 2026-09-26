@@ -169,26 +169,28 @@ class KeyboardView @JvmOverloads constructor(
     // Number/Symbol rows (page 1) - Gboard "?123" layout
     private val numRow1 = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
     private val symRow2Page1 = listOf('@', '#', '$', '&', '-', '+', '*', '/', '(', ')')
-    private val symRow3Page1 = listOf('<', '>', '×', '÷', '\'', '!', '?')
+    private val symRow3Page1 = listOf('<', '>', ':', '"', '\'', '!', '?')
 
-    // Utility/math symbols, shown after the common CJK punctuation page.
-    private val symRow1Page2 = listOf('~', '`', '|', '•', '√', 'π', '§', '、', '“', '”')
-    private val symRow2Page2 = listOf('£', '¢', '€', '¥', '^', '°', '=', '\\', ':', ';')
-    private val symRow3Page2 = listOf('％', '‘', '’', '™', '℅', '[', ']')
+    // Symbol page 3. Line marks and quotes on top, maths and brackets in the
+    // middle. ㄅ あ ア ㄱ sit together on the bottom row.
+    private val symRow1Page2 = listOf('~', '`', '|', '\\', ':', ';', '“', '”', '‘', '’')
+    private val symRow2Page2 = listOf('•', '√', 'π', '^', '°', '=', '[', ']', '§')
+    private val symRow3Page2 = listOf('ㄅ', 'あ', 'ア', 'ㄱ', '％', '™', '℅')
 
-    // Common Chinese punctuation; bracket variants are candidates.
-    private val symRow1Page3 = listOf('「', '」', '，', '。', '：', '；')
-    private val symRow2Page3 = listOf('！', '？', '—', '–', '_', '‖')
-    private val symRow3Page3 = listOf('¦', '※', '·', '…', '±', '∞')
+    // Common Chinese punctuation, shown as symbol page 2. Braces fill the
+    // short row beside the corner brackets; × ÷ sit with the other maths signs.
+    private val symRow1Page3 = listOf('「', '」', '{', '}', '，', '、', '。', '：', '；')
+    private val symRow2Page3 = listOf('！', '？', '—', '–', '_', '‖', '¦')
+    private val symRow3Page3 = listOf('×', '÷', '±', '∞', '※', '·', '…')
 
     // Symbol rows (page 4) - Currency and units
     private val symRow1Page4 = listOf('$', '¥', '€', '£', '¢', '₩', '₹', '฿', '₱', '₽')
-    private val symRow2Page4 = listOf('%', '‰', '°', '℃', '℉', '≈', '≠')
-    private val symRow3Page4 = listOf('≤', '≥', '∑', '∏', '†', '‡', '"', '\'', '©', '®')
+    private val symRow2Page4 = listOf('%', '‰', '°', '℃', '℉', '≈', '≠', '©', '®')
+    private val symRow3Page4 = listOf('≤', '≥', '∑', '∏', '†', '‡', '"', '\'')
 
     // Symbol rows (page 5) - Arrows, shapes, and cards
     private val symRow1Page5 = listOf('←', '→', '↑', '↓', '↔', '↕', '⇐', '⇒', '⇑', '⇓')
-    private val symRow2Page5 = listOf('▲', '▼', '◀', '▶', '◆', '◇', 'Ω', '■', '△', '∆')
+    private val symRow2Page5 = listOf('▲', '▼', '◀', '▶', '◆', '◇', '■', '△', '∆', 'Ω')
     private val symRow3Page5 = listOf('♠', '♣', '♥', '♦', '★', '╬', '♪')
 
     init {
@@ -1580,17 +1582,13 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun createSymbolKey(char: Char): TextView {
-        // Check if this character has a half-width equivalent (full-width default)
-        val halfWidthChar = FULL_TO_HALF_WIDTH[char]
-        // Check if this character has a full-width equivalent (half-width default)
-        val fullWidthChar = HALF_TO_FULL_WIDTH[char]
+        // Explicit alternates (for example * → ×) win over the width pairs.
+        val longPressChar = LONG_PRESS_ALTERNATE[char]
+            ?: FULL_TO_HALF_WIDTH[char]
+            ?: HALF_TO_FULL_WIDTH[char]
 
-        return if (halfWidthChar != null) {
-            // Full-width default, long-press for half-width (e.g. CJK punctuation page)
-            createSymbolKeyWithLongPress(char, halfWidthChar)
-        } else if (fullWidthChar != null) {
-            // Half-width default, long-press for full-width (e.g. Gboard-style pages)
-            createSymbolKeyWithLongPress(char, fullWidthChar)
+        return if (longPressChar != null) {
+            createSymbolKeyWithLongPress(char, longPressChar)
         } else {
             // Regular symbol key
             TextView(context).apply {
@@ -1720,6 +1718,10 @@ class KeyboardView @JvmOverloads constructor(
                         longPressRunnable = null
                         true
                     }
+                    // Keep ownership while the pointer is held. ACTION_MOVE is
+                    // common even for a stationary finger and would cancel the
+                    // long-press if this returned false.
+                    MotionEvent.ACTION_MOVE -> true
                     else -> false
                 }
             }
@@ -2175,6 +2177,14 @@ class KeyboardView @JvmOverloads constructor(
         private const val LONG_PRESS_DELAY = 300L  // ms before long-press triggers
         private const val SPACE_TOGGLE_HOLD_MS = 1000L
         private const val SWIPE_TRAIL_LINGER_MS = 320L
+
+        // Tap the key, long-press the paired character. Checked before the
+        // half/full-width maps so these keys are not forced into a width pair.
+        private val LONG_PRESS_ALTERNATE = mapOf(
+            '*' to '×',
+            '/' to '÷',
+            '-' to '_',
+        )
 
         // Half-width to full-width punctuation mapping
         // Used in symbol keyboard: tap half-width, long-press full-width

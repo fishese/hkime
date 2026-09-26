@@ -553,8 +553,15 @@ class HkInputMethodService : InputMethodService() {
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
         val inserted = (choice?.inserted ?: event.char).toString()
-        val alternatives = (listOfNotNull(choice?.alternative?.toString()) +
-            SymbolCatalogue.candidatesForSymbol(inserted)).filterNot { it == inserted }.distinct()
+        val catalogue = SymbolCatalogue.candidatesForSymbol(inserted)
+        val alternatives = (listOfNotNull(choice?.alternative?.toString()) + catalogue)
+            .filterNot { it == inserted }
+            .distinct()
+            .let { rest ->
+                // Script pickers lead with their own glyph. Keep that first even
+                // though the key has already committed it.
+                if (catalogue.firstOrNull() == inserted) listOf(inserted) + rest else rest
+            }
         commitText(inserted)
         if (event.char == '@' && !isPasswordField &&
             EmailDomains.shouldOffer(isEmailField, beforeCursor)) {

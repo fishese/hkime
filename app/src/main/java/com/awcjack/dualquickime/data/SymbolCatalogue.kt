@@ -43,6 +43,10 @@ object SymbolCatalogue {
                 items(related), items(extended), items(keywords).toSet()))
         }
 
+        // Each argument is one row of single-code-point glyphs, in reading order.
+        fun syllabary(vararg lines: String) =
+            lines.joinToString(" ") { line -> line.map { it.toString() }.joinToString(" ") }
+
         // The visible digit is committed first. Financial and decorative forms stay later.
         add("1", "１", "一", "one", "壹 ① ❶ ➀ ➊", "¹ ₁ Ⅰ ⅰ")
         add("2", "２", "二 兩", "two", "貳 ② ❷ ➁ ➋", "² ₂ Ⅱ ⅱ")
@@ -62,8 +66,8 @@ object SymbolCatalogue {
         add("&", "＆", "同", "and")
         add("-", "－", "減號 連字號", "minus hyphen", "− – — ‐ ‒ ±")
         add("+", "＋ ﹢ ➕ ✙ ✚ ✛ ✜ ✞ ✟ ✠ ✢ ✣ ✥ ‡", "加號", "plus", "± ∓ ⊕ ⊞")
-        add("*", "＊", "星號", "asterisk star", "※ ★ ☆", "✱ ✲ ✳ ✴")
-        add("/", "／ ¼ ½ ¾ ⅓ ⅔", "斜線", "slash", "⁄ ∕ ÷ \\ ＼", "⅛ ⅜ ⅝ ⅞ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚")
+        add("*", "＊ ×", "星號", "asterisk star", "※ ★ ☆", "✱ ✲ ✳ ✴")
+        add("/", "／ ÷ ¼ ½ ¾ ⅓ ⅔", "斜線", "slash", "⁄ ∕ \\ ＼", "⅛ ⅜ ⅝ ⅞ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚")
         add("(", "（ { [", "括號 左括號", "parenthesis left_parenthesis", "〈 《 「 『 【", keywords = "bracket")
         add(")", "） } ]", "括號 右括號", "parenthesis right_parenthesis", "〉 》 」 』 】", keywords = "bracket")
         add("<", "＜ 〈 《 «", "小於", "less_than", "≤ ≪ ‹", "≺", "bracket")
@@ -72,7 +76,7 @@ object SymbolCatalogue {
         add("÷", "／", "除號", "divide", "∕ ⁄")
         add("'", "‘ ’", "單引號 撇號", "apostrophe single_quote", "′ ‵", keywords = "quote")
         add("!", "❗ ❢ ❣ ！ ‼", "感嘆號", "exclamation_mark", "⁉ ❕")
-        add("?", "？", "問號", "question_mark", "⁇ ⁈", "❓ ❔")
+        add("?", "？ ⁉️ ❓ ❔ ¿", "問號", "question_mark", "⁇ ⁈")
         add("~", "～", "波浪號", "tilde", "≈ ∼ ≃")
         add("`", "｀", "重音符號", "backtick", "ˋ ‵")
         add("|", "｜", "直線", "vertical_bar pipe", "‖ ¦ ∣")
@@ -100,8 +104,68 @@ object SymbolCatalogue {
         add("’", "‘ ' 』", "右單引號", "closing_single_quote", "” 」", keywords = "quote")
         add("™", "", "商標", "trademark", "®", keywords = "trademark")
         add("℅", "", "轉交", "care_of c/o")
+        // The key glyph stays in the list so the whole script can be picked from candidates.
+        add("ㄅ", syllabary(
+            "ㄅㄆㄇㄈㄉㄊㄋㄌ",
+            "ㄍㄎㄏㄐㄑㄒ",
+            "ㄓㄔㄕㄖㄗㄘㄙ",
+            "ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ",
+            "ㄧㄨㄩ",
+            "ㄪㄫㄬ",
+            "ㆠㆡㆢㆣㆤㆥㆦㆧㆨㆩㆪㆫ",
+            "ㆬㆭㆮㆯㆰㆱㆲㆳ",
+            "ˊˇˋ˙ˉ˪˫"),
+            "注音 方音符號", "bopomofo",
+            // MOE Tâi-lô tone marks. Tone 8 is a combining vertical line.
+            "臺羅 á à â ā é è ê ē í ì î ī ó ò ô ō ú ù û ū " +
+                "a\u030D e\u030D i\u030D o\u030D u\u030D m\u0304",
+            keywords = "bopomofo zhuyin tailo")
+        add("あ", syllabary(
+            "あいうえお",
+            "かきくけこ",
+            "さしすせそ",
+            "たちつてと",
+            "なにぬねの",
+            "はひふへほ",
+            "まみむめも",
+            "やゆよ",
+            "らりるれろ",
+            "わをん",
+            "がぎぐげご",
+            "ざじずぜぞ",
+            "だぢづでど",
+            "ばびぶべぼ",
+            "ぱぴぷぺぽ",
+            "ぁぃぅぇぉゃゅょっ",
+            "ゎゔゐゑ"),
+            "平假名", "hiragana", keywords = "hiragana")
+        add("ア", syllabary(
+            "アイウエオ",
+            "カキクケコ",
+            "サシスセソ",
+            "タチツテト",
+            "ナニヌネノ",
+            "ハヒフヘホ",
+            "マミムメモ",
+            "ヤユヨ",
+            "ラリルレロ",
+            "ワヲンー",
+            "ガギグゲゴ",
+            "ザジズゼゾ",
+            "ダヂヅデド",
+            "バビブベボ",
+            "パピプペポ",
+            "ァィゥェォャュョッ",
+            "ヮヴヰヱ"),
+            "片假名", "katakana", keywords = "katakana")
+        add("ㄱ", syllabary(
+            "ㄱㄲㄳㄴㄵㄶㄷㄸㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅃㅄㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ",
+            "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"),
+            "韓文", "hangul", keywords = "hangul")
         add("[", "【 { (", "方括號 左方括號", "square_bracket left_bracket", "「 〈 《 ＜", keywords = "bracket")
         add("]", "】 } )", "方括號 右方括號", "square_bracket right_bracket", "」 〉 》 ＞", keywords = "bracket")
+        add("{", "｛ ﹛", "大括號 左大括號 花括號", "left_curly_bracket curly_bracket", "[ (", keywords = "bracket")
+        add("}", "｝ ﹜", "大括號 右大括號 花括號", "right_curly_bracket curly_bracket", "] )", keywords = "bracket")
 
         // Page 3: CJK punctuation and common mathematical marks.
         add("「", "『 “ ‘ 【", "引號 左引號", "opening_quote quotation_mark", "[ 〈 《 ＜", keywords = "bracket quote")
@@ -113,7 +177,7 @@ object SymbolCatalogue {
         add("：", ":", "冒號", "colon", "∶")
         add("；", ";", "分號", "semicolon")
         add("！", "❗ ❢ ❣ ! ‼", "感嘆號", "exclamation_mark", "⁉ ❕")
-        add("？", "?", "問號", "question_mark", "⁇ ⁈")
+        add("？", "? ⁉️ ❓ ❔ ¿", "問號", "question_mark", "⁇ ⁈")
         add("—", "– -", "破折號", "em_dash dash", "―")
         add("–", "— -", "短破折號", "en_dash dash", "‒")
         add("_", "＿", "底線", "underscore low_line")
@@ -181,6 +245,7 @@ object SymbolCatalogue {
 
     private val openingBrackets = items("[ ( { < （ ＜ 「 『 【 〈 《 « “ ‘")
     private val closingBrackets = items("] ) } > ） ＞ 」 』 】 〉 》 » ” ’")
+    private val scriptPickerKeys = setOf("ㄅ", "あ", "ア", "ㄱ")
 
     fun candidatesForSymbol(symbol: String): List<String> {
         val entry = entries[symbol]
@@ -190,9 +255,11 @@ object SymbolCatalogue {
             in closingBrackets -> closingBrackets
             else -> emptyList()
         }
-        return (entry.direct + entry.chinese + entry.english + entry.related +
+        val listed = (entry.direct + entry.chinese + entry.english + entry.related +
             entry.extended + romanByNumber[symbol].orEmpty() + remainingBrackets)
-            .filterNot { it == symbol }.distinct()
+            .distinct()
+        // Script pickers include the key itself so the list is the whole set.
+        return if (symbol in scriptPickerKeys) listed else listed.filterNot { it == symbol }
     }
 
     /** Exact keyword lookup only. Returned symbols are appended after ordinary word choices. */

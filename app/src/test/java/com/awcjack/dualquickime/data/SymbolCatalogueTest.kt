@@ -7,7 +7,7 @@ import org.junit.Test
 
 class SymbolCatalogueTest {
     @Test fun usefulVariantsAndNamesLeadTheList() {
-        assertEquals(listOf("＊", "星號", "asterisk", "star", "※", "★", "☆"),
+        assertEquals(listOf("＊", "×", "星號", "asterisk", "star", "※", "★"),
             SymbolCatalogue.candidatesForSymbol("*").take(7))
         assertEquals(listOf("１", "一", "one", "壹", "①"),
             SymbolCatalogue.candidatesForSymbol("1").take(5))
@@ -23,11 +23,11 @@ class SymbolCatalogueTest {
 
     @Test fun everyVisibleSymbolPageKeyIsCovered() {
         val rows = listOf(
-            "1234567890", "@#$&-+*/()", "<>×÷'!?",
-            "~`|•√π§、“”", "£¢€¥^°=\\:;", "％‘’™℅[]",
-            "「」，。：；", "！？—–_‖", "¦※·…±∞",
-            "$¥€£¢₩₹฿₱₽", "%‰°℃℉≈≠", "≤≥∑∏†‡\"'©®",
-            "←→↑↓↔↕⇐⇒⇑⇓", "▲▼◀▶◆◇Ω■△∆", "♠♣♥♦★╬♪"
+            "1234567890", "@#$&-+*/()", "<>:\"'!?",
+            "~`|\\:;“”‘’", "•√π^°=[]§", "ㄅあアㄱ％™℅",
+            "「」{}，、。：；", "！？—–_‖¦", "×÷±∞※·…",
+            "$¥€£¢₩₹฿₱₽", "%‰°℃℉≈≠©®", "≤≥∑∏†‡\"'",
+            "←→↑↓↔↕⇐⇒⇑⇓", "▲▼◀▶◆◇■△∆Ω", "♠♣♥♦★╬♪"
         )
         for (key in rows.flatMap { it.toList() }.distinct()) {
             assertTrue("Missing symbol: $key", SymbolCatalogue.contains(key.toString()))
@@ -85,13 +85,44 @@ class SymbolCatalogueTest {
             SymbolCatalogue.candidatesForSymbol("!").take(5))
         assertTrue(listOf("‡", "✙", "✚", "✛", "✜", "✞", "✟", "✠", "✢", "✣", "✥", "➕", "﹢", "＋")
             .all { it in SymbolCatalogue.candidatesForSymbol("+") })
-        assertTrue(listOf("¼", "½", "¾", "⅓", "⅔", "／")
+        assertTrue(listOf("¼", "½", "¾", "⅓", "⅔", "／", "÷")
             .all { it in SymbolCatalogue.candidatesForSymbol("/") })
+        assertEquals("÷", SymbolCatalogue.candidatesForSymbol("/")[1])
+        assertEquals(listOf("？", "⁉️", "❓", "❔", "¿"),
+            SymbolCatalogue.candidatesForSymbol("?").take(5))
+        assertTrue(listOf("⁉️", "❓", "❔", "¿").all {
+            it in SymbolCatalogue.candidatesForSymbol("？")
+        })
+        val leftBrace = SymbolCatalogue.candidatesForSymbol("{")
+        assertEquals("｛", leftBrace.first())
+        assertTrue(listOf("大括號", "左大括號", "花括號", "left curly bracket", "﹛").all { it in leftBrace })
+        val rightBrace = SymbolCatalogue.candidatesForSymbol("}")
+        assertEquals("｝", rightBrace.first())
+        assertTrue(listOf("大括號", "右大括號", "花括號", "right curly bracket", "﹜").all { it in rightBrace })
     }
 
     @Test fun combinedStarAndSquareKeysKeepTheirOutlineCandidates() {
         assertEquals("☆", SymbolCatalogue.candidatesForSymbol("★").first())
         assertEquals("□", SymbolCatalogue.candidatesForSymbol("■").first())
+    }
+
+    @Test fun scriptKeysListTheRestOfEachWritingSystem() {
+        val zhuyin = SymbolCatalogue.candidatesForSymbol("ㄅ")
+        assertEquals(listOf("ㄅ", "ㄆ", "ㄇ", "ㄈ"), zhuyin.take(4))
+        assertTrue(listOf("ㄩ", "ㆠ", "ㆳ", "ˊ", "ˋ").all { it in zhuyin })
+        assertTrue(zhuyin.indexOf("ㄩ") < zhuyin.indexOf("臺羅"))
+        assertTrue(zhuyin.indexOf("臺羅") < zhuyin.indexOf("á"))
+        assertTrue(listOf("á", "à", "â", "ā", "ê", "ī", "ô", "ū", "a\u030D", "m\u0304").all { it in zhuyin })
+        assertEquals("ㄅ", zhuyin.first())
+
+        assertEquals(listOf("あ", "い", "う", "え", "お"), SymbolCatalogue.candidatesForSymbol("あ").take(5))
+        assertTrue(listOf("ん", "が", "っ", "平假名", "hiragana").all {
+            it in SymbolCatalogue.candidatesForSymbol("あ")
+        })
+        assertEquals("ア", SymbolCatalogue.candidatesForSymbol("ア").first())
+        assertTrue(listOf("ン", "ー", "ヴ", "片假名").all { it in SymbolCatalogue.candidatesForSymbol("ア") })
+        assertEquals("ㄱ", SymbolCatalogue.candidatesForSymbol("ㄱ").first())
+        assertTrue(listOf("ㅎ", "ㅏ", "ㅣ", "韓文", "hangul").all { it in SymbolCatalogue.candidatesForSymbol("ㄱ") })
     }
 
     @Test fun greekAndBoxDrawingKeysExposeCommonCharacters() {
