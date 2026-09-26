@@ -4,7 +4,7 @@ HK IME is an offline Android keyboard built for natural Hong Kong Chinese–Engl
 
 > **Type “幫我check下” in one go — no keyboard or mode switching needed.**
 
-[Download the latest signed APK (v0.3.29)](https://github.com/fishese/hkime/releases/download/v0.3.29/HK-IME-0.3.29-release.apk)
+[Download the latest signed APK](https://github.com/fishese/hkime/releases/latest)
 
 ## Highlights
 
@@ -80,7 +80,7 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 
 ## Installation
 
-1. Download the [latest signed APK](https://github.com/fishese/hkime/releases/download/v0.3.29/HK-IME-0.3.29-release.apk).
+1. Download the [latest signed APK](https://github.com/fishese/hkime/releases/latest).
 2. Install it on your Android device. Android may ask you to allow installation from your browser or file manager.
 3. Open **HK IME** from the app drawer and enable it as an on-screen keyboard.
 4. Select **HK IME** from Android's keyboard switcher when you want to use it.
