@@ -25,6 +25,7 @@ import com.awcjack.dualquickime.data.SwipeDeletion
 import com.awcjack.dualquickime.data.CompositionState
 import com.awcjack.dualquickime.data.CompositionSelection
 import com.awcjack.dualquickime.data.LatinSpaceCommit
+import com.awcjack.dualquickime.data.EmailDomains
 import com.awcjack.dualquickime.data.ContextualPunctuation
 import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.sanitizeCandidates
@@ -547,8 +548,9 @@ class HkInputMethodService : InputMethodService() {
         val alternatives = (listOfNotNull(choice?.alternative?.toString()) +
             SymbolCatalogue.candidatesForSymbol(inserted)).filterNot { it == inserted }.distinct()
         commitText(inserted)
-        if (event.char == '@' && isEmailField && !isPasswordField) {
-            // Email-domain mode owns the candidate bar after @; do not leave a
+        if (event.char == '@' && !isPasswordField &&
+            EmailDomains.shouldOffer(isEmailField, beforeCursor)) {
+            // Domain suggestions own the candidate bar after @; do not leave a
             // pending symbol that would intercept domain selection.
             enterEmailSuggestionsMode()
         } else if (keyboardView?.isNumberPadMode() != true) {
@@ -909,7 +911,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun updateEmailSuggestionsView() {
-        val filtered = EMAIL_DOMAINS.filter { it.startsWith(emailTypedSoFar) }
+        val filtered = EmailDomains.matching(emailTypedSoFar)
         if (filtered.isEmpty()) {
             clearEmailSuggestions()
             return
@@ -1033,6 +1035,10 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun updateCandidateView() {
+        if (isEmailSuggestionsMode) {
+            updateEmailSuggestionsView()
+            return
+        }
         keyboardView?.let { view ->
             val isMasked = isPasswordField && isPasswordMaskEnabled
             // Full Cangjie codes have at most five keys; longer buffers are
@@ -1071,6 +1077,7 @@ class HkInputMethodService : InputMethodService() {
     private fun handlePageIndicatorClicked() {
         val allCandidates = when {
             pendingSymbol != null -> pendingSymbol!!.alternatives
+            isEmailSuggestionsMode -> EmailDomains.matching(emailTypedSoFar)
             isAssociatedPhrasesMode -> associatedPhrases
             else -> composition.candidates
         }
@@ -1096,9 +1103,5 @@ class HkInputMethodService : InputMethodService() {
             EditorInfo.IME_ACTION_PREVIOUS
         )
 
-        private val EMAIL_DOMAINS = listOf(
-            "gmail.com", "protonmail.com", "yahoo.com", "outlook.com", "hotmail.com",
-            "icloud.com", "me.com", "live.com", "msn.com"
-        )
     }
 }

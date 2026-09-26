@@ -53,7 +53,7 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 
 - Full emoji keyboard with categories and skin-tone selection.
 - Context-aware half-width/full-width punctuation.
-- Email-domain suggestions after `@` in email fields.
+- Email-domain suggestions after `@` in email fields, and in other fields when the text before `@` is an address.
 - Light, dark and system themes.
 - Adjustable key height, candidate text size and candidate spacing.
 - Optional Cangjie labels and radical-sequence preview.
