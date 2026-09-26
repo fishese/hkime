@@ -48,6 +48,8 @@
     <string name="settings_english_spell_check_desc">Only clear, one-edit corrections from a small offline word list; typed text stays unchanged unless tapped</string>
     <string name="settings_space_after_english_candidate">Add space after English candidate</string>
     <string name="settings_space_after_english_candidate_desc">When you tap a Latin word suggestion, insert a following space</string>
+    <string name="settings_ignore_space_after_latin">Space commits Latin without a space</string>
+    <string name="settings_ignore_space_after_latin_desc">When Latin letters are still uncommitted, the first space finishes them and is not inserted. Press space again to insert one.</string>
     <string name="settings_preview">Preview</string>
     <string name="settings_about">About</string>
 

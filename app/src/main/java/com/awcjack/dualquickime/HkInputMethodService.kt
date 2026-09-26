@@ -24,6 +24,7 @@ import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.SwipeDeletion
 import com.awcjack.dualquickime.data.CompositionState
 import com.awcjack.dualquickime.data.CompositionSelection
+import com.awcjack.dualquickime.data.LatinSpaceCommit
 import com.awcjack.dualquickime.data.ContextualPunctuation
 import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.sanitizeCandidates
@@ -583,8 +584,12 @@ class HkInputMethodService : InputMethodService() {
             clearEmailSuggestions()
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        val committingLatin = composition.rawKeys.isNotEmpty()
         finishEnglishComposition()
-        commitText(" ")
+        if (LatinSpaceCommit.insertsSpace(
+                ThemeManager.getIgnoreSpaceAfterLatin(this), committingLatin)) {
+            commitText(" ")
+        }
     }
 
     private fun handleBackspace() {

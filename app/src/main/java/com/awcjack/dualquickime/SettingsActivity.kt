@@ -264,6 +264,7 @@ class SettingsActivity : AppCompatActivity() {
         val englishOptions = addSettingsSection(input, R.string.settings_english_options)
         moveView(findViewById(R.id.englishSpellCheckRow), englishOptions)
         moveView(findViewById(R.id.englishSpaceAfterRow), englishOptions)
+        moveView(findViewById(R.id.englishIgnoreSpaceRow), englishOptions)
         moveSection(R.id.shortcutSectionHeader, input)
         moveSection(R.id.customDictionarySectionHeader, input)
         moveSection(R.id.sectionCharsetHeader, input)
@@ -463,6 +464,12 @@ class SettingsActivity : AppCompatActivity() {
             isChecked = ThemeManager.getSpaceAfterEnglishCandidate(this@SettingsActivity)
             setOnCheckedChangeListener { _, checked ->
                 ThemeManager.setSpaceAfterEnglishCandidate(this@SettingsActivity, checked)
+            }
+        }
+        findViewById<SwitchCompat>(R.id.switchIgnoreSpaceAfterLatin).apply {
+            isChecked = ThemeManager.getIgnoreSpaceAfterLatin(this@SettingsActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ThemeManager.setIgnoreSpaceAfterLatin(this@SettingsActivity, checked)
             }
         }
     }

@@ -78,6 +78,8 @@
     <string name="settings_english_spell_check_desc">只建议离线常用词表中明确的一步修正；未点选前不会改动已输入文字</string>
     <string name="settings_space_after_english_candidate">选择英文词后添加空格</string>
     <string name="settings_space_after_english_candidate_desc">点击英文词候选项时，自动在后面加一个空格</string>
+    <string name="settings_ignore_space_after_latin">用空格确认英文时不加空格</string>
+    <string name="settings_ignore_space_after_latin_desc">已输入英文但未点选候选词时，第一次按空格只确认该词，不会输入空格。再按一次才会输入空格。</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字符集</string>

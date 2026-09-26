@@ -24,6 +24,7 @@ object ThemeManager {
     private const val KEY_SHOW_KEY_RADICALS = "show_key_radicals"
     private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
     private const val KEY_SPACE_AFTER_ENGLISH_CANDIDATE = "space_after_english_candidate"
+    private const val KEY_IGNORE_SPACE_AFTER_LATIN = "ignore_space_after_latin"
     private const val KEY_METHOD_CANTONESE = "method_cantonese_enabled"
     private const val KEY_METHOD_CANGJIE = "method_cangjie_enabled"
     private const val KEY_METHOD_QUICK = "method_quick_enabled"
@@ -67,6 +68,7 @@ object ThemeManager {
     private var cachedShowKeyRadicals: Boolean? = null
     private var cachedEnglishSpellCheck: Boolean? = null
     private var cachedSpaceAfterEnglishCandidate: Boolean? = null
+    private var cachedIgnoreSpaceAfterLatin: Boolean? = null
 
     fun getMethodCantonese(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANTONESE, true)
     fun getMethodCangjie(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANGJIE, true)
@@ -286,6 +288,19 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_SPACE_AFTER_ENGLISH_CANDIDATE, enabled).apply()
     }
 
+    fun getIgnoreSpaceAfterLatin(context: Context): Boolean {
+        if (cachedIgnoreSpaceAfterLatin == null) {
+            cachedIgnoreSpaceAfterLatin = getPrefs(context)
+                .getBoolean(KEY_IGNORE_SPACE_AFTER_LATIN, false)
+        }
+        return cachedIgnoreSpaceAfterLatin!!
+    }
+
+    fun setIgnoreSpaceAfterLatin(context: Context, enabled: Boolean) {
+        cachedIgnoreSpaceAfterLatin = enabled
+        getPrefs(context).edit().putBoolean(KEY_IGNORE_SPACE_AFTER_LATIN, enabled).apply()
+    }
+
     /**
      * Returns true if dark theme should be used based on current settings.
      */
@@ -342,6 +357,7 @@ object ThemeManager {
         cachedShowKeyRadicals = null
         cachedEnglishSpellCheck = null
         cachedSpaceAfterEnglishCandidate = null
+        cachedIgnoreSpaceAfterLatin = null
     }
 
     // Modern Dark Theme Colors (Material You inspired)
