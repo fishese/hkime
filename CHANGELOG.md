@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## 0.3.30 — 2026-09-26
+
+- Added a setting so the space that commits typed Latin is not inserted. A second space still inserts one.
+
 ## 0.3.20 — 2026-09-25
 
 - Consolidated HK IME into one offline build.
