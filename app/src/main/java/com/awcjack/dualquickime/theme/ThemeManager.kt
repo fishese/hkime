@@ -25,6 +25,7 @@ object ThemeManager {
     private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
     private const val KEY_SPACE_AFTER_ENGLISH_CANDIDATE = "space_after_english_candidate"
     private const val KEY_IGNORE_SPACE_AFTER_LATIN = "ignore_space_after_latin"
+    private const val KEY_RESTORE_SPACE_BETWEEN_LATIN = "restore_space_between_latin"
     private const val KEY_METHOD_CANTONESE = "method_cantonese_enabled"
     private const val KEY_METHOD_CANGJIE = "method_cangjie_enabled"
     private const val KEY_METHOD_QUICK = "method_quick_enabled"
@@ -69,6 +70,7 @@ object ThemeManager {
     private var cachedEnglishSpellCheck: Boolean? = null
     private var cachedSpaceAfterEnglishCandidate: Boolean? = null
     private var cachedIgnoreSpaceAfterLatin: Boolean? = null
+    private var cachedRestoreSpaceBetweenLatin: Boolean? = null
 
     fun getMethodCantonese(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANTONESE, true)
     fun getMethodCangjie(context: Context) = getPrefs(context).getBoolean(KEY_METHOD_CANGJIE, true)
@@ -301,6 +303,19 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_IGNORE_SPACE_AFTER_LATIN, enabled).apply()
     }
 
+    fun getRestoreSpaceBetweenLatin(context: Context): Boolean {
+        if (cachedRestoreSpaceBetweenLatin == null) {
+            cachedRestoreSpaceBetweenLatin = getPrefs(context)
+                .getBoolean(KEY_RESTORE_SPACE_BETWEEN_LATIN, true)
+        }
+        return cachedRestoreSpaceBetweenLatin!!
+    }
+
+    fun setRestoreSpaceBetweenLatin(context: Context, enabled: Boolean) {
+        cachedRestoreSpaceBetweenLatin = enabled
+        getPrefs(context).edit().putBoolean(KEY_RESTORE_SPACE_BETWEEN_LATIN, enabled).apply()
+    }
+
     /**
      * Returns true if dark theme should be used based on current settings.
      */
@@ -358,6 +373,7 @@ object ThemeManager {
         cachedEnglishSpellCheck = null
         cachedSpaceAfterEnglishCandidate = null
         cachedIgnoreSpaceAfterLatin = null
+        cachedRestoreSpaceBetweenLatin = null
     }
 
     // Modern Dark Theme Colors (Material You inspired)

@@ -65,6 +65,7 @@ class HkInputMethodService : InputMethodService() {
     private var swipeEnglishWords: List<String> = emptyList()
     private var swipeChineseCodes: List<String> = emptyList()
     private var pendingSwipeChoice = false
+    private var spaceDeferredUntilNextLatin = false
     private var lastSelectedText = ""
     private var pendingSymbol: PendingSymbol? = null
 
@@ -209,7 +210,7 @@ class HkInputMethodService : InputMethodService() {
             setOnEnglishSelectedListener { _ ->
                 // Switching keyboard pages accepts the assumed swipe choice,
                 // or the visible Latin text when that choice is not pending.
-                finishEnglishComposition()
+                finishLatinOrDropDeferredSpace()
             }
             setOnPageIndicatorClickedListener {
                 handlePageIndicatorClicked()
@@ -266,6 +267,7 @@ class HkInputMethodService : InputMethodService() {
         // Clear composition when starting new input
         pendingSymbol = null
         lastSelectedText = ""
+        spaceDeferredUntilNextLatin = false
         clearComposition()
         // Clear associated phrases mode
         clearAssociatedPhrases()
@@ -313,21 +315,21 @@ class HkInputMethodService : InputMethodService() {
             is KeyboardView.KeyEvent.Emoji -> handleEmoji(event.emoji)
             is KeyboardView.KeyEvent.ClipboardPaste -> handleClipboardPaste(event.text)
             is KeyboardView.KeyEvent.CalculatorInsert -> if (!isPasswordField) {
-                finishEnglishComposition()
+                finishLatinOrDropDeferredSpace()
                 commitText(event.text)
             }
             KeyboardView.KeyEvent.Space -> handleSpace()
             KeyboardView.KeyEvent.Backspace -> handleBackspace()
             KeyboardView.KeyEvent.Enter -> handleEnter()
             KeyboardView.KeyEvent.HideKeyboard -> {
-                finishEnglishComposition()
+                finishLatinOrDropDeferredSpace()
                 pendingSymbol = null
                 clearAssociatedPhrases()
                 clearEmailSuggestions()
                 requestHideSelf(0)
             }
             KeyboardView.KeyEvent.OpenSettings -> {
-                finishEnglishComposition()
+                finishLatinOrDropDeferredSpace()
                 startActivity(Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
             is KeyboardView.KeyEvent.ConvertChinese -> handleConvertChinese(event.direction)
@@ -345,7 +347,7 @@ class HkInputMethodService : InputMethodService() {
         if (!ChineseConverter.isAvailable()) return
 
         // Commit any pending composition first so it isn't lost.
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         if (isEmailSuggestionsMode) clearEmailSuggestions()
 
@@ -408,6 +410,11 @@ class HkInputMethodService : InputMethodService() {
         swipeEnglishWords = emptyList()
         swipeChineseCodes = emptyList()
         if (isEmailSuggestionsMode) {
+            if (LatinSpaceCommit.restoreDeferredSpace(
+                    restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, true)) {
+                commitText(" ")
+            }
+            spaceDeferredUntilNextLatin = false
             val lowerChar = char.lowercaseChar()
             commitText(lowerChar.toString())
             emailTypedSoFar += lowerChar
@@ -447,8 +454,10 @@ class HkInputMethodService : InputMethodService() {
 
     private fun moveCursorBy(delta: Int) {
         if (delta == 0) return
+        val committingRawLatin = composition.rawKeys.isNotEmpty()
         pendingSwipeChoice = false
         finishEnglishComposition()
+        if (!committingRawLatin) spaceDeferredUntilNextLatin = false
         val connection = currentInputConnection ?: return
         val before = connection.getTextBeforeCursor(10000, 0)?.toString() ?: return
         val after = connection.getTextAfterCursor(10000, 0)?.toString() ?: return
@@ -470,6 +479,7 @@ class HkInputMethodService : InputMethodService() {
         }
         val ic = currentInputConnection ?: return
         if (!ic.getSelectedText(0).isNullOrEmpty()) {
+            spaceDeferredUntilNextLatin = false
             ic.commitText("", 1)
             lastSelectedText = ""
             return
@@ -477,6 +487,7 @@ class HkInputMethodService : InputMethodService() {
         val before = ic.getTextBeforeCursor(128, 0)?.toString().orEmpty()
         val length = SwipeDeletion.lengthBeforeCursor(before, lastSelectedText)
         lastSelectedText = ""
+        spaceDeferredUntilNextLatin = false
         if (length > 0) ic.deleteSurroundingText(length, 0) else deleteOneGrapheme()
     }
 
@@ -488,7 +499,7 @@ class HkInputMethodService : InputMethodService() {
             updateEmailSuggestionsView()
             return
         }
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         // Then commit the number
         val text = digit.toString()
         commitText(text)
@@ -510,7 +521,7 @@ class HkInputMethodService : InputMethodService() {
         if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
             // The literal Latin text is already displayed by setComposingText.
-            // Finish it in place without inserting a space or choosing a candidate.
+            // Finish those letters in place instead of choosing a candidate.
             finishEnglishComposition()
         }
     }
@@ -518,7 +529,7 @@ class HkInputMethodService : InputMethodService() {
     private fun handleShortcutPhrase(digit: Int) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         val phrase = ShortcutPhraseManager.get(this, digit)
         commitText(phrase.ifEmpty { digit.toString() })
     }
@@ -529,7 +540,7 @@ class HkInputMethodService : InputMethodService() {
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         pendingSymbol = null
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
         val inserted = (choice?.inserted ?: event.char).toString()
@@ -568,14 +579,14 @@ class HkInputMethodService : InputMethodService() {
 
     private fun handleEmoji(emoji: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         // Then commit the emoji
         commitText(emoji)
     }
 
     private fun handleClipboardPaste(text: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         // Commit the clipboard text
         commitText(text)
     }
@@ -585,11 +596,18 @@ class HkInputMethodService : InputMethodService() {
             clearEmailSuggestions()
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
-        val committingLatin = composition.rawKeys.isNotEmpty()
+        val ignoreCommitSpace = ThemeManager.getIgnoreSpaceAfterLatin(this)
+        val rawLatin = composition.rawKeys.isNotEmpty() && !pendingSwipeChoice
+        val hadComposition = composition.rawKeys.isNotEmpty()
         finishEnglishComposition()
-        if (LatinSpaceCommit.insertsSpace(
-                ThemeManager.getIgnoreSpaceAfterLatin(this), committingLatin)) {
+        if (LatinSpaceCommit.deferCommitSpace(
+                ignoreCommitSpace, ThemeManager.getRestoreSpaceBetweenLatin(this), rawLatin)) {
+            spaceDeferredUntilNextLatin = true
+        } else if (LatinSpaceCommit.insertsSpace(ignoreCommitSpace, hadComposition)) {
             commitText(" ")
+            spaceDeferredUntilNextLatin = false
+        } else {
+            spaceDeferredUntilNextLatin = false
         }
     }
 
@@ -598,6 +616,7 @@ class HkInputMethodService : InputMethodService() {
         swipeChineseCodes = emptyList()
         lastSelectedText = ""
         if (isEmailSuggestionsMode) {
+            spaceDeferredUntilNextLatin = false
             if (emailTypedSoFar.isNotEmpty()) {
                 emailTypedSoFar = emailTypedSoFar.dropLast(1)
                 deleteOneGrapheme()
@@ -610,6 +629,7 @@ class HkInputMethodService : InputMethodService() {
         }
         // Exit associated phrases mode on backspace
         if (isAssociatedPhrasesMode) {
+            spaceDeferredUntilNextLatin = false
             clearAssociatedPhrases()
             // Also delete the character in text field (grapheme-aware)
             deleteOneGrapheme()
@@ -632,7 +652,8 @@ class HkInputMethodService : InputMethodService() {
                 updateComposition(newKeys)
             }
         } else {
-            // Delete character in text field (grapheme-aware for emojis)
+            // Editing already committed text cancels a space held for the next word.
+            spaceDeferredUntilNextLatin = false
             deleteOneGrapheme()
         }
     }
@@ -688,7 +709,7 @@ class HkInputMethodService : InputMethodService() {
             clearAssociatedPhrases()
         }
 
-        finishEnglishComposition()
+        finishLatinOrDropDeferredSpace()
         dispatchEditorActionOrEnter()
     }
 
@@ -735,10 +756,14 @@ class HkInputMethodService : InputMethodService() {
             composition.rawKeys.isNotEmpty()) {
             RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
         }
+        val keptLatin = LatinSpaceCommit.keptAsLatin(text)
         val latinWord = EnglishSuggestions.isLatinWord(text)
+        val leadingSpace = if (LatinSpaceCommit.restoreDeferredSpace(
+                restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, keptLatin)) " " else ""
+        spaceDeferredUntilNextLatin = false
         val needsSpace = latinWord && ThemeManager.getSpaceAfterEnglishCandidate(this) &&
             currentInputConnection?.getTextAfterCursor(1, 0)?.firstOrNull()?.isWhitespace() != true
-        lastSelectedText = text + if (needsSpace) " " else ""
+        lastSelectedText = leadingSpace + text + if (needsSpace) " " else ""
         commitText(lastSelectedText)
         clearComposition()
         // Associated phrases follow Chinese selections, not Latin autocomplete.
@@ -762,14 +787,37 @@ class HkInputMethodService : InputMethodService() {
         if (choice != null) commitCandidate(choice)
     }
 
-    private fun finishEnglishComposition() {
+    /**
+     * Commits visible Latin letters in place. Returns true when that raw string
+     * was committed, including an unrecognized string left as typed letters.
+     * A held space is written in front of that string.
+     */
+    private fun finishEnglishComposition(): Boolean {
         if (pendingSwipeChoice) {
             confirmPendingSwipeChoice()
-            return
+            return false
         }
-        if (composition.rawKeys.isEmpty()) return
+        if (composition.rawKeys.isEmpty()) return false
+        if (LatinSpaceCommit.restoreDeferredSpace(
+                restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, true)) {
+            spaceDeferredUntilNextLatin = false
+            currentInputConnection?.setComposingText(" " + getDisplayKeys(composition.rawKeys), 1)
+        } else if (!restoresSpaceBetweenLatin()) {
+            spaceDeferredUntilNextLatin = false
+        }
         currentInputConnection?.finishComposingText()
         clearComposition()
+        return true
+    }
+
+    private fun restoresSpaceBetweenLatin(): Boolean {
+        return ThemeManager.getIgnoreSpaceAfterLatin(this) &&
+            ThemeManager.getRestoreSpaceBetweenLatin(this)
+    }
+
+    /** Finish raw Latin if any; otherwise the held space no longer has a Latin word to join. */
+    private fun finishLatinOrDropDeferredSpace() {
+        if (!finishEnglishComposition()) spaceDeferredUntilNextLatin = false
     }
 
     private fun commitText(text: String) {
@@ -833,6 +881,7 @@ class HkInputMethodService : InputMethodService() {
      * Handle associated phrase selection.
      */
     private fun handleAssociatedPhraseSelected(phrase: String) {
+        spaceDeferredUntilNextLatin = false
         lastSelectedText = phrase
         commitText(phrase)
         // Show associated phrases for the last character of the selected phrase

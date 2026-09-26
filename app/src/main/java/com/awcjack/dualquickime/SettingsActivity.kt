@@ -265,6 +265,7 @@ class SettingsActivity : AppCompatActivity() {
         moveView(findViewById(R.id.englishSpellCheckRow), englishOptions)
         moveView(findViewById(R.id.englishSpaceAfterRow), englishOptions)
         moveView(findViewById(R.id.englishIgnoreSpaceRow), englishOptions)
+        moveView(findViewById(R.id.englishRestoreLatinSpaceRow), englishOptions)
         moveSection(R.id.shortcutSectionHeader, input)
         moveSection(R.id.customDictionarySectionHeader, input)
         moveSection(R.id.sectionCharsetHeader, input)
@@ -466,11 +467,34 @@ class SettingsActivity : AppCompatActivity() {
                 ThemeManager.setSpaceAfterEnglishCandidate(this@SettingsActivity, checked)
             }
         }
+        val restoreRow = findViewById<View>(R.id.englishRestoreLatinSpaceRow)
+        val restoreSwitch = findViewById<SwitchCompat>(R.id.switchRestoreSpaceBetweenLatin)
+        restoreSwitch.isChecked = ThemeManager.getRestoreSpaceBetweenLatin(this@SettingsActivity)
+        restoreSwitch.setOnCheckedChangeListener { _, checked ->
+            ThemeManager.setRestoreSpaceBetweenLatin(this@SettingsActivity, checked)
+        }
         findViewById<SwitchCompat>(R.id.switchIgnoreSpaceAfterLatin).apply {
             isChecked = ThemeManager.getIgnoreSpaceAfterLatin(this@SettingsActivity)
+            setSettingsRowEnabled(restoreRow, isChecked)
             setOnCheckedChangeListener { _, checked ->
                 ThemeManager.setIgnoreSpaceAfterLatin(this@SettingsActivity, checked)
+                setSettingsRowEnabled(restoreRow, checked)
             }
+        }
+    }
+
+    private fun setSettingsRowEnabled(row: View, enabled: Boolean) {
+        row.isEnabled = enabled
+        row.alpha = if (enabled) 1f else 0.38f
+        if (row is ViewGroup) {
+            for (index in 0 until row.childCount) setChildEnabled(row.getChildAt(index), enabled)
+        }
+    }
+
+    private fun setChildEnabled(view: View, enabled: Boolean) {
+        view.isEnabled = enabled
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) setChildEnabled(view.getChildAt(index), enabled)
         }
     }
 

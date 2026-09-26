@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.32 — 2026-09-26
+
+- The space that commits typed Latin can be held and put back when the next commit is also Latin, including an English word or an unrecognized string left as typed letters. Chinese stays without that space.
+- That restore is its own setting, and it stays unavailable until space-bar commit without a space is turned on.
+
 ## 0.3.31 — 2026-09-26
 
 - Rank everyday Cantonese characters such as 咗, 啦 and 冇 ahead of uncommon characters. Common characters stay in front.
