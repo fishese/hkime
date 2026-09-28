@@ -20,7 +20,7 @@ class EnglishAutocompleteTest {
     @Test fun bundledEnglishCoverageIncludesEveryRequestedExample() {
         val dictionary = bundled()
         assertTrue(dictionary.size >= 17_000)
-        for (word in listOf("apple", "paint", "birthday", "computer", "family", "school")) {
+        for (word in listOf("apple", "paint", "birthday", "computer", "family", "school", "testing")) {
             assertTrue(word, dictionary.contains(word))
             assertTrue(word, word in dictionary.completions(word))
         }

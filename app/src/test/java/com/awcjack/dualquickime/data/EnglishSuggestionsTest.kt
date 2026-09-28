@@ -12,6 +12,12 @@ class EnglishSuggestionsTest {
         assertEquals("Candidate", EnglishSuggestions.correction("Canddiate"))
     }
 
+    @Test fun keepsTestingAsAWordAndCorrectsAMissingLetter() {
+        assertNull(EnglishSuggestions.correction("testing"))
+        assertEquals("testing", EnglishSuggestions.correction("testng"))
+        assertTrue("testing" in EnglishSuggestions.completions("testi"))
+    }
+
     @Test fun leavesValidOrUncertainWordsAlone() {
         assertNull(EnglishSuggestions.correction("candidate"))
         assertNull(EnglishSuggestions.correction("ng"))

@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.41 — 2026-09-28
+
+- Chinese settings use standard written Chinese, with Hong Kong wording.
+- Recognize common words such as testing, and add one Chinese gloss for Pikmin Bloom flowers that did not already have one.
+
 ## 0.3.40 — 2026-09-28
 
 - Shorten settings descriptions so each option is easier to scan.

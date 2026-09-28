@@ -9,7 +9,7 @@
     <string name="subtype_en_US">英文（美國）</string>
 
     <string name="no_candidates">無此字</string>
-    <string name="space_hint">空白鍵輸入空格</string>
+    <string name="space_hint">空格鍵輸入空格</string>
 
     <!-- Settings -->
     <string name="settings_title">設定</string>
@@ -18,11 +18,11 @@
     <string name="settings_tab_other">其他</string>
     <string name="settings_switch_language">Show settings in English</string>
     <string name="settings_language_toggle">中/EN</string>
-    <string name="settings_enable_keyboard">到系統設定啟用鍵盤</string>
+    <string name="settings_enable_keyboard">在系統設定中啟用鍵盤</string>
     <string name="settings_english_options">英文輸入選項</string>
     <string name="settings_history">記錄</string>
     <string name="settings_input_methods">輸入方式</string>
-    <string name="settings_input_methods_desc">揀選要顯示嘅候選</string>
+    <string name="settings_input_methods_desc">選擇要顯示的候選</string>
     <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
     <string name="settings_method_cangjie">倉頡 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
@@ -33,7 +33,7 @@
     <string name="settings_shortcuts_desc">長按數字鍵輸入對應短語</string>
     <string name="settings_shortcut_hint">數字 %1$d 的短語</string>
     <string name="settings_custom_dictionary">自訂詞庫</string>
-    <string name="settings_custom_dictionary_desc">字母編碼對應一條短語，只存在呢部機</string>
+    <string name="settings_custom_dictionary_desc">字母編碼對應一條短語，只儲存在本機</string>
     <string name="settings_custom_add">新增詞條</string>
     <string name="settings_custom_edit">編輯</string>
     <string name="settings_custom_delete">刪除</string>
@@ -47,16 +47,16 @@
     <string name="settings_theme">主題</string>
     <string name="settings_candidate_bar">候選字列</string>
     <string name="settings_show_composition">顯示倉頡字根預覽</string>
-    <string name="settings_show_composition_desc">顯示已打按鍵嘅字根</string>
+    <string name="settings_show_composition_desc">顯示已輸入按鍵的字根</string>
     <string name="settings_candidates_per_page">每頁候選字數量</string>
     <string name="settings_candidates_per_page_desc">越少越大</string>
     <string name="settings_candidate_padding">候選字間距</string>
-    <string name="settings_candidate_padding_desc">間距越細，每行越多</string>
+    <string name="settings_candidate_padding_desc">間距越小，每行越多</string>
     <string name="settings_keyboard_layout">鍵盤版面</string>
     <string name="settings_key_height">按鍵大小</string>
-    <string name="settings_key_height_desc">字母鍵同符號鍵嘅高度</string>
+    <string name="settings_key_height_desc">字母鍵和符號鍵的高度</string>
     <string name="settings_candidate_text_size">候選字大小</string>
-    <string name="settings_candidate_text_size_desc">中文候選字嘅大小</string>
+    <string name="settings_candidate_text_size_desc">中文候選字的大小</string>
     <string name="settings_show_key_radicals">顯示按鍵上的倉頡字根</string>
     <string name="settings_show_key_radicals_desc">關閉後英文字母更大</string>
     <string name="settings_hold_123">長按 123 開啟設定</string>
@@ -72,40 +72,40 @@
     <string name="preview_hint">主題預覽</string>
 
     <!-- About -->
-    <string name="app_description">離線輸入廣東話拼音、倉頡、速成同英文，支援表情符號同自訂詞庫。</string>
+    <string name="app_description">離線輸入廣東話拼音、倉頡、速成和英文，支援表情符號和自訂詞庫。</string>
     <string name="version_info">版本 %s</string>
-    <string name="github_link_text">喺 GitHub 睇 HK IME 原始碼</string>
+    <string name="github_link_text">在 GitHub 查看 HK IME 原始碼</string>
     <string name="github_icon_desc">GitHub</string>
 
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">鍵盤</string>
     <string name="settings_haptic_feedback">觸感回饋</string>
-    <string name="settings_haptic_feedback_desc">點按同長按時震動</string>
+    <string name="settings_haptic_feedback_desc">點按和長按時震動</string>
     <string name="settings_gesture_delete">左滑刪除</string>
-    <string name="settings_gesture_delete_desc">喺空格鍵向左滑，先刪輸入，再刪上一個詞</string>
+    <string name="settings_gesture_delete_desc">在空格鍵向左滑，先刪輸入，再刪上一個詞</string>
     <string name="settings_swipe_typing">滑動輸入（測試中）</string>
-    <string name="settings_swipe_typing_desc">滑過字母輸入詞或者編碼。密碼欄關閉。</string>
+    <string name="settings_swipe_typing_desc">滑過字母輸入詞語或編碼。密碼欄關閉。</string>
 
     <!-- Recent Candidates -->
-    <string name="settings_recent_candidates">優先顯示最近使用嘅候選字</string>
+    <string name="settings_recent_candidates">優先顯示最近使用的候選字</string>
     <string name="settings_recent_candidates_desc">常用字會排得更前</string>
     <string name="settings_recent_candidates_clear">清除最近候選字記錄</string>
     <string name="settings_recent_candidates_clear_confirm_title">清除最近候選字？</string>
-    <string name="settings_recent_candidates_clear_confirm_message">呢個會清除最近候選字使用記錄。</string>
+    <string name="settings_recent_candidates_clear_confirm_message">這會清除最近候選字的使用記錄。</string>
     <string name="settings_recent_candidates_clear_confirm_yes">清除</string>
     <string name="settings_recent_candidates_cleared">最近候選字記錄已清除</string>
     <string name="settings_english_spell_check">建議英文拼字修正</string>
-    <string name="settings_english_spell_check_desc">只建議一處明確修正，點選先會改字</string>
-    <string name="settings_latin_sentence_case">拉丁字母句首大階</string>
-    <string name="settings_latin_sentence_case_desc">換行後，或者句號加空格後用大階。按鍵顯示呢個大小寫。</string>
+    <string name="settings_english_spell_check_desc">只建議一處明確修正，點選後才改字</string>
+    <string name="settings_latin_sentence_case">拉丁字母句首大寫</string>
+    <string name="settings_latin_sentence_case_desc">換行後，或句號加空格後大寫。按鍵顯示這個大小寫。</string>
     <string name="settings_key_preview">按鍵預覽</string>
-    <string name="settings_key_preview_desc">按住時放大字母，滑出就取消</string>
+    <string name="settings_key_preview_desc">按住時放大字母，滑出即取消</string>
     <string name="settings_space_after_english_candidate">選擇英文字後加入空格</string>
     <string name="settings_space_after_english_candidate_desc">點選英文字後加一個空格</string>
     <string name="settings_ignore_space_after_latin">空格鍵確認拉丁字母時不加空格</string>
-    <string name="settings_ignore_space_after_latin_desc">只確認拉丁字母。再按一次先輸入空格。按住可開關。</string>
+    <string name="settings_ignore_space_after_latin_desc">只確認拉丁字母。再按一次才輸入空格。按住可開關。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之間補回空格</string>
-    <string name="settings_restore_space_between_latin_desc">喺之後嘅拉丁字母或者數字前面補回空格，中文就唔加</string>
+    <string name="settings_restore_space_between_latin_desc">在其後的拉丁字母或數字前補回空格，中文則不加</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字元集</string>
@@ -118,20 +118,20 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">剪貼簿</string>
     <string name="settings_clipboard_enable">啟用剪貼簿歷史</string>
-    <string name="settings_clipboard_enable_desc">喺呢部機儲存複製嘅文字</string>
+    <string name="settings_clipboard_enable_desc">在本機儲存複製的文字</string>
     <string name="settings_clipboard_clear">清除剪貼簿歷史</string>
     <string name="settings_clipboard_clear_confirm_title">清除歷史？</string>
-    <string name="settings_clipboard_clear_confirm_message">呢個會刪除所有剪貼簿歷史，包括已釘選嘅項目。</string>
+    <string name="settings_clipboard_clear_confirm_message">這會刪除所有剪貼簿歷史，包括已釘選的項目。</string>
     <string name="settings_clipboard_clear_confirm_yes">清除</string>
     <string name="settings_clipboard_cleared">剪貼簿歷史已清除</string>
-    <string name="clipboard_empty">冇剪貼簿歷史</string>
-    <string name="clipboard_pinned_empty">冇釘選嘅項目</string>
+    <string name="clipboard_empty">沒有剪貼簿歷史</string>
+    <string name="clipboard_pinned_empty">沒有釘選的項目</string>
     <string name="clipboard_tab_all">全部</string>
     <string name="clipboard_tab_pinned">已釘選</string>
 
     <!-- Chinese Conversion (Simplified ⇄ Traditional) -->
     <string name="settings_chinese_convert">簡繁轉換</string>
     <string name="settings_chinese_convert_enable">顯示「簡⇄繁」鍵</string>
-    <string name="settings_chinese_convert_enable_desc">㩒一下轉簡體，長㩒轉繁體（香港）</string>
+    <string name="settings_chinese_convert_enable_desc">點按轉簡體，長按轉繁體（香港）</string>
 
 </resources>

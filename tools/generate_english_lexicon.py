@@ -69,6 +69,19 @@ def main() -> None:
     selected.update({
         "apple", "apples", "paint", "painting", "painted", "birthday", "birthdays",
         "banana", "bananas", "orange", "oranges", "school", "friend", "family",
+        "testing", "tested", "tests", "okay", "favourite", "grey", "pikmin", "our",
+        "asked", "asking", "began", "changed", "decided", "default", "does", "doing",
+        "getting", "going", "growing", "having", "into", "longer", "looking", "making",
+        "selected", "selection", "settings", "started", "taking", "trying", "typed",
+        "typing", "used", "wanted", "whether", "working", "would", "candidates", "clipboard",
+        "pansy", "poinsettia", "camellia", "carnation", "hydrangea", "sunflower", "cosmos",
+        "cyclamen", "daffodil", "windflower", "frangipani", "hibiscus", "dianthus", "gentian",
+        "chrysanthemum", "helleborus", "cattleya", "hyacinth", "peony", "dahlia", "clematis",
+        "snowdrop", "freesia", "celosia", "marigold", "salvia", "primrose", "snapdragon",
+        "petunia", "plumblossom", "cherryblossom", "spiderlily", "callalily", "waterlily",
+        "morningglory", "sweetpea", "lilyofthevalley", "babyblueeyes", "birdofparadise",
+        "canolaflower", "anniversaryrose", "mothorchid", "parrottulip", "forgetmenot",
+        "bellflower", "orchidcactus", "cannalily", "prairiegentian",
     })
     with OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write("\n".join(sorted(selected)) + "\n")

@@ -1,5 +1,6 @@
 package com.awcjack.dualquickime.data
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -207,6 +208,18 @@ class MethodMembershipTest {
             setOf(MethodMembership.Method.QUICK), false))
         assertEquals(listOf("是"), membership.filter("be", listOf("是"),
             setOf(MethodMembership.Method.CANGJIE), false))
+    }
+
+    @Test fun newEnglishGlossesAreOneMeaningEach() {
+        val bundled = MethodMembership(emptySequence(),
+            File("src/main/assets/method-phrase-overrides.tsv").readLines().asSequence())
+        val english = setOf(MethodMembership.Method.ENGLISH)
+        assertEquals(listOf("測試"), bundled.supplementalCandidates("testing", english))
+        assertEquals(listOf("已測試"), bundled.supplementalCandidates("tested", english))
+        assertEquals(listOf("一品紅"), bundled.supplementalCandidates("poinsettia", english))
+        assertEquals(listOf("波斯菊"), bundled.supplementalCandidates("cosmos", english))
+        assertEquals(listOf("鳶尾"), bundled.supplementalCandidates("iris", english))
+        assertEquals(listOf("皮克敏"), bundled.supplementalCandidates("pikmin", english))
     }
 
     @Test fun reviewedAllSymbolAppearsForEveryEnabledMethod() {

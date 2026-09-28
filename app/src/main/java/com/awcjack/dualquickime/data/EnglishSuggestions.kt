@@ -39,6 +39,13 @@ object EnglishSuggestions {
         which while white whole will window with within without woman word words work working world would write
         writing wrong year yellow yesterday young your yourself candidate candidates cantonese cangjie chinese
         english keyboard clipboard shortcut convert conversion correction dictionary frequency suggestion
+        testing tested tests okay favourite grey pikmin
+        pansy poinsettia camellia carnation hydrangea sunflower cosmos cyclamen daffodil windflower
+        frangipani hibiscus dianthus gentian chrysanthemum helleborus cattleya hyacinth peony dahlia
+        clematis snowdrop freesia celosia marigold salvia primrose snapdragon petunia plumblossom
+        cherryblossom spiderlily callalily waterlily morningglory sweetpea lilyofthevalley babyblueeyes
+        birdofparadise canolaflower anniversaryrose mothorchid parrottulip forgetmenot bellflower
+        orchidcactus cannalily prairiegentian
     """.trimIndent().split(Regex("\\s+")).toSet()
 
     internal fun swipeWords(): Set<String> = commonWords
