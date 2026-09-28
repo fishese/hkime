@@ -26,6 +26,7 @@ import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.SwipeDeletion
 import com.awcjack.dualquickime.data.CompositionState
 import com.awcjack.dualquickime.data.CompositionSelection
+import com.awcjack.dualquickime.data.LatinSentenceCase
 import com.awcjack.dualquickime.data.LatinSpaceCommit
 import com.awcjack.dualquickime.data.EmailDomains
 import com.awcjack.dualquickime.data.ContextualPunctuation
@@ -297,6 +298,7 @@ class HkInputMethodService : InputMethodService() {
             isSymbolMode = false
             keyboardView?.setLetterMode()
         }
+        refreshLatinCase()
     }
 
     private fun isPasswordInputField(info: EditorInfo?): Boolean {
@@ -347,6 +349,22 @@ class HkInputMethodService : InputMethodService() {
             }
             is KeyboardView.KeyEvent.ConvertChinese -> handleConvertChinese(event.direction)
         }
+        refreshLatinCase()
+    }
+
+    private fun refreshLatinCase() {
+        val view = keyboardView ?: return
+        val enabled = ThemeManager.getLatinSentenceCase(this) && !isPasswordField && !isEmailField
+        val before = if (enabled && composition.rawKeys.isEmpty()) {
+            currentInputConnection?.getTextBeforeCursor(160, 0)?.toString()
+        } else {
+            null
+        }
+        view.setLatinCase(
+            enabled,
+            enabled && before != null &&
+                LatinSentenceCase.contextCapital(before, composition.rawKeys.length)
+        )
     }
 
     /**
@@ -558,6 +576,7 @@ class HkInputMethodService : InputMethodService() {
             clearComposition()
         }
         invalidateEditorAnchors()
+        refreshLatinCase()
     }
 
     private fun editorCursor(): Int? {
@@ -1062,8 +1081,17 @@ class HkInputMethodService : InputMethodService() {
         // English remains visible in the editor. Offer only unambiguous one-edit
         // spelling fixes, and never silently replace what the user typed.
         if (!isPasswordField && ThemeManager.getMethodEnglish(this) && ThemeManager.getEnglishSpellCheck(this)) {
-            EnglishSuggestions.correction(getDisplayKeys(rawKeys))?.let { correction ->
-                candidates = listOf(correction) + candidates.filterNot { it.equals(correction, ignoreCase = true) }
+            val typedWord = getDisplayKeys(rawKeys)
+            val fixes = (
+                listOfNotNull(EnglishSuggestions.correction(typedWord)) +
+                    EnglishSuggestions.neighbourKeyCorrections(
+                        typedWord,
+                        isWord = { englishAutocomplete.contains(it) },
+                        isAmbiguousPrefix = { englishAutocomplete.hasAtLeastCompletions(it, 12) },
+                    )
+                ).distinctBy { it.lowercase() }
+            if (fixes.isNotEmpty()) {
+                candidates = fixes + candidates.filterNot { c -> fixes.any { it.equals(c, ignoreCase = true) } }
             }
         }
 

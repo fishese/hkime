@@ -22,7 +22,7 @@
     <string name="settings_english_options">英文输入选项</string>
     <string name="settings_history">记录</string>
     <string name="settings_input_methods">输入方式</string>
-    <string name="settings_input_methods_desc">选择要显示的候选词。英文输入和自定义词库仍可使用。</string>
+    <string name="settings_input_methods_desc">选择要显示的候选</string>
     <string name="settings_method_cantonese">广东话输入 · Cantonese input</string>
     <string name="settings_method_cangjie">仓颉 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
@@ -31,18 +31,18 @@
     <string name="settings_theme">主题</string>
     <string name="settings_candidate_bar">候选字栏</string>
     <string name="settings_show_composition">显示仓颉字根预览</string>
-    <string name="settings_show_composition_desc">在候选字栏中显示当前输入按键的字根</string>
+    <string name="settings_show_composition_desc">显示已输入按键的字根</string>
     <string name="settings_candidates_per_page">每页候选字数量</string>
-    <string name="settings_candidates_per_page_desc">调整候选字显示数量（较少 = 较大）</string>
+    <string name="settings_candidates_per_page_desc">越少越大</string>
     <string name="settings_candidate_padding">候选字间距</string>
-    <string name="settings_candidate_padding_desc">调整候选字内部的水平间距（较小 = 可显示更多）</string>
+    <string name="settings_candidate_padding_desc">间距越小，每行越多</string>
     <string name="settings_keyboard_layout">键盘布局</string>
     <string name="settings_key_height">按键大小</string>
-    <string name="settings_key_height_desc">调整字母及符号按键的高度</string>
+    <string name="settings_key_height_desc">字母键和符号键的高度</string>
     <string name="settings_candidate_text_size">候选字大小</string>
-    <string name="settings_candidate_text_size_desc">调整中文候选字的字体大小</string>
+    <string name="settings_candidate_text_size_desc">中文候选字的大小</string>
     <string name="settings_show_key_radicals">显示按键上的仓颉字根</string>
-    <string name="settings_show_key_radicals_desc">关闭后，QWERTY 按键会显示更大的英文字母</string>
+    <string name="settings_show_key_radicals_desc">关闭后英文字母更大</string>
     <string name="settings_hold_123">长按 123 打开设置</string>
     <string name="settings_preview">预览</string>
     <string name="settings_about">关于</string>
@@ -64,29 +64,39 @@
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">键盘</string>
     <string name="settings_haptic_feedback">触感反馈</string>
-    <string name="settings_haptic_feedback_desc">按键和长按时振动提示（需启用设备触感反馈）</string>
+    <string name="settings_haptic_feedback_desc">点按和长按时振动</string>
+    <string name="settings_gesture_delete">左滑删除</string>
+    <string name="settings_gesture_delete_desc">在空格键左滑，先删输入，再删上一个词</string>
+    <string name="settings_swipe_typing">滑动输入（测试中）</string>
+    <string name="settings_swipe_typing_desc">滑过字母输入词或编码。密码栏关闭。</string>
+    <string name="settings_shortcuts_desc">长按数字键输入对应短语</string>
+    <string name="settings_custom_dictionary_desc">字母编码对应一条短语，只存在本机</string>
 
     <!-- Recent Candidates -->
     <string name="settings_recent_candidates">优先显示最近使用的候选字</string>
-    <string name="settings_recent_candidates_desc">最近使用的字会排在前面</string>
+    <string name="settings_recent_candidates_desc">常用字排在前面</string>
     <string name="settings_recent_candidates_clear">清除最近候选字记录</string>
     <string name="settings_recent_candidates_clear_confirm_title">清除最近候选字？</string>
     <string name="settings_recent_candidates_clear_confirm_message">这将清除最近候选字使用记录。</string>
     <string name="settings_recent_candidates_clear_confirm_yes">清除</string>
     <string name="settings_recent_candidates_cleared">最近候选字记录已清除</string>
     <string name="settings_english_spell_check">建议英文拼写修正</string>
-    <string name="settings_english_spell_check_desc">只建议离线常用词表中明确的一步修正；未点选前不会改动已输入文字</string>
+    <string name="settings_english_spell_check_desc">只建议一处明确修正，点选后才改字</string>
+    <string name="settings_latin_sentence_case">拉丁字母句首大写</string>
+    <string name="settings_latin_sentence_case_desc">换行后，或句号加空格后大写。按键显示该大小写。</string>
+    <string name="settings_key_preview">按键预览</string>
+    <string name="settings_key_preview_desc">按住时放大字母，滑出即取消</string>
     <string name="settings_space_after_english_candidate">选择英文词后添加空格</string>
-    <string name="settings_space_after_english_candidate_desc">点击英文词候选项时，自动在后面加一个空格</string>
+    <string name="settings_space_after_english_candidate_desc">点选英文词后加一个空格</string>
     <string name="settings_ignore_space_after_latin">空格键确认拉丁字母时不加空格</string>
-    <string name="settings_ignore_space_after_latin_desc">用空格确认已输入的拉丁字母时，不会同时输入空格。再按一次空格会立即输入空格。按住空格键约一秒可开关此选项，滑动则仍然移动光标。</string>
+    <string name="settings_ignore_space_after_latin_desc">只确认拉丁字母。再按一次才输入空格。按住可开关。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之间补回空格</string>
-    <string name="settings_restore_space_between_latin_desc">下一个如果是英文、仍然保留为拉丁字母的字符串，或者数字，会自动补回刚才略过的空格。同一组数字之间不会加空格。如果接着是中文，就保持没有空格。</string>
+    <string name="settings_restore_space_between_latin_desc">在后续拉丁字母或数字前补回空格，中文不加</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字符集</string>
     <string name="settings_use_extended">使用扩展字符集</string>
-    <string name="settings_use_extended_desc">扩展字符集包含 63,000+ 字符，包括粤语。标准字符集有 13,000 字符。</string>
+    <string name="settings_use_extended_desc">约 63,000 字，包括粤语</string>
     <string name="settings_charset_extended">扩展（63,190 字符）</string>
     <string name="settings_charset_standard">标准（13,193 字符）</string>
     <string name="settings_charset_restart_hint">需重新启动键盘以应用更改</string>
@@ -94,7 +104,7 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">剪贴板</string>
     <string name="settings_clipboard_enable">启用剪贴板历史</string>
-    <string name="settings_clipboard_enable_desc">在本机保存复制的文字，包括其他应用</string>
+    <string name="settings_clipboard_enable_desc">在本机保存复制的文字</string>
     <string name="settings_clipboard_clear">清除剪贴板历史</string>
     <string name="settings_clipboard_clear_confirm_title">清除历史？</string>
     <string name="settings_clipboard_clear_confirm_message">这将删除所有剪贴板历史，包括已固定的项目。</string>
@@ -108,6 +118,6 @@
     <!-- Chinese Conversion (Simplified ⇄ Traditional) -->
     <string name="settings_chinese_convert">简繁转换</string>
     <string name="settings_chinese_convert_enable">显示「简⇄繁」键</string>
-    <string name="settings_chinese_convert_enable_desc">点击将所选文字转为简体；长按转为繁体（香港）。</string>
+    <string name="settings_chinese_convert_enable_desc">点按转简体，长按转繁体（香港）</string>
 
 </resources>

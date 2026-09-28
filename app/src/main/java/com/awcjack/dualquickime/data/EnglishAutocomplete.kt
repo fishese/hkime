@@ -9,6 +9,15 @@ class EnglishAutocomplete private constructor(private val words: List<String>) {
 
     fun contains(word: String): Boolean = words.binarySearch(word.lowercase()) >= 0
 
+    /** True when [prefix] begins at least [threshold] dictionary words (the list is sorted). */
+    fun hasAtLeastCompletions(prefix: String, threshold: Int): Boolean {
+        if (threshold <= 0) return true
+        val lower = prefix.lowercase()
+        val index = words.binarySearch(lower).let { if (it < 0) -it - 1 else it }
+        val last = index + threshold - 1
+        return last < words.size && words[last].startsWith(lower)
+    }
+
     fun completions(typed: String): List<String> {
         if (typed.length !in 2..64 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) {
             return emptyList()

@@ -18,13 +18,13 @@
     <string name="settings_theme">Themes</string>
     <string name="settings_candidate_bar">Candidate Bar</string>
     <string name="settings_show_composition">Show Cangjie radical preview</string>
-    <string name="settings_show_composition_desc">Display the radicals for keys typed so far in the candidate bar</string>
+    <string name="settings_show_composition_desc">Shows the radicals typed so far</string>
     <string name="settings_candidates_per_page">Candidates per page</string>
-    <string name="settings_candidates_per_page_desc">Adjust number of candidates displayed (fewer = larger)</string>
+    <string name="settings_candidates_per_page_desc">Fewer candidates, larger text</string>
     <string name="settings_candidate_padding">Candidate spacing</string>
-    <string name="settings_candidate_padding_desc">Horizontal padding inside each candidate (smaller = more fit per row)</string>
+    <string name="settings_candidate_padding_desc">Less padding fits more on a row</string>
     <string name="settings_recent_candidates">Learn from selected candidates</string>
-    <string name="settings_recent_candidates_desc">Frequently selected characters appear earlier for the same input code</string>
+    <string name="settings_recent_candidates_desc">Often-picked characters come first</string>
     <string name="settings_recent_candidates_clear">Clear recent candidate history</string>
     <string name="settings_recent_candidates_clear_confirm_title">Clear Recent Candidates?</string>
     <string name="settings_recent_candidates_clear_confirm_message">This will clear the recent candidate usage history.</string>
@@ -40,18 +40,22 @@
     <string name="settings_enable_keyboard">Enable HK IME in system settings</string>
     <string name="settings_english_options">English input options</string>
     <string name="settings_history">History</string>
-    <string name="settings_input_methods_desc">Choose which suggestions appear together. Latin typing and your custom dictionary stay available.</string>
+    <string name="settings_input_methods_desc">Choose which suggestions to show</string>
     <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
     <string name="settings_method_cangjie">倉頡 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
     <string name="settings_method_english">English suggestions</string>
-    <string name="settings_english_spell_check_desc">Only clear, one-edit corrections from a small offline word list; typed text stays unchanged unless tapped</string>
+    <string name="settings_english_spell_check_desc">One clear fix. Text changes only if you tap it.</string>
+    <string name="settings_latin_sentence_case">Capitalize new Latin sentences</string>
+    <string name="settings_latin_sentence_case_desc">After a new line, or a full stop and a space. Keys show that case.</string>
+    <string name="settings_key_preview">Key preview</string>
+    <string name="settings_key_preview_desc">Larger letter while held. Slide off to cancel.</string>
     <string name="settings_space_after_english_candidate">Add space after English candidate</string>
-    <string name="settings_space_after_english_candidate_desc">When you tap a Latin word suggestion, insert a following space</string>
+    <string name="settings_space_after_english_candidate_desc">Adds a space after a chosen Latin word</string>
     <string name="settings_ignore_space_after_latin">Space bar commits Latin without adding a space</string>
-    <string name="settings_ignore_space_after_latin_desc">The space that finishes typed Latin letters is not inserted. Press space again to insert one immediately. Hold the space bar still for a second to turn this on or off. Sliding it still moves the cursor.</string>
+    <string name="settings_ignore_space_after_latin_desc">Confirms Latin without a space. Press again to type one. Hold to toggle.</string>
     <string name="settings_restore_space_between_latin">Add space back between Latin texts</string>
-    <string name="settings_restore_space_between_latin_desc">Insert that held space when the next input is also Latin, or before a number. Digits in that number stay together. Chinese stays without the space.</string>
+    <string name="settings_restore_space_between_latin_desc">Puts that space back before more Latin or a number, not before Chinese.</string>
     <string name="settings_preview">Preview</string>
     <string name="settings_about">About</string>
 
@@ -73,18 +77,18 @@
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">Keyboard</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
-    <string name="settings_haptic_feedback_desc">Vibrate on key taps and long presses when device haptics are enabled</string>
+    <string name="settings_haptic_feedback_desc">Vibrate on taps and long presses</string>
     <string name="settings_gesture_delete">Swipe-left deletion</string>
-    <string name="settings_gesture_delete_desc">Swipe left on the space bar to remove the current composition, then the last selected word or character. With swipe typing off, you can also swipe left across letter keys.</string>
+    <string name="settings_gesture_delete_desc">Swipe left on space to delete the input, then the last word.</string>
     <string name="settings_swipe_typing">Swipe typing (experimental)</string>
-    <string name="settings_swipe_typing_desc">Glide across letter keys to enter one word or input code, then choose from its candidates. Disabled in password fields.</string>
+    <string name="settings_swipe_typing_desc">Glide across letters for a word or code. Off in passwords.</string>
     <string name="settings_shortcuts">Phrase Shortcuts</string>
     <string name="settings_expand_section">Expand %1$s</string>
     <string name="settings_collapse_section">Collapse %1$s</string>
-    <string name="settings_shortcuts_desc">Long-press a number key to insert its saved phrase. An empty shortcut types the number normally.</string>
+    <string name="settings_shortcuts_desc">Long-press a number to insert its phrase.</string>
     <string name="settings_shortcut_hint">Phrase for %1$d</string>
     <string name="settings_custom_dictionary">Custom dictionary</string>
-    <string name="settings_custom_dictionary_desc">Add a Latin input code and the word or phrase it should suggest. Custom choices appear before the bundled dictionary, but frequently selected choices still come first. Stored on this device.</string>
+    <string name="settings_custom_dictionary_desc">A letter code and its phrase, stored on this device.</string>
     <string name="settings_custom_add">Add entry</string>
     <string name="settings_custom_edit">Edit</string>
     <string name="settings_custom_delete">Delete</string>
@@ -96,17 +100,17 @@
     <string name="settings_custom_delete_confirm">Delete %1$s → %2$s?</string>
     <string name="settings_keyboard_layout">Keyboard layout</string>
     <string name="settings_key_height">Key size</string>
-    <string name="settings_key_height_desc">Change the height of the letter and symbol keys</string>
+    <string name="settings_key_height_desc">Height of the letter and symbol keys</string>
     <string name="settings_candidate_text_size">Candidate size</string>
-    <string name="settings_candidate_text_size_desc">Change the text size of Chinese word choices</string>
+    <string name="settings_candidate_text_size_desc">Size of Chinese candidates</string>
     <string name="settings_show_key_radicals">Show Cangjie labels on keys</string>
-    <string name="settings_show_key_radicals_desc">Turn off for larger English letters on QWERTY keys</string>
+    <string name="settings_show_key_radicals_desc">Turn off for larger English letters</string>
     <string name="settings_hold_123">Hold 123 to open Settings</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">Character Set</string>
     <string name="settings_use_extended">Use extended character set</string>
-    <string name="settings_use_extended_desc">Extended set includes 63,000+ characters including Cantonese. Standard set has 13,000 characters.</string>
+    <string name="settings_use_extended_desc">About 63,000 characters, including Cantonese</string>
     <string name="settings_charset_extended">Extended (63,190 characters)</string>
     <string name="settings_charset_standard">Standard (13,193 characters)</string>
     <string name="settings_charset_restart_hint">Restart keyboard to apply changes</string>
@@ -114,7 +118,7 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">Clipboard</string>
     <string name="settings_clipboard_enable">Enable clipboard history</string>
-    <string name="settings_clipboard_enable_desc">Save copied text locally, including from other apps</string>
+    <string name="settings_clipboard_enable_desc">Save copied text on this device</string>
     <string name="settings_clipboard_clear">Clear clipboard history</string>
     <string name="settings_clipboard_clear_confirm_title">Clear History?</string>
     <string name="settings_clipboard_clear_confirm_message">This will delete all clipboard history including pinned items.</string>
@@ -128,6 +132,6 @@
     <!-- Chinese Conversion (Simplified ⇄ Traditional) -->
     <string name="settings_chinese_convert">Chinese Conversion</string>
     <string name="settings_chinese_convert_enable">Show 簡⇄繁 key</string>
-    <string name="settings_chinese_convert_enable_desc">Tap converts the selected text to Simplified Chinese; long-press converts it to Traditional (HK).</string>
+    <string name="settings_chinese_convert_enable_desc">Tap for Simplified. Long-press for Traditional (HK).</string>
 
 </resources>

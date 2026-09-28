@@ -1,5 +1,23 @@
 # HK IME changelog
 
+## 0.3.40 — 2026-09-28
+
+- Shorten settings descriptions so each option is easier to scan.
+
+## 0.3.39 — 2026-09-28
+
+- Show Latin sentence case on the Input tab, under English input options.
+
+## 0.3.38 — 2026-09-28
+
+- The key preview uses the same regular letter face as the key.
+- Added an off-by-default Latin sentence-case option. It capitalizes the first letter of a line, and the letter after a full stop and a space, and the letter keys show that case.
+
+## 0.3.37 — 2026-09-28
+
+- Suggest nearby-key English typos, such as an adjacent letter or a swapped pair, without changing the typed text until a suggestion is tapped.
+- Show a magnified letter above a pressed key, with a setting to turn that preview off.
+
 ## 0.3.36 — 2026-09-27
 
 - Keep Settings compatible with Android 7 by using zero-based slider ranges.

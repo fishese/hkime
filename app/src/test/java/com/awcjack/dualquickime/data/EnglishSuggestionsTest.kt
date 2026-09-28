@@ -18,6 +18,26 @@ class EnglishSuggestionsTest {
         assertNull(EnglishSuggestions.correction("qxzrrr"))
     }
 
+    @Test fun neighbourKeyTyposSuggestAdjacentAndTransposedWords() {
+        val dictionary = setOf("plain")
+        val isWord = { word: String -> word in dictionary }
+        assertEquals(listOf("the"), EnglishSuggestions.neighbourKeyCorrections("teh", isWord))
+        assertEquals(listOf("the"), EnglishSuggestions.neighbourKeyCorrections("rhe", isWord))
+        assertEquals(listOf("THE"), EnglishSuggestions.neighbourKeyCorrections("RHE", isWord))
+        assertEquals(listOf("plain"), EnglishSuggestions.neighbourKeyCorrections("plajn", isWord))
+        assertEquals(listOf("plain"), EnglishSuggestions.neighbourKeyCorrections("olaun", isWord))
+    }
+
+    @Test fun neighbourKeyTyposLeaveRealWordsAndPrefixesAlone() {
+        assertEquals(emptyList<String>(), EnglishSuggestions.neighbourKeyCorrections("the", { false }))
+        assertEquals(emptyList<String>(), EnglishSuggestions.neighbourKeyCorrections("out", { false }))
+        assertEquals(
+            emptyList<String>(),
+            EnglishSuggestions.neighbourKeyCorrections("rhe", { false }, { true })
+        )
+        assertEquals(emptyList<String>(), EnglishSuggestions.neighbourKeyCorrections("tEh", { false }))
+    }
+
     @Test fun suggestsCommonApostropheContractionsWithoutTypingApostrophe() {
         assertEquals("don't", EnglishSuggestions.contractions("dont").first())
         assertTrue("don't" in EnglishSuggestions.contractions("don"))

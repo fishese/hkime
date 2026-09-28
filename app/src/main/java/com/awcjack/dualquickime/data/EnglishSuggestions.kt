@@ -95,6 +95,84 @@ object EnglishSuggestions {
         }.toList()
     }
 
+    /**
+     * Keys that touch each letter on the on-screen QWERTY, computed from the key centres at
+     * the layout's weights (row 2 indented half a key, row 3 starting after the 1.8-weight
+     * shift key): two keys are neighbours when their centres are within ~1.45 key widths.
+     */
+    private val neighbours: Map<Char, String> = mapOf(
+        'a' to "qsw", 'b' to "hjnv", 'c' to "fgvx", 'd' to "efrsxz", 'e' to "drsw",
+        'f' to "cdgrtx", 'g' to "cfhtvy", 'h' to "bgjuvy", 'i' to "jkou", 'j' to "bhiknu",
+        'k' to "ijlmno", 'l' to "kmop", 'm' to "kln", 'n' to "bjkm", 'o' to "iklp",
+        'p' to "lo", 'q' to "aw", 'r' to "deft", 's' to "adewz", 't' to "fgry",
+        'u' to "hijy", 'v' to "bcgh", 'w' to "aeqs", 'x' to "cdfz", 'y' to "ghtu", 'z' to "dsx",
+    )
+
+    private fun matchCase(typed: String, word: String): String? = when {
+        typed.all { it.isUpperCase() } -> word.uppercase()
+        typed.first().isUpperCase() && typed.drop(1).all { it.isLowerCase() } ->
+            word.replaceFirstChar { it.uppercase() }
+        typed.all { it.isLowerCase() } -> word
+        else -> null
+    }
+
+    /**
+     * Suggestions for a word that is not a word but becomes one when letters are swapped for the
+     * keys next to them (rhe -> the, plajn -> plain, olaun -> plain) or two adjacent letters are
+     * transposed (teh -> the). One substitution for 3-4 letter words, up to two from 5 letters.
+     * Short words are only matched against the small common-word list, since the full dictionary
+     * has too many short words to be a useful signal.
+     *
+     * [isWord] is the full dictionary. [isAmbiguousPrefix] says the input is still the start of
+     * many longer words (e.g. "thr"), in which case the user is probably just mid-word.
+     * Real words are never "corrected", so our/out style slips need context and are not handled.
+     */
+    fun neighbourKeyCorrections(
+        typed: String,
+        isWord: (String) -> Boolean,
+        isAmbiguousPrefix: (String) -> Boolean = { false },
+    ): List<String> {
+        if (typed.length !in 3..12 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return emptyList()
+        val lower = typed.lowercase()
+        if (lower in commonWords || isWord(lower) || isAmbiguousPrefix(lower)) return emptyList()
+        val short = lower.length <= 4
+        val maxSubstitutions = if (lower.length < 5) 1 else 2
+        fun accept(word: String) = word in commonWords || (!short && isWord(word))
+
+        val found = LinkedHashMap<String, Int>() // candidate -> edits used
+        fun note(word: String, edits: Int) {
+            if (word !in found && accept(word)) found[word] = edits
+        }
+
+        val chars = lower.toCharArray()
+        for (i in 0 until chars.size - 1) {
+            if (chars[i] == chars[i + 1]) continue
+            val swapped = chars.copyOf()
+            swapped[i] = chars[i + 1]
+            swapped[i + 1] = chars[i]
+            note(String(swapped), 1)
+        }
+        for (i in chars.indices) {
+            for (a in neighbours[chars[i]].orEmpty()) {
+                val one = chars.copyOf()
+                one[i] = a
+                note(String(one), 1)
+                if (maxSubstitutions < 2) continue
+                for (j in i + 1 until chars.size) {
+                    for (b in neighbours[chars[j]].orEmpty()) {
+                        val two = one.copyOf()
+                        two[j] = b
+                        note(String(two), 2)
+                    }
+                }
+            }
+        }
+        return found.entries
+            .sortedWith(compareBy<Map.Entry<String, Int>>({ it.value }, { it.key !in commonWords }, { it.key }))
+            .take(3)
+            .mapNotNull { matchCase(typed, it.key) }
+    }
+
     fun correction(typed: String): String? {
         if (typed.length !in 5..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return null
         val lower = typed.lowercase()

@@ -33,6 +33,8 @@ object ThemeManager {
     private const val KEY_SETTINGS_CHINESE = "settings_chinese_enabled"
     private const val KEY_GESTURE_DELETE = "gesture_delete_enabled"
     private const val KEY_SWIPE_TYPING = "swipe_typing_enabled"
+    private const val KEY_KEY_PREVIEW = "key_preview_enabled"
+    private const val KEY_LATIN_SENTENCE_CASE = "latin_sentence_case"
 
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
@@ -68,6 +70,8 @@ object ThemeManager {
     private var cachedCandidateTextSize: Int = -1
     private var cachedShowKeyRadicals: Boolean? = null
     private var cachedEnglishSpellCheck: Boolean? = null
+    private var cachedKeyPreview: Boolean? = null
+    private var cachedLatinSentenceCase: Boolean? = null
     private var cachedSpaceAfterEnglishCandidate: Boolean? = null
     private var cachedIgnoreSpaceAfterLatin: Boolean? = null
     private var cachedRestoreSpaceBetweenLatin: Boolean? = null
@@ -183,6 +187,33 @@ object ThemeManager {
     fun setHapticFeedbackEnabled(context: Context, enabled: Boolean) {
         cachedHapticFeedbackEnabled = enabled
         getPrefs(context).edit().putBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, enabled).apply()
+    }
+
+    // Key preview bubble shown above a pressed letter key (default: on)
+    fun getKeyPreviewEnabled(context: Context): Boolean {
+        if (cachedKeyPreview == null) {
+            cachedKeyPreview = getPrefs(context).getBoolean(KEY_KEY_PREVIEW, true)
+        }
+        return cachedKeyPreview!!
+    }
+
+    fun setKeyPreviewEnabled(context: Context, enabled: Boolean) {
+        cachedKeyPreview = enabled
+        getPrefs(context).edit().putBoolean(KEY_KEY_PREVIEW, enabled).apply()
+    }
+
+    // Capitalize the first Latin letter of a line, and after a full stop and a space.
+    // Default off: keys stay in capitals, and typing stays lowercase unless shift or caps lock.
+    fun getLatinSentenceCase(context: Context): Boolean {
+        if (cachedLatinSentenceCase == null) {
+            cachedLatinSentenceCase = getPrefs(context).getBoolean(KEY_LATIN_SENTENCE_CASE, false)
+        }
+        return cachedLatinSentenceCase!!
+    }
+
+    fun setLatinSentenceCase(context: Context, enabled: Boolean) {
+        cachedLatinSentenceCase = enabled
+        getPrefs(context).edit().putBoolean(KEY_LATIN_SENTENCE_CASE, enabled).apply()
     }
 
     // Default skin tone for emojis (0 = yellow/default, 1-5 = light to dark)
@@ -371,6 +402,8 @@ object ThemeManager {
         cachedCandidateTextSize = -1
         cachedShowKeyRadicals = null
         cachedEnglishSpellCheck = null
+        cachedKeyPreview = null
+        cachedLatinSentenceCase = null
         cachedSpaceAfterEnglishCandidate = null
         cachedIgnoreSpaceAfterLatin = null
         cachedRestoreSpaceBetweenLatin = null

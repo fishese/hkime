@@ -176,6 +176,8 @@ class SettingsActivity : AppCompatActivity() {
             ThemeManager.getGestureDelete(this)) { ThemeManager.setGestureDelete(this, it) }
         addBehaviorSwitch(R.string.settings_swipe_typing, R.string.settings_swipe_typing_desc,
             ThemeManager.getSwipeTyping(this)) { ThemeManager.setSwipeTyping(this, it) }
+        addBehaviorSwitch(R.string.settings_key_preview, R.string.settings_key_preview_desc,
+            ThemeManager.getKeyPreviewEnabled(this)) { ThemeManager.setKeyPreviewEnabled(this, it) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -262,6 +264,7 @@ class SettingsActivity : AppCompatActivity() {
         val input = settingsPages[1]
         moveSection(R.id.sectionMethodsHeader, input)
         val englishOptions = addSettingsSection(input, R.string.settings_english_options)
+        moveView(findViewById(R.id.latinSentenceCaseRow), englishOptions)
         moveView(findViewById(R.id.englishSpellCheckRow), englishOptions)
         moveView(findViewById(R.id.englishSpaceAfterRow), englishOptions)
         moveView(findViewById(R.id.englishIgnoreSpaceRow), englishOptions)
@@ -456,6 +459,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupEnglishSpellCheckSettings() {
+        findViewById<SwitchCompat>(R.id.switchLatinSentenceCase).apply {
+            isChecked = ThemeManager.getLatinSentenceCase(this@SettingsActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ThemeManager.setLatinSentenceCase(this@SettingsActivity, checked)
+            }
+        }
         findViewById<SwitchCompat>(R.id.switchEnglishSpellCheck).apply {
             isChecked = ThemeManager.getEnglishSpellCheck(this@SettingsActivity)
             setOnCheckedChangeListener { _, checked ->

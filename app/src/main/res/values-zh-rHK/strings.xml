@@ -22,7 +22,7 @@
     <string name="settings_english_options">英文輸入選項</string>
     <string name="settings_history">記錄</string>
     <string name="settings_input_methods">輸入方式</string>
-    <string name="settings_input_methods_desc">揀選要顯示嘅候選字。英文輸入同自訂詞庫照常可用。</string>
+    <string name="settings_input_methods_desc">揀選要顯示嘅候選</string>
     <string name="settings_method_cantonese">廣東話輸入 · Cantonese input</string>
     <string name="settings_method_cangjie">倉頡 · Cangjie</string>
     <string name="settings_method_quick">速成 · Quick</string>
@@ -30,10 +30,10 @@
     <string name="settings_shortcuts">常用短語捷徑</string>
     <string name="settings_expand_section">展開%1$s</string>
     <string name="settings_collapse_section">收起%1$s</string>
-    <string name="settings_shortcuts_desc">長按數字鍵輸入儲存的短語；未設定的數字鍵會照常輸入數字。</string>
+    <string name="settings_shortcuts_desc">長按數字鍵輸入對應短語</string>
     <string name="settings_shortcut_hint">數字 %1$d 的短語</string>
     <string name="settings_custom_dictionary">自訂詞庫</string>
-    <string name="settings_custom_dictionary_desc">加入英文字母輸入碼和對應詞語。自訂候選字排在內建詞庫之前，但常用候選字仍可排得更前。資料只儲存在本機。</string>
+    <string name="settings_custom_dictionary_desc">字母編碼對應一條短語，只存在呢部機</string>
     <string name="settings_custom_add">新增詞條</string>
     <string name="settings_custom_edit">編輯</string>
     <string name="settings_custom_delete">刪除</string>
@@ -47,18 +47,18 @@
     <string name="settings_theme">主題</string>
     <string name="settings_candidate_bar">候選字列</string>
     <string name="settings_show_composition">顯示倉頡字根預覽</string>
-    <string name="settings_show_composition_desc">在候選字列中顯示目前輸入按鍵的字根</string>
+    <string name="settings_show_composition_desc">顯示已打按鍵嘅字根</string>
     <string name="settings_candidates_per_page">每頁候選字數量</string>
-    <string name="settings_candidates_per_page_desc">調整候選字顯示數量（較少 = 較大）</string>
+    <string name="settings_candidates_per_page_desc">越少越大</string>
     <string name="settings_candidate_padding">候選字間距</string>
-    <string name="settings_candidate_padding_desc">調整候選字內部嘅水平間距（較小 = 可顯示更多）</string>
+    <string name="settings_candidate_padding_desc">間距越細，每行越多</string>
     <string name="settings_keyboard_layout">鍵盤版面</string>
     <string name="settings_key_height">按鍵大小</string>
-    <string name="settings_key_height_desc">調整字母及符號按鍵的高度</string>
+    <string name="settings_key_height_desc">字母鍵同符號鍵嘅高度</string>
     <string name="settings_candidate_text_size">候選字大小</string>
-    <string name="settings_candidate_text_size_desc">調整中文候選字的字體大小</string>
+    <string name="settings_candidate_text_size_desc">中文候選字嘅大小</string>
     <string name="settings_show_key_radicals">顯示按鍵上的倉頡字根</string>
-    <string name="settings_show_key_radicals_desc">關閉後，QWERTY 按鍵會顯示較大的英文字母</string>
+    <string name="settings_show_key_radicals_desc">關閉後英文字母更大</string>
     <string name="settings_hold_123">長按 123 開啟設定</string>
     <string name="settings_preview">預覽</string>
     <string name="settings_about">關於</string>
@@ -80,33 +80,37 @@
     <!-- Keyboard Behavior -->
     <string name="settings_keyboard_behavior">鍵盤</string>
     <string name="settings_haptic_feedback">觸感回饋</string>
-    <string name="settings_haptic_feedback_desc">按鍵及長按時震動提示（須啟用裝置觸感回饋）</string>
+    <string name="settings_haptic_feedback_desc">點按同長按時震動</string>
     <string name="settings_gesture_delete">左滑刪除</string>
-    <string name="settings_gesture_delete_desc">喺空白鍵向左滑，先刪除目前輸入碼，再刪除上一個選取的詞語或字。關閉滑動輸入時，也可以喺字母鍵向左滑。</string>
+    <string name="settings_gesture_delete_desc">喺空格鍵向左滑，先刪輸入，再刪上一個詞</string>
     <string name="settings_swipe_typing">滑動輸入（測試中）</string>
-    <string name="settings_swipe_typing_desc">連續滑過字母鍵，輸入一個詞語或輸入碼，再揀選候選字。密碼欄位停用。</string>
+    <string name="settings_swipe_typing_desc">滑過字母輸入詞或者編碼。密碼欄關閉。</string>
 
     <!-- Recent Candidates -->
     <string name="settings_recent_candidates">優先顯示最近使用嘅候選字</string>
-    <string name="settings_recent_candidates_desc">最近使用嘅字會排前啲</string>
+    <string name="settings_recent_candidates_desc">常用字會排得更前</string>
     <string name="settings_recent_candidates_clear">清除最近候選字記錄</string>
     <string name="settings_recent_candidates_clear_confirm_title">清除最近候選字？</string>
     <string name="settings_recent_candidates_clear_confirm_message">呢個會清除最近候選字使用記錄。</string>
     <string name="settings_recent_candidates_clear_confirm_yes">清除</string>
     <string name="settings_recent_candidates_cleared">最近候選字記錄已清除</string>
     <string name="settings_english_spell_check">建議英文拼字修正</string>
-    <string name="settings_english_spell_check_desc">只建議離線常用字表中明確的一步修正；未點選前不會改動已輸入文字</string>
+    <string name="settings_english_spell_check_desc">只建議一處明確修正，點選先會改字</string>
+    <string name="settings_latin_sentence_case">拉丁字母句首大階</string>
+    <string name="settings_latin_sentence_case_desc">換行後，或者句號加空格後用大階。按鍵顯示呢個大小寫。</string>
+    <string name="settings_key_preview">按鍵預覽</string>
+    <string name="settings_key_preview_desc">按住時放大字母，滑出就取消</string>
     <string name="settings_space_after_english_candidate">選擇英文字後加入空格</string>
-    <string name="settings_space_after_english_candidate_desc">點選英文字候選項時，自動在後面加一個空格</string>
+    <string name="settings_space_after_english_candidate_desc">點選英文字後加一個空格</string>
     <string name="settings_ignore_space_after_latin">空格鍵確認拉丁字母時不加空格</string>
-    <string name="settings_ignore_space_after_latin_desc">用空格確認已打的拉丁字母時，不會同時輸入空格。再按一次空格會立即輸入空格。按住空格鍵約一秒可開關此選項，滑動則仍然移動游標。</string>
+    <string name="settings_ignore_space_after_latin_desc">只確認拉丁字母。再按一次先輸入空格。按住可開關。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之間補回空格</string>
-    <string name="settings_restore_space_between_latin_desc">下一個如果是英文、仍然保留為拉丁字母的字串，或者數字，會自動補回剛才略過的空格。同一組數字之間不會加空格。如果接著是中文，就保持沒有空格。</string>
+    <string name="settings_restore_space_between_latin_desc">喺之後嘅拉丁字母或者數字前面補回空格，中文就唔加</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字元集</string>
     <string name="settings_use_extended">使用擴充字元集</string>
-    <string name="settings_use_extended_desc">擴充字元集包含 63,000+ 字元，包括廣東話。標準字元集有 13,000 字元。</string>
+    <string name="settings_use_extended_desc">約 63,000 字，包括廣東話</string>
     <string name="settings_charset_extended">擴充（63,190 字元）</string>
     <string name="settings_charset_standard">標準（13,193 字元）</string>
     <string name="settings_charset_restart_hint">需重新啟動鍵盤以套用變更</string>
@@ -114,7 +118,7 @@
     <!-- Clipboard -->
     <string name="settings_clipboard">剪貼簿</string>
     <string name="settings_clipboard_enable">啟用剪貼簿歷史</string>
-    <string name="settings_clipboard_enable_desc">喺本機儲存複製嘅文字，包括其他應用程式</string>
+    <string name="settings_clipboard_enable_desc">喺呢部機儲存複製嘅文字</string>
     <string name="settings_clipboard_clear">清除剪貼簿歷史</string>
     <string name="settings_clipboard_clear_confirm_title">清除歷史？</string>
     <string name="settings_clipboard_clear_confirm_message">呢個會刪除所有剪貼簿歷史，包括已釘選嘅項目。</string>
@@ -128,6 +132,6 @@
     <!-- Chinese Conversion (Simplified ⇄ Traditional) -->
     <string name="settings_chinese_convert">簡繁轉換</string>
     <string name="settings_chinese_convert_enable">顯示「簡⇄繁」鍵</string>
-    <string name="settings_chinese_convert_enable_desc">㩒一下將揀咗嘅文字轉做簡體；長㩒就轉做繁體（香港）。</string>
+    <string name="settings_chinese_convert_enable_desc">㩒一下轉簡體，長㩒轉繁體（香港）</string>
 
 </resources>

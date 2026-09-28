@@ -28,6 +28,16 @@ class EnglishAutocompleteTest {
         assertTrue("birthday" in dictionary.completions("birthd"))
     }
 
+    @Test fun prefixThresholdUsesTheSortedDictionary() {
+        val dictionary = EnglishAutocomplete.parse(
+            "the\ntheir\nthem\nthen\nthere\nthose\n".byteInputStream()
+        )
+        assertTrue(dictionary.hasAtLeastCompletions("th", 6))
+        assertFalse(dictionary.hasAtLeastCompletions("th", 7))
+        assertTrue(dictionary.hasAtLeastCompletions("the", 5))
+        assertFalse(dictionary.hasAtLeastCompletions("the", 6))
+    }
+
     @Test fun autocompleteIsBoundedAndDoesNotTreatChineseCodesAsEnglishWords() {
         val dictionary = bundled()
         assertTrue(dictionary.completions("ca").size <= 8)

@@ -6,6 +6,8 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
@@ -31,6 +33,7 @@ import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.CalculatorEngine
 import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.EnglishSuggestions
+import com.awcjack.dualquickime.data.LatinSentenceCase
 import com.awcjack.dualquickime.data.SwipeTypingDecoder
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.theme.KeyboardColors
@@ -73,6 +76,9 @@ class KeyboardView @JvmOverloads constructor(
     private var shiftKey: TextView? = null
     private var modeToggleKey: TextView? = null
     private val letterKeyViews = mutableMapOf<Char, View>()
+    private val letterLabelViews = mutableMapOf<Char, TextView>()
+    private var reflectLatinCase = false
+    private var contextCapital = false
     private var spaceKeyView: View? = null
     private data class SwipeTouch(
         val fromSpace: Boolean,
@@ -95,6 +101,19 @@ class KeyboardView @JvmOverloads constructor(
         strokeJoin = Paint.Join.ROUND
         color = 0xE61A73E8.toInt()
     }
+    // Key preview: a bubble above the pressed letter key, painted in dispatchDraw.
+    private var keyPreviewEnabled = true
+    private var keyPreviewLabel: String? = null
+    private val keyPreviewKeyRect = Rect()
+    private val keyPreviewBubble = RectF()
+    private val keyPreviewFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val keyPreviewStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val keyPreviewTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT
+        isFakeBoldText = false
+    }
+    private var keyPreviewTextSize = 0f
     private var spaceCursorActive = false
     private var spaceCursorOriginX = 0f
     private var spaceCursorSteps = 0
@@ -211,6 +230,12 @@ class KeyboardView @JvmOverloads constructor(
         showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
         gestureDeleteEnabled = ThemeManager.getGestureDelete(context)
         swipeTypingEnabled = ThemeManager.getSwipeTyping(context)
+        keyPreviewEnabled = ThemeManager.getKeyPreviewEnabled(context)
+        reflectLatinCase = ThemeManager.getLatinSentenceCase(context)
+        keyPreviewFill.color = colors.keyBackgroundPressed
+        keyPreviewStroke.color = colors.keyTextSecondary
+        keyPreviewStroke.strokeWidth = dpToPx(1).toFloat()
+        keyPreviewTextPaint.color = colors.keyTextPrimary
         swipeTrailPaint.color = colors.compositionText
         setBackgroundColor(colors.keyboardBackground)
         // Key views fill rectangular row cells, including the transparent corners
@@ -249,8 +274,10 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun buildKeyboard() {
+        keyPreviewLabel = null
         removeAllViews()
         letterKeyViews.clear()
+        letterLabelViews.clear()
         spaceKeyView = null
         swipeTouch = null
         symbolUtilBar = null
@@ -1184,6 +1211,7 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun createLetterKey(char: Char): LinearLayout {
         val radical = KeyMapping.getRadical(char) ?: ""
 
@@ -1205,35 +1233,79 @@ class KeyboardView @JvmOverloads constructor(
                     typeface = Typeface.DEFAULT_BOLD
                     includeFontPadding = false
                 })
-                addView(TextView(context).apply {
+                addView(createLetterLabel(char, 12f, colors.keyTextSecondary).apply {
                     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 0.65f)
                     gravity = Gravity.CENTER or Gravity.TOP
-                    text = char.uppercaseChar().toString()
-                    textSize = 12f
-                    setTextColor(colors.keyTextSecondary)
-                    includeFontPadding = false
                 })
             } else {
-                addView(TextView(context).apply {
+                addView(createLetterLabel(char, 24f, colors.keyTextPrimary).apply {
                     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
                     gravity = Gravity.CENTER
-                    text = char.uppercaseChar().toString()
-                    textSize = 24f
-                    setTextColor(colors.keyTextPrimary)
-                    includeFontPadding = false
                 })
+            }
+
+            // Observe only (always returns false) so the normal click still fires on release.
+            // Sliding off the key cancels the click, so the preview is dropped at that point too.
+            setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        val label = letterLabelViews[char]
+                        showKeyPreview(v, label?.text?.toString() ?: displayedLetter(char).toString(), label)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (event.x < 0f || event.y < 0f || event.x > v.width || event.y > v.height) {
+                            hideKeyPreview()
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> hideKeyPreview()
+                }
+                false
             }
 
             setOnClickListener {
                 performKeyHaptic(this)
-                val letter = if (isShiftOn || isCapsLock) char.uppercaseChar() else char
-                onKeyPress?.invoke(KeyEvent.Letter(letter))
+                onKeyPress?.invoke(KeyEvent.Letter(typedLetter(char)))
                 // Turn off shift after typing (but not caps lock)
                 if (isShiftOn && !isCapsLock) {
                     isShiftOn = false
                     updateShiftState()
                 }
             }
+        }
+    }
+
+    private fun createLetterLabel(char: Char, textSizeSp: Float, color: Int): TextView {
+        return TextView(context).apply {
+            text = displayedLetter(char).toString()
+            textSize = textSizeSp
+            setTextColor(color)
+            typeface = Typeface.DEFAULT
+            includeFontPadding = false
+            letterLabelViews[char] = this
+        }
+    }
+
+    private fun displayedLetter(char: Char): Char = LatinSentenceCase.letter(
+        char,
+        LatinSentenceCase.keyShowsUpper(isCapsLock, isShiftOn, reflectLatinCase, contextCapital)
+    )
+
+    private fun typedLetter(char: Char): Char = LatinSentenceCase.letter(
+        char,
+        LatinSentenceCase.typedIsUpper(isCapsLock, isShiftOn, reflectLatinCase, contextCapital)
+    )
+
+    fun setLatinCase(reflect: Boolean, capital: Boolean) {
+        if (reflectLatinCase == reflect && contextCapital == capital) return
+        reflectLatinCase = reflect
+        contextCapital = capital
+        updateLetterLabels()
+    }
+
+    private fun updateLetterLabels() {
+        for ((char, label) in letterLabelViews) {
+            val next = displayedLetter(char).toString()
+            if (label.text.toString() != next) label.text = next
         }
     }
 
@@ -1554,7 +1626,8 @@ class KeyboardView @JvmOverloads constructor(
         }
         // The drawable is inset, never the View: the entire square key cell is
         // clickable, including every rounded corner and the narrow visual gap.
-        return InsetDrawable(states, dpToPx(1), dpToPx(1), dpToPx(1), dpToPx(1))
+        val inset = dpToPx(KEY_VISUAL_INSET_DP)
+        return InsetDrawable(states, inset, inset, inset, inset)
     }
 
     // ==================== SYMBOL/EMOJI KEYBOARD ====================
@@ -1813,6 +1886,7 @@ class KeyboardView @JvmOverloads constructor(
                 }
             }
         }
+        updateLetterLabels()
     }
 
     // ==================== PUBLIC LISTENERS ====================
@@ -1971,8 +2045,51 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun showKeyPreview(key: View, label: String, source: TextView?) {
+        if (!keyPreviewEnabled || key.width == 0 || key.height == 0) return
+        keyPreviewKeyRect.set(0, 0, key.width, key.height)
+        offsetDescendantRectToMyCoords(key, keyPreviewKeyRect)
+        keyPreviewLabel = label
+        // Same face as the key letter. The bubble only scales that glyph, so the
+        // stroke stays the regular key weight instead of a bold display face.
+        keyPreviewTextPaint.typeface = source?.typeface ?: Typeface.DEFAULT
+        keyPreviewTextPaint.isFakeBoldText = false
+        keyPreviewTextPaint.color = source?.currentTextColor ?: colors.keyTextPrimary
+        keyPreviewTextSize = source?.textSize ?: keyPreviewTextPaint.textSize
+        invalidate()
+    }
+
+    private fun hideKeyPreview() {
+        if (keyPreviewLabel == null) return
+        keyPreviewLabel = null
+        invalidate()
+    }
+
+    private fun drawKeyPreview(canvas: Canvas) {
+        val label = keyPreviewLabel ?: return
+        val key = keyPreviewKeyRect
+        val gap = dpToPx(4).toFloat()
+        // The top letter row sits under the candidate bar, so the bubble may only use the
+        // space that is actually inside this view.
+        val height = minOf(key.height() * 1.15f, key.top - gap)
+        if (height < dpToPx(32)) return
+        val width = key.width() * 1.35f
+        val left = (key.exactCenterX() - width / 2f)
+            .coerceIn(0f, (this.width - width).coerceAtLeast(0f))
+        keyPreviewBubble.set(left, key.top - gap - height, left + width, key.top - gap)
+        val radius = dpToPx(10).toFloat()
+        canvas.drawRoundRect(keyPreviewBubble, radius, radius, keyPreviewFill)
+        canvas.drawRoundRect(keyPreviewBubble, radius, radius, keyPreviewStroke)
+        val keyHeight = key.height().toFloat().coerceAtLeast(1f)
+        keyPreviewTextPaint.textSize = keyPreviewTextSize * (height / keyHeight)
+        val baseline = keyPreviewBubble.centerY() -
+            (keyPreviewTextPaint.descent() + keyPreviewTextPaint.ascent()) / 2f
+        canvas.drawText(label, keyPreviewBubble.centerX(), baseline, keyPreviewTextPaint)
+    }
+
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
+        drawKeyPreview(canvas)
         if (swipeTrail.size < 2) return
         val path = Path()
         val first = swipeTrail.first()
@@ -2038,7 +2155,7 @@ class KeyboardView @JvmOverloads constructor(
                         if (result != null) {
                             onKeyPress?.invoke(KeyEvent.SwipeCode(result.code, result.words, result.codes))
                         } else {
-                            touch.initialLetter?.let { onKeyPress?.invoke(KeyEvent.Letter(it)) }
+                            touch.initialLetter?.let { onKeyPress?.invoke(KeyEvent.Letter(typedLetter(it))) }
                         }
                     }
                     return true
@@ -2102,6 +2219,7 @@ class KeyboardView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         swipeTouch = null
+        keyPreviewLabel = null
         hideSwipeTrail()
         cancelSpaceCursorArm()
         spaceCursorActive = false
@@ -2177,6 +2295,10 @@ class KeyboardView @JvmOverloads constructor(
         private const val LONG_PRESS_DELAY = 300L  // ms before long-press triggers
         private const val SPACE_TOGGLE_HOLD_MS = 1000L
         private const val SWIPE_TRAIL_LINGER_MS = 320L
+
+        // Visible gap between keys is twice this value. It only shrinks the painted key;
+        // the full cell stays touchable (see createKeyBackground).
+        private const val KEY_VISUAL_INSET_DP = 2
 
         // Tap the key, long-press the paired character. Checked before the
         // half/full-width maps so these keys are not forced into a width pair.
