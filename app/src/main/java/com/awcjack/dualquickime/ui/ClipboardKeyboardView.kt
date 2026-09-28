@@ -2,6 +2,7 @@ package com.awcjack.dualquickime.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
@@ -45,10 +46,12 @@ class ClipboardKeyboardView @JvmOverloads constructor(
 
     private lateinit var colors: KeyboardColors
     private var currentTab = 0  // 0 = All, 1 = Pinned
-    private val categoryTabs = mutableListOf<TextView>()
+    private val categoryTabs = mutableListOf<LinearLayout>()
     private var clipboardScrollView: ScrollView? = null
     private var clipboardContainer: LinearLayout? = null
-    private var emptyStateView: TextView? = null
+    private var emptyStateView: LinearLayout? = null
+    private var emptyIconView: TextView? = null
+    private var emptyMessageView: TextView? = null
 
     // Tab icons
     private val tabIcons = listOf("📋", "📌")  // All, Pinned
@@ -109,15 +112,29 @@ class ClipboardKeyboardView @JvmOverloads constructor(
                 setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
             }
 
-            emptyStateView = TextView(context).apply {
+            emptyIconView = TextView(context).apply {
+                gravity = Gravity.CENTER
+                textSize = 28f
+            }
+            emptyMessageView = TextView(context).apply {
+                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = dpToPx(8)
+                }
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTextColor(colors.clipboardEmptyText)
+            }
+            emptyStateView = LinearLayout(context).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
+                orientation = VERTICAL
                 gravity = Gravity.CENTER
-                textSize = 14f
-                setTextColor(colors.clipboardEmptyText)
+                setPadding(dpToPx(24), 0, dpToPx(24), 0)
                 visibility = View.GONE
+                addView(emptyIconView)
+                addView(emptyMessageView)
             }
 
             clipboardScrollView?.addView(clipboardContainer)
@@ -150,11 +167,11 @@ class ClipboardKeyboardView @JvmOverloads constructor(
     }
 
     private fun showEmptyState(tabIndex: Int) {
-        emptyStateView?.text = if (tabIndex == 1) {
-            context.getString(R.string.clipboard_pinned_empty)
-        } else {
-            context.getString(R.string.clipboard_empty)
-        }
+        val pinned = tabIndex == 1
+        emptyIconView?.text = if (pinned) "📌" else "📋"
+        emptyMessageView?.text = context.getString(
+            if (pinned) R.string.clipboard_pinned_empty else R.string.clipboard_empty
+        )
         emptyStateView?.visibility = View.VISIBLE
         clipboardScrollView?.visibility = View.GONE
     }
@@ -171,8 +188,12 @@ class ClipboardKeyboardView @JvmOverloads constructor(
             }
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(12), dpToPx(8), dpToPx(8), dpToPx(8))
-            background = createItemBackground(colors.clipboardItemBackground, colors.clipboardItemBackgroundPressed)
+            setPadding(dpToPx(12), dpToPx(8), dpToPx(4), dpToPx(8))
+            background = createItemBackground(
+                colors.clipboardItemBackground,
+                colors.clipboardItemBackgroundPressed,
+                item.isPinned,
+            )
             elevation = dpToPx(1).toFloat()
 
             // Text preview (clickable area)
@@ -187,12 +208,14 @@ class ClipboardKeyboardView @JvmOverloads constructor(
 
             // Pin button
             val pinButton = TextView(context).apply {
-                layoutParams = LayoutParams(dpToPx(36), dpToPx(36))
+                layoutParams = LayoutParams(dpToPx(40), dpToPx(40)).apply {
+                    marginStart = dpToPx(4)
+                }
                 gravity = Gravity.CENTER
                 text = "📌"
                 textSize = 16f
                 alpha = if (item.isPinned) 1.0f else 0.4f
-                background = createIconBackground()
+                background = createIconBackground(pinned = item.isPinned)
 
                 setOnClickListener {
                     ClipboardHistoryManager.togglePin(context, item.id)
@@ -202,12 +225,12 @@ class ClipboardKeyboardView @JvmOverloads constructor(
 
             // Delete button
             val deleteButton = TextView(context).apply {
-                layoutParams = LayoutParams(dpToPx(36), dpToPx(36))
+                layoutParams = LayoutParams(dpToPx(40), dpToPx(40))
                 gravity = Gravity.CENTER
                 text = "✕"
                 textSize = 16f
                 setTextColor(colors.clipboardDeleteIcon)
-                background = createIconBackground()
+                background = createIconBackground(pinned = false)
 
                 setOnClickListener {
                     ClipboardHistoryManager.removeItem(context, item.id)
@@ -230,6 +253,7 @@ class ClipboardKeyboardView @JvmOverloads constructor(
         return HorizontalScrollView(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(44))
             isHorizontalScrollBarEnabled = false
+            isFillViewport = true
             setBackgroundColor(colors.candidateBarBackground)
 
             val tabContainer = LinearLayout(context).apply {
@@ -251,20 +275,37 @@ class ClipboardKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun createCategoryTab(icon: String, index: Int): TextView {
+    private fun createCategoryTab(icon: String, index: Int): LinearLayout {
         val label = when (index) {
-            0 -> "$icon ${context.getString(R.string.clipboard_tab_all)}"
-            1 -> "$icon ${context.getString(R.string.clipboard_tab_pinned)}"
-            else -> icon
+            0 -> context.getString(R.string.clipboard_tab_all)
+            1 -> context.getString(R.string.clipboard_tab_pinned)
+            else -> ""
         }
-        return TextView(context).apply {
-            layoutParams = LayoutParams(0, dpToPx(36), 1f).apply {
+        return LinearLayout(context).apply {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(36)).apply {
                 setMargins(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
             }
-            gravity = Gravity.CENTER
-            text = label
-            textSize = 14f
-            typeface = Typeface.DEFAULT_BOLD
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(14), 0, dpToPx(14), 0)
+
+            addView(TextView(context).apply {
+                text = icon
+                textSize = 16f
+                maxLines = 1
+                includeFontPadding = false
+            })
+            addView(TextView(context).apply {
+                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = dpToPx(6)
+                }
+                text = label
+                textSize = 14f
+                maxLines = 1
+                isSingleLine = true
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+            })
 
             setOnClickListener {
                 if (currentTab != index) {
@@ -278,12 +319,11 @@ class ClipboardKeyboardView @JvmOverloads constructor(
 
     private fun updateCategorySelection() {
         categoryTabs.forEachIndexed { index, tab ->
-            if (index == currentTab) {
-                tab.background = createCategorySelectedBackground()
-                tab.setTextColor(colors.emojiCategorySelectedText)
-            } else {
-                tab.background = createCategoryBackground()
-                tab.setTextColor(colors.emojiCategoryText)
+            val selected = index == currentTab
+            tab.background = if (selected) createCategorySelectedBackground() else createCategoryBackground()
+            val color = if (selected) colors.emojiCategorySelectedText else colors.emojiCategoryText
+            for (childIndex in 0 until tab.childCount) {
+                (tab.getChildAt(childIndex) as? TextView)?.setTextColor(color)
             }
         }
     }
@@ -348,17 +388,15 @@ class ClipboardKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun createItemBackground(normalColor: Int, pressedColor: Int): StateListDrawable {
-        val pressed = GradientDrawable().apply {
+    private fun createItemBackground(normalColor: Int, pressedColor: Int, pinned: Boolean): StateListDrawable {
+        fun shape(color: Int) = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dpToPx(12).toFloat()
-            setColor(pressedColor)
+            setColor(color)
+            if (pinned) setStroke(dpToPx(1), this@ClipboardKeyboardView.colors.clipboardPinnedIcon)
         }
-        val normal = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dpToPx(12).toFloat()
-            setColor(normalColor)
-        }
+        val pressed = shape(pressedColor)
+        val normal = shape(normalColor)
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_pressed), pressed)
             addState(intArrayOf(), normal)
@@ -382,15 +420,20 @@ class ClipboardKeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun createIconBackground(): StateListDrawable {
-        val pressedColor = colors.clipboardItemBackgroundPressed
+    private fun createIconBackground(pinned: Boolean): StateListDrawable {
+        val pin = colors.clipboardPinnedIcon
+        val resting = if (pinned) {
+            Color.argb(40, Color.red(pin), Color.green(pin), Color.blue(pin))
+        } else {
+            Color.TRANSPARENT
+        }
         val pressed = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(pressedColor)
+            setColor(this@ClipboardKeyboardView.colors.clipboardItemBackgroundPressed)
         }
         val normal = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(android.graphics.Color.TRANSPARENT)
+            setColor(resting)
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_pressed), pressed)

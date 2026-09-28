@@ -1,18 +1,33 @@
 package com.awcjack.dualquickime.data
 
 /**
- * Optional Latin sentence case. Only the first letter of a blank line, or the
- * letter after a full stop and a space, is capitalized. Proper nouns are ignored.
+ * Optional Latin sentence case. The first letter of a blank line, or the
+ * letter after sentence-ending punctuation and a space, is capitalized.
+ * Proper nouns are ignored.
  */
 object LatinSentenceCase {
+    private val sentenceEnders = setOf(
+        '.', '。', '．', '｡',
+        '!', '！', '‼',
+        '?', '？', '⁇', '⁈', '⁉', '‽',
+        '…',
+    )
+    private val closingMarks = setOf(
+        '"', '\'', '”', '’', '»',
+        ')', '）', ']', '］', '}', '｝',
+        '」', '』', '〉', '》', '】', '〕',
+    )
+
     fun contextCapital(textBeforeCursor: String, composingLength: Int): Boolean {
         if (composingLength > 0) return false
         val line = textBeforeCursor.substringAfterLast('\n').substringAfterLast('\r')
         if (line.isBlank()) return true
-        val end = line.trimEnd()
+        var end = line.trimEnd()
         if (end.length == line.length || end.isEmpty()) return false
-        val mark = end.last()
-        return mark == '.' || mark == '。'
+        while (end.isNotEmpty() && end.last() in closingMarks) {
+            end = end.dropLast(1)
+        }
+        return end.isNotEmpty() && end.last() in sentenceEnders
     }
 
     fun typedIsUpper(

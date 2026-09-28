@@ -83,7 +83,7 @@
     <string name="settings_english_spell_check">建议英文拼写修正</string>
     <string name="settings_english_spell_check_desc">只建议一处明确修正，点选后才改字</string>
     <string name="settings_latin_sentence_case">拉丁字母句首大写</string>
-    <string name="settings_latin_sentence_case_desc">换行后，或句号加空格后大写。按键显示该大小写。</string>
+    <string name="settings_latin_sentence_case_desc">换行后，或句末标点加空格后大写。按键显示该大小写。</string>
     <string name="settings_key_preview">按键预览</string>
     <string name="settings_key_preview_desc">按住时放大字母，滑出即取消</string>
     <string name="settings_space_after_english_candidate">选择英文词后添加空格</string>

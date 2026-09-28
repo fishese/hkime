@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.42 — 2026-09-28
+
+- Capitalize Latin after question marks, exclamation marks, and other sentence-ending punctuation.
+- Keep the clipboard Pinned label beside its icon, and make pinned clips easier to see.
+
 ## 0.3.41 — 2026-09-28
 
 - Chinese settings use standard written Chinese, with Hong Kong wording.

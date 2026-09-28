@@ -202,7 +202,7 @@ object ThemeManager {
         getPrefs(context).edit().putBoolean(KEY_KEY_PREVIEW, enabled).apply()
     }
 
-    // Capitalize the first Latin letter of a line, and after a full stop and a space.
+    // Capitalize the first Latin letter of a line, and after sentence punctuation and a space.
     // Default off: keys stay in capitals, and typing stays lowercase unless shift or caps lock.
     fun getLatinSentenceCase(context: Context): Boolean {
         if (cachedLatinSentenceCase == null) {
