@@ -32,7 +32,31 @@ class ContextualPunctuationTest {
             ContextualPunctuation.choose('.', "你好", forceLiteral = true))
     }
 
+    @Test fun exclamationSemicolonAndHyphenFollowTheSameScript() {
+        assertEquals(ContextualPunctuation.Choice('!', '！'),
+            ContextualPunctuation.choose('!', "hello"))
+        assertEquals(ContextualPunctuation.Choice('；', ';'),
+            ContextualPunctuation.choose(';', "你好"))
+        assertEquals(ContextualPunctuation.Choice('－', '-'),
+            ContextualPunctuation.choose('-', "你好"))
+        assertEquals(ContextualPunctuation.Choice('-', '－'),
+            ContextualPunctuation.choose('-', "well"))
+        assertEquals(ContextualPunctuation.Choice('-', '－'),
+            ContextualPunctuation.choose('-', "3"))
+    }
+
+    @Test fun punctuationAfterAnAsciiQuoteStaysHalfWidth() {
+        assertEquals(ContextualPunctuation.Choice('.', '。'),
+            ContextualPunctuation.choose('。', "said \""))
+        assertEquals(ContextualPunctuation.Choice('!', '！'),
+            ContextualPunctuation.choose('！', "it'"))
+        assertEquals(ContextualPunctuation.Choice('。', '.'),
+            ContextualPunctuation.choose('.', "他說\u201C"))
+    }
+
     @Test fun nonPairedSymbolsAreUnchanged() {
         assertNull(ContextualPunctuation.choose('@', "hello"))
+        assertNull(ContextualPunctuation.choose('"', "你好"))
+        assertNull(ContextualPunctuation.choose('/', "你好"))
     }
 }

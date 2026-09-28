@@ -1,5 +1,11 @@
 # HK IME changelog
 
+## 0.3.43 — 2026-09-28
+
+- Insert a space after half-width punctuation when the next input is a word, and match ! ; - to the surrounding script.
+- Punctuation after an ASCII quote stays half-width.
+- The smallest key size is 38 dp. The default stays 55 dp.
+
 ## 0.3.42 — 2026-09-28
 
 - Capitalize Latin after question marks, exclamation marks, and other sentence-ending punctuation.

@@ -10,7 +10,8 @@ object ContextualPunctuation {
         '!' to '！',
         '?' to '？',
         ':' to '：',
-        ';' to '；'
+        ';' to '；',
+        '-' to '－',
     )
     private val fullToHalf = halfToFull.entries.associate { (half, full) -> full to half }
 
@@ -19,14 +20,15 @@ object ContextualPunctuation {
         val full = halfToFull.getValue(half)
         val inserted = when {
             forceLiteral -> key
-            followsLatin(beforeCursor) -> half
+            prefersHalf(beforeCursor) -> half
             else -> full
         }
         return Choice(inserted, if (inserted == half) full else half)
     }
 
-    private fun followsLatin(beforeCursor: String): Boolean {
+    private fun prefersHalf(beforeCursor: String): Boolean {
         val preceding = beforeCursor.lastOrNull { !it.isWhitespace() } ?: return false
+        if (preceding == '"' || preceding == '\'') return true
         return Character.UnicodeScript.of(preceding.code) == Character.UnicodeScript.LATIN ||
             preceding in '0'..'9' || preceding in halfToFull
     }

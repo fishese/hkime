@@ -2,7 +2,8 @@ package com.awcjack.dualquickime.data
 
 /**
  * Optional Latin sentence case. The first letter of a blank line, or the
- * letter after sentence-ending punctuation and a space, is capitalized.
+ * letter after sentence-ending punctuation, is capitalized. The space before
+ * that word may already be typed, or it is inserted with the word.
  * Proper nouns are ignored.
  */
 object LatinSentenceCase {
@@ -23,7 +24,6 @@ object LatinSentenceCase {
         val line = textBeforeCursor.substringAfterLast('\n').substringAfterLast('\r')
         if (line.isBlank()) return true
         var end = line.trimEnd()
-        if (end.length == line.length || end.isEmpty()) return false
         while (end.isNotEmpty() && end.last() in closingMarks) {
             end = end.dropLast(1)
         }

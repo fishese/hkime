@@ -23,13 +23,13 @@ class LatinSentenceCaseTest {
         assertTrue(LatinSentenceCase.contextCapital("hello?\" ", composingLength = 0))
         assertTrue(LatinSentenceCase.contextCapital("你好？」 ", composingLength = 0))
         assertTrue(LatinSentenceCase.contextCapital("ended at 3. ", composingLength = 0))
+        assertTrue(LatinSentenceCase.contextCapital("hello.", composingLength = 0))
+        assertTrue(LatinSentenceCase.contextCapital("hello?", composingLength = 0))
     }
 
     @Test fun leavesOtherLatinLowercase() {
         assertFalse(LatinSentenceCase.contextCapital("hello", composingLength = 0))
         assertFalse(LatinSentenceCase.contextCapital("hello ", composingLength = 0))
-        assertFalse(LatinSentenceCase.contextCapital("hello.", composingLength = 0))
-        assertFalse(LatinSentenceCase.contextCapital("hello?", composingLength = 0))
         assertFalse(LatinSentenceCase.contextCapital("hello, ", composingLength = 0))
         assertFalse(LatinSentenceCase.contextCapital("hello; ", composingLength = 0))
         assertFalse(LatinSentenceCase.contextCapital("3.14 ", composingLength = 0))

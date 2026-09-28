@@ -30,6 +30,7 @@ import com.awcjack.dualquickime.data.LatinSentenceCase
 import com.awcjack.dualquickime.data.LatinSpaceCommit
 import com.awcjack.dualquickime.data.EmailDomains
 import com.awcjack.dualquickime.data.ContextualPunctuation
+import com.awcjack.dualquickime.data.PunctuationSpacing
 import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
@@ -458,6 +459,8 @@ class HkInputMethodService : InputMethodService() {
             clearAssociatedPhrases()
         }
 
+        if (composition.rawKeys.isEmpty()) insertSpaceAfterHalfPunctuation(char.toString())
+
         val isUpperCase = char.isUpperCase()
         val lowerChar = char.lowercaseChar()
         val newRawKeys = composition.rawKeys + lowerChar
@@ -474,6 +477,7 @@ class HkInputMethodService : InputMethodService() {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         finishEnglishComposition()
+        insertSpaceAfterHalfPunctuation(event.code)
         swipeEnglishWords = event.englishWords.filterNot { it == event.code }
         swipeChineseCodes = event.chineseCodes.filterNot { it == event.code }
         letterCases.clear()
@@ -612,7 +616,9 @@ class HkInputMethodService : InputMethodService() {
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         finishLatinOrDropDeferredSpace()
         val phrase = ShortcutPhraseManager.get(this, digit)
-        commitText(phrase.ifEmpty { digit.toString() })
+        val text = phrase.ifEmpty { digit.toString() }
+        insertSpaceAfterHalfPunctuation(text)
+        commitText(text)
     }
 
     private fun handleSymbol(event: KeyboardView.KeyEvent.Symbol) {
@@ -669,14 +675,14 @@ class HkInputMethodService : InputMethodService() {
     private fun handleEmoji(emoji: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         finishLatinOrDropDeferredSpace()
-        // Then commit the emoji
+        insertSpaceAfterHalfPunctuation(emoji)
         commitText(emoji)
     }
 
     private fun handleClipboardPaste(text: String) {
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         finishLatinOrDropDeferredSpace()
-        // Commit the clipboard text
+        insertSpaceAfterHalfPunctuation(text)
         commitText(text)
     }
 
@@ -851,11 +857,14 @@ class HkInputMethodService : InputMethodService() {
         }
         val keptLatin = LatinSpaceCommit.keptAsLatin(text)
         val latinWord = EnglishSuggestions.isLatinWord(text)
+        val beforeCursor = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString().orEmpty()
+        val punctSpace = if (composition.rawKeys.isEmpty() &&
+            PunctuationSpacing.needsSpaceBefore(beforeCursor, text)) " " else ""
         val leadingSpace = if (LatinSpaceCommit.restoreDeferredSpace(
                 restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, keptLatin)) " " else ""
         spaceDeferredUntilNextLatin = false
         val needsSpace = candidateNeedsSpace(text)
-        lastSelectedText = leadingSpace + text + if (needsSpace) " " else ""
+        lastSelectedText = punctSpace + leadingSpace + text + if (needsSpace) " " else ""
         commitText(lastSelectedText)
         clearComposition()
         // Associated phrases follow Chinese selections, not Latin autocomplete.
@@ -920,6 +929,12 @@ class HkInputMethodService : InputMethodService() {
         currentInputConnection?.commitText(text, 1)
     }
 
+    private fun insertSpaceAfterHalfPunctuation(nextText: String) {
+        if (isEmailSuggestionsMode) return
+        val before = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString().orEmpty()
+        if (PunctuationSpacing.needsSpaceBefore(before, nextText)) commitText(" ")
+    }
+
     // ==================== ASSOCIATED PHRASES ====================
 
     /**
@@ -978,6 +993,7 @@ class HkInputMethodService : InputMethodService() {
      */
     private fun handleAssociatedPhraseSelected(phrase: String) {
         spaceDeferredUntilNextLatin = false
+        insertSpaceAfterHalfPunctuation(phrase)
         lastSelectedText = phrase
         commitText(phrase)
         // Show associated phrases for the last character of the selected phrase
