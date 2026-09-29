@@ -52,12 +52,12 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 ### Emoji and everyday keyboard features
 
 - Full emoji keyboard with categories and skin-tone selection.
-- Context-aware half-width/full-width punctuation, with an underlined space before the next word or emoji after half-width punctuation. Backspace removes the pending space and keeps the adjacent word attached while you type or correct it, so punctuation can stay inside a word such as `sendit.sh`.
+- Context-aware half-width/full-width punctuation, with an underlined space before the next word or emoji after half-width punctuation. Press Space to keep the space or Backspace to remove it; deleting it before or after committing keeps the next letters attached, so punctuation can stay inside a word such as `sendit.sh`.
 - Email-domain suggestions after `@` in email fields, and in other fields when the text before `@` is an address.
 - Light, dark and system themes.
 - Adjustable key height, candidate text size and candidate spacing.
 - Optional Cangjie labels and radical-sequence preview.
-- Hold the spacebar and drag to move the caret; vertical drags navigate wrapped lines in multiline fields, and a held long drag repeats while keeping movement inside the text field.
+- Hold the spacebar and drag to move the caret. In multiline fields, vertical drags navigate wrapped lines with a less-sensitive threshold to reduce accidental line changes. Long drags repeat while held and stay within the active text field.
 - Caps Lock by double-tapping Shift.
 - Hold Backspace for continuous deletion.
 - Dedicated hide-keyboard key.

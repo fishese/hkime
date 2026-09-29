@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## Unreleased
+
+- Hold and drag the spacebar to move the caret horizontally or vertically through wrapped lines in multiline fields. Vertical movement uses a gentler threshold, and long drags repeat while held.
+- Backspace can remove the punctuation space even after Space commits it; typing immediately afterward keeps letters attached, as in `sendit.sh`.
+
 ## 0.3.43 — 2026-09-28
 
 - Insert a space after half-width punctuation when the next input is a word, and match ! ; - to the surrounding script.
