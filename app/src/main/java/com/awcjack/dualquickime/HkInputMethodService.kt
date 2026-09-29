@@ -44,6 +44,7 @@ import com.awcjack.dualquickime.data.SimplexTable
 import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.ui.KeyboardView
+import java.util.Locale
 
 /**
  * Quick (速成) Input Method Service for Android.
@@ -105,6 +106,7 @@ class HkInputMethodService : InputMethodService() {
     // Whether the currently focused field is a password field
     private var isPasswordField = false
     private var isEmailField = false
+    private var isUsernameField = false
     // Whether password masking is active (user can toggle with the eye button)
     private var isPasswordMaskEnabled = true
 
@@ -273,12 +275,10 @@ class HkInputMethodService : InputMethodService() {
 
         isPasswordField = isPasswordInputField(info)
         keyboardView?.setSensitiveField(isPasswordField)
-        isEmailField = info?.inputType?.let { type ->
-            (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
-                (type and InputType.TYPE_MASK_VARIATION) in setOf(
-                    InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
-                    InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS)
-        } ?: false
+        isEmailField = isTextVariation(info,
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS)
+        isUsernameField = isUsernameInputField(info)
         isPasswordMaskEnabled = true
         // Refresh theme in case it changed in settings
         keyboardView?.refreshTheme()
@@ -319,6 +319,31 @@ class HkInputMethodService : InputMethodService() {
             else -> false
         }
     }
+
+    private fun isTextVariation(info: EditorInfo?, vararg variations: Int): Boolean {
+        val type = info?.inputType ?: return false
+        return (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            (type and InputType.TYPE_MASK_VARIATION) in variations
+    }
+
+    /** Android has no dedicated username inputType, so use the editor's hint/label when provided. */
+    private fun isUsernameInputField(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        if ((type and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) return false
+
+        val text = listOfNotNull(info.hintText?.toString(), info.label?.toString())
+            .joinToString(" ")
+            .lowercase(Locale.ROOT)
+        val normalized = text.replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        val commonHints = listOf(
+            "username", "user name", "user id", "login", "account name", "account id",
+            "用戶名", "用戶名稱", "登入名", "登入名稱", "帳戶名", "帳戶名稱", "帳號"
+        )
+        return commonHints.any(normalized::contains)
+    }
+
+    private fun isPunctuationSpacingDisabledField(): Boolean =
+        isPasswordField || isEmailField || isUsernameField
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
         if (event is KeyboardView.KeyEvent.MoveCursor) {
@@ -379,7 +404,8 @@ class HkInputMethodService : InputMethodService() {
 
     private fun refreshLatinCase() {
         val view = keyboardView ?: return
-        val enabled = ThemeManager.getLatinSentenceCase(this) && !isPasswordField && !isEmailField
+        val enabled = ThemeManager.getLatinSentenceCase(this) &&
+            !isPasswordField && !isEmailField && !isUsernameField
         val before = if (enabled && composition.rawKeys.isEmpty()) {
             currentInputConnection?.getTextBeforeCursor(160, 0)?.toString()
         } else {
@@ -1074,7 +1100,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun insertSpaceAfterHalfPunctuation(nextText: String) {
-        if (isEmailSuggestionsMode) return
+        if (isEmailSuggestionsMode || isPunctuationSpacingDisabledField()) return
         val connection = currentInputConnection ?: return
         if (pendingPunctuationSpace) {
             if (!anchorMatches(pendingPunctuationSpaceAnchor)) {
@@ -1139,7 +1165,8 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun startPendingPunctuationSpace() {
-        if (pendingPunctuationSpace || keyboardView?.isNumberPadMode() == true) return
+        if (isPunctuationSpacingDisabledField() || pendingPunctuationSpace ||
+            keyboardView?.isNumberPadMode() == true) return
         val connection = currentInputConnection ?: return
         val before = connection.getTextBeforeCursor(64, 0)?.toString().orEmpty()
         if (!PunctuationSpacing.shouldOfferSpaceAfter(before)) return

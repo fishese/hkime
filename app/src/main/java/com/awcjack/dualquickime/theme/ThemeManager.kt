@@ -203,7 +203,7 @@ object ThemeManager {
     }
 
     // Capitalize the first Latin letter of a line, and after sentence punctuation and a space.
-    // Default off: keys stay in capitals, and typing stays lowercase unless shift or caps lock.
+    // Default off: typing stays lowercase unless shift or caps lock; key faces reflect that case.
     fun getLatinSentenceCase(context: Context): Boolean {
         if (cachedLatinSentenceCase == null) {
             cachedLatinSentenceCase = getPrefs(context).getBoolean(KEY_LATIN_SENTENCE_CASE, false)

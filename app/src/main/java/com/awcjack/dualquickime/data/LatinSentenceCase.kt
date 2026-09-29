@@ -46,10 +46,7 @@ object LatinSentenceCase {
         manualShift: Boolean,
         sentenceCase: Boolean,
         contextCapital: Boolean,
-    ): Boolean {
-        if (!sentenceCase) return true
-        return typedIsUpper(capsLock, manualShift, sentenceCase = true, contextCapital)
-    }
+    ): Boolean = typedIsUpper(capsLock, manualShift, sentenceCase, contextCapital)
 
     fun letter(char: Char, upper: Boolean): Char =
         if (upper) char.uppercaseChar() else char.lowercaseChar()

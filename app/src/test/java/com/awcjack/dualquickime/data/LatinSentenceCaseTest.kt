@@ -36,11 +36,14 @@ class LatinSentenceCaseTest {
         assertFalse(LatinSentenceCase.contextCapital("hello. ", composingLength = 1))
     }
 
-    @Test fun optionOffKeepsKeyCapitalsAndTypesShiftCase() {
-        assertTrue(LatinSentenceCase.keyShowsUpper(capsLock = false, manualShift = false, sentenceCase = false, contextCapital = false))
+    @Test fun optionOffShowsTheManualCaseThatWillBeTyped() {
+        assertFalse(LatinSentenceCase.keyShowsUpper(capsLock = false, manualShift = false, sentenceCase = false, contextCapital = false))
         assertFalse(LatinSentenceCase.typedIsUpper(capsLock = false, manualShift = false, sentenceCase = false, contextCapital = true))
+        assertFalse(LatinSentenceCase.keyShowsUpper(capsLock = false, manualShift = false, sentenceCase = false, contextCapital = true))
         assertTrue(LatinSentenceCase.typedIsUpper(capsLock = false, manualShift = true, sentenceCase = false, contextCapital = false))
+        assertTrue(LatinSentenceCase.keyShowsUpper(capsLock = false, manualShift = true, sentenceCase = false, contextCapital = false))
         assertTrue(LatinSentenceCase.typedIsUpper(capsLock = true, manualShift = false, sentenceCase = false, contextCapital = false))
+        assertTrue(LatinSentenceCase.keyShowsUpper(capsLock = true, manualShift = false, sentenceCase = false, contextCapital = false))
     }
 
     @Test fun optionOnShowsTheCaseThatWillBeTypedAndShiftFlipsIt() {

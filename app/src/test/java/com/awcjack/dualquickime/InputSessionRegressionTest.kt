@@ -1,8 +1,10 @@
 package com.awcjack.dualquickime
 
 import android.text.Selection
+import android.text.InputType
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedText
 import android.view.inputmethod.ExtractedTextRequest
 import com.awcjack.dualquickime.data.CompositionState
@@ -111,6 +113,64 @@ class InputSessionRegressionTest {
             assertTrue((0 until container.childCount).map(container::getChildAt)
                 .filterIsInstance<android.widget.TextView>().any { it.text.toString() == "${ThemeManager.KEY_HEIGHT_MIN} dp" })
         } finally { activity.pause().stop().destroy() }
+    }
+
+    @Test fun usernameFieldsAreRecognizedFromEditorHintsAndLabels() {
+        val classifier = HkInputMethodService::class.java
+            .getDeclaredMethod("isUsernameInputField", EditorInfo::class.java)
+            .apply { isAccessible = true }
+        fun isUsername(info: EditorInfo) = classifier.invoke(service, info) as Boolean
+
+        assertTrue(isUsername(EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hintText = "Username"
+        }))
+        assertTrue(isUsername(EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            label = "User name"
+        }))
+        assertTrue(isUsername(EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hintText = "登入名稱"
+        }))
+        assertFalse(isUsername(EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hintText = "Your name"
+        }))
+        assertFalse(isUsername(EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hintText = "Username"
+        }))
+    }
+
+    @Test fun punctuationAutoSpacingIsDisabledForPasswordEmailAndUsernameFields() {
+        val insertSpace = HkInputMethodService::class.java
+            .getDeclaredMethod("insertSpaceAfterHalfPunctuation", String::class.java)
+            .apply { isAccessible = true }
+        val startPendingSpace = HkInputMethodService::class.java
+            .getDeclaredMethod("startPendingPunctuationSpace")
+            .apply { isAccessible = true }
+        val fieldFlags = listOf("isPasswordField", "isEmailField", "isUsernameField")
+
+        for (field in fieldFlags) {
+            for (punctuation in listOf('.', '!', ':')) {
+                fieldFlags.forEach { ReflectionHelpers.setField(service, it, it == field) }
+
+                connection.reset("hello$punctuation")
+                insertSpace.invoke(service, "Next")
+                assertEquals("$field: direct punctuation spacing", "hello$punctuation", connection.text)
+
+                connection.reset("hello$punctuation")
+                startPendingSpace.invoke(service)
+                assertEquals("$field: provisional punctuation spacing", "hello$punctuation", connection.text)
+                assertFalse(ReflectionHelpers.getField<Boolean>(service, "pendingPunctuationSpace"))
+            }
+        }
+
+        fieldFlags.forEach { ReflectionHelpers.setField(service, it, false) }
+        connection.reset("hello.")
+        insertSpace.invoke(service, "Next")
+        assertEquals("hello. ", connection.text)
     }
 
     @Test fun cursorDragUsesTheDocumentOffsetForLongText() {

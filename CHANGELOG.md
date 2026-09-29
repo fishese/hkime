@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.3.47 — 2026-09-29
+
+- Disable automatic punctuation spacing in password, email, and identified username fields.
+- Disable automatic sentence capitalization in identified username fields.
+
+## 0.3.46 — 2026-09-29
+
+- Show letter keys in the case that will be typed, including when automatic sentence case is disabled for password, email, and username fields.
+
 ## 0.3.45 — 2026-09-29
 
 - Hide simple `-s` and `-es` plural completions when their singular form matches; keep a plural available when fully typed.
