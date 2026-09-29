@@ -222,6 +222,25 @@ class MethodMembershipTest {
         assertEquals(listOf("皮克敏"), bundled.supplementalCandidates("pikmin", english))
     }
 
+    @Test fun brainstormAdditionsUseTheirDeclaredInputMethods() {
+        val bundled = MethodMembership(
+            File("src/main/assets/method-membership.tsv").readLines().asSequence(),
+            File("src/main/assets/method-phrase-overrides.tsv").readLines().asSequence()
+        )
+        val english = setOf(MethodMembership.Method.ENGLISH)
+        val cantonese = setOf(MethodMembership.Method.CANTONESE)
+        val cangjie = setOf(MethodMembership.Method.CANGJIE)
+        val quick = setOf(MethodMembership.Method.QUICK)
+
+        assertEquals(listOf("戶口", "賬戶"), bundled.supplementalCandidates("account", english))
+        assertEquals(listOf("訂單"), bundled.supplementalCandidates("order", english))
+        assertEquals(listOf("落班"), bundled.supplementalCandidates("lokbaan", cantonese))
+        assertEquals(listOf("落班"), bundled.supplementalCandidates("lbaan", cantonese))
+        assertEquals(listOf("堂食"), bundled.supplementalCandidates("foiav", cangjie))
+        assertEquals(listOf("堂食"), bundled.supplementalCandidates("fov", quick))
+        assertEquals(emptyList<String>(), bundled.supplementalCandidates("fov", cangjie))
+    }
+
     @Test fun reviewedAllSymbolAppearsForEveryEnabledMethod() {
         for (method in MethodMembership.Method.values()) {
             assertEquals(listOf("🔤"), membership.filter("abc", listOf("🔤"),

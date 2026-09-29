@@ -782,6 +782,7 @@ apostate
 apostle
 apostrophe
 apotheosis
+app
 appal
 apparatus
 apparent
@@ -1131,6 +1132,7 @@ authorized
 autism
 auto
 autobiography
+autocorrect
 autocracy
 autograph
 automatic
@@ -1144,6 +1146,7 @@ autoradiography
 autotroph
 autumn
 auxiliary
+availability
 available
 avalanche
 avarice
@@ -1620,7 +1623,6 @@ birch
 bird
 birdcage
 birdlike
-birdofparadise
 birds
 birmingham
 birth
@@ -1788,6 +1790,7 @@ bonus
 book
 bookbinding
 bookcase
+booking
 bookishness
 bookkeeper
 bookkeeping
@@ -3010,6 +3013,7 @@ commodification
 commodity
 common
 commoner
+commonly
 commonplace
 commons
 commonwealth
@@ -6183,6 +6187,7 @@ formerly
 formidable
 formless
 formosa
+forms
 formula
 formulate
 formulation
@@ -8253,6 +8258,7 @@ invented
 invention
 inventions
 inventor
+inventory
 inversion
 invert
 invertebrate
@@ -9081,6 +9087,7 @@ local
 localization
 localize
 locally
+locate
 location
 lock
 locker
@@ -10626,6 +10633,7 @@ occupant
 occupation
 occupy
 occur
+occurred
 ocean
 oceania
 oceanography
@@ -10803,6 +10811,7 @@ oregon
 organ
 organelle
 organic
+organise
 organism
 organization
 organize
@@ -11029,6 +11038,7 @@ painted
 painter
 painting
 pair
+pairs
 pajamas
 pakistan
 palace
@@ -12333,6 +12343,7 @@ qingdao
 qinghaosu
 qos
 qq
+qr
 quack
 quadrilateral
 quadriped
@@ -12899,6 +12910,7 @@ reserve
 reserved
 reserves
 reservoir
+reset
 reside
 residence
 resident
@@ -14633,6 +14645,7 @@ statesman
 static
 statics
 station
+stationary
 stationed
 stationer
 stationery
@@ -15046,6 +15059,7 @@ supplier
 supply
 support
 supporter
+supporting
 suppose
 supposed
 supposing
@@ -15173,6 +15187,7 @@ symposium
 symptom
 symptomatic
 synagogue
+sync
 synchronous
 synchrotron
 syndicate
@@ -16315,6 +16330,7 @@ unimpeded
 unimportant
 uninhabited
 uninhibited
+uninstall
 unintelligible
 uninteresting
 uninterrupted
@@ -16498,6 +16514,7 @@ user
 userdefined
 userid
 username
+users
 usher
 using
 usjapan
@@ -16613,6 +16630,7 @@ velum
 velvet
 vend
 vendetta
+vendor
 venerable
 venerate
 venezia
@@ -16779,6 +16797,7 @@ vocabulary
 vocal
 vocation
 voice
+voicemail
 void
 volatile
 volatility

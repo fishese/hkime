@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.3.45 — 2026-09-29
+
+- Hide simple `-s` and `-es` plural completions when their singular form matches; keep a plural available when fully typed.
+- Remove the nonstandard concatenated `birdofparadise` completion.
+
+## 0.3.44 — 2026-09-29
+
+- Add curated English autocomplete and spelling suggestions, English-to-Chinese glosses, and Chinese phrase suggestions.
+- Prefer Sidney Lau romanisation for Cantonese additions, with common alternatives secondary and no tone numbers.
 - Hold and drag the spacebar to move the caret horizontally or vertically through wrapped lines in multiline fields. Vertical movement uses a gentler threshold, and long drags repeat while held.
 - Backspace can remove the punctuation space even after Space commits it; typing immediately afterward keeps letters attached, as in `sendit.sh`.
 

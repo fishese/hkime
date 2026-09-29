@@ -40,6 +40,10 @@ object EnglishSuggestions {
         writing wrong year yellow yesterday young your yourself candidate candidates cantonese cangjie chinese
         english keyboard clipboard shortcut convert conversion correction dictionary frequency suggestion
         testing tested tests okay favourite grey pikmin
+        accommodation advice advise affect appropriate assure beginning calendar colleague convenient definitely
+        effect ensure environment guarantee immediately insure licence license maintenance necessary occurred
+        opportunity organise organize practice practise privilege recommendation restaurant stationary stationery
+        successful center color autocorrect commonly forms pairs supporting users
         pansy poinsettia camellia carnation hydrangea sunflower cosmos cyclamen daffodil windflower
         frangipani hibiscus dianthus gentian chrysanthemum helleborus cattleya hyacinth peony dahlia
         clematis snowdrop freesia celosia marigold salvia primrose snapdragon petunia plumblossom

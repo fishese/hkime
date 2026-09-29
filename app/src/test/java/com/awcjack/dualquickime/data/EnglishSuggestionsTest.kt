@@ -12,6 +12,12 @@ class EnglishSuggestionsTest {
         assertEquals("Candidate", EnglishSuggestions.correction("Canddiate"))
     }
 
+    @Test fun correctsCommonSpellingTargetsFromTheBrainstorm() {
+        assertEquals("accommodation", EnglishSuggestions.correction("accomodation"))
+        assertEquals("necessary", EnglishSuggestions.correction("neccessary"))
+        assertEquals("Definitely", EnglishSuggestions.correction("Definately"))
+    }
+
     @Test fun keepsTestingAsAWordAndCorrectsAMissingLetter() {
         assertNull(EnglishSuggestions.correction("testing"))
         assertEquals("testing", EnglishSuggestions.correction("testng"))

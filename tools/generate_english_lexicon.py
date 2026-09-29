@@ -69,6 +69,9 @@ def main() -> None:
     selected.update({
         "apple", "apples", "paint", "painting", "painted", "birthday", "birthdays",
         "banana", "bananas", "orange", "oranges", "school", "friend", "family",
+        "app", "autocorrect", "availability", "booking", "commonly", "forms", "inventory",
+        "locate", "occurred", "organise", "pairs", "qr", "reset", "stationary",
+        "supporting", "sync", "uninstall", "users", "vendor", "voicemail",
         "testing", "tested", "tests", "okay", "favourite", "grey", "pikmin", "our",
         "asked", "asking", "began", "changed", "decided", "default", "does", "doing",
         "getting", "going", "growing", "having", "into", "longer", "looking", "making",
@@ -79,10 +82,13 @@ def main() -> None:
         "chrysanthemum", "helleborus", "cattleya", "hyacinth", "peony", "dahlia", "clematis",
         "snowdrop", "freesia", "celosia", "marigold", "salvia", "primrose", "snapdragon",
         "petunia", "plumblossom", "cherryblossom", "spiderlily", "callalily", "waterlily",
-        "morningglory", "sweetpea", "lilyofthevalley", "babyblueeyes", "birdofparadise",
+        "morningglory", "sweetpea", "lilyofthevalley", "babyblueeyes",
         "canolaflower", "anniversaryrose", "mothorchid", "parrottulip", "forgetmenot",
         "bellflower", "orchidcactus", "cannalily", "prairiegentian",
     })
+    # The standard term is written as "bird of paradise" or "bird-of-paradise".
+    # This alphabetic-only completion list cannot represent either form.
+    selected.discard("birdofparadise")
     with OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write("\n".join(sorted(selected)) + "\n")
     print(f"upstream English={len(english)}, bundled mixed={len(mixed)}, autocomplete={len(selected)}")

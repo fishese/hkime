@@ -28,9 +28,14 @@ class EnglishAutocomplete private constructor(private val words: List<String>) {
         for (i in index until words.size) {
             val word = words[i]
             if (!word.startsWith(prefix)) break
+            if (isRedundantSimplePlural(word, prefix)) continue
             matches.add(word)
         }
-        return matches.sortedWith(compareBy<String> { it.length }.thenBy { it })
+        return matches.sortedWith(
+            compareBy<String> { COMMON_WORD_ORDER[it] ?: Int.MAX_VALUE }
+                .thenBy { it.length }
+                .thenBy { it }
+        )
             .take(8)
             .map { word -> when {
                 typed.all { it.isUpperCase() } -> word.uppercase()
@@ -40,8 +45,52 @@ class EnglishAutocomplete private constructor(private val words: List<String>) {
             } }
     }
 
+    private fun isRedundantSimplePlural(word: String, prefix: String): Boolean {
+        if (word in NON_PLURAL_S_ES_FORMS) return false
+
+        val singulars = ArrayList<String>(2)
+        if (word.endsWith('s')) {
+            val singular = word.dropLast(1)
+            if (singular.length >= 2 && words.binarySearch(singular) >= 0) {
+                singulars.add(singular)
+            }
+        }
+        if (word.endsWith("es")) {
+            val singular = word.dropLast(2)
+            if ((singular.endsWith("s") || singular.endsWith("x") || singular.endsWith("z") ||
+                    singular.endsWith("ch") || singular.endsWith("sh") || singular.endsWith("o")) &&
+                words.binarySearch(singular) >= 0
+            ) {
+                singulars.add(singular)
+            }
+        }
+
+        return singulars.any { singular ->
+            prefix.length <= singular.length && singular.startsWith(prefix)
+        }
+    }
+
     companion object {
         val EMPTY = EnglishAutocomplete(emptyList())
+
+        // These are ordinary words, not simple plurals (e.g. "does" is a verb form).
+        private val NON_PLURAL_S_ES_FORMS = setOf("does", "goes", "news", "series", "species", "physics", "uses")
+
+        // Common everyday and HK office words should appear before rare words
+        // that happen to share the same prefix. The rest retain length order.
+        private val COMMON_WORD_ORDER = listOf(
+            "the", "and", "you", "that", "for", "with", "this", "are", "was", "have",
+            "not", "but", "what", "when", "your", "there", "their", "they", "then", "one",
+            "will", "would", "can", "all", "about", "like", "just", "know", "time", "people",
+            "into", "make", "look", "use", "get", "good", "some", "could", "them", "see",
+            "other", "than", "now", "also", "back", "after", "our", "work", "first", "well",
+            "way", "even", "new", "want", "because", "any", "these", "give", "day", "most",
+            "app", "apple", "apply", "application", "account", "address", "appointment", "booking",
+            "business", "check", "company", "contact", "customer", "email", "invoice", "message",
+            "order", "payment", "please", "product", "project", "report", "request", "service",
+            "support", "thank", "tomorrow", "update", "availability", "forms", "inventory",
+            "organise", "occurred", "user", "users", "vendor", "voicemail"
+        ).withIndex().associate { (index, word) -> word to index }
 
         fun parse(input: InputStream): EnglishAutocomplete {
             val words = input.bufferedReader(Charsets.UTF_8).useLines { lines ->
