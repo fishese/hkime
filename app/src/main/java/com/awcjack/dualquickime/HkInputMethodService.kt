@@ -83,6 +83,7 @@ class HkInputMethodService : InputMethodService() {
     private var pendingSymbol: PendingSymbol? = null
 
     private var keyboardView: KeyboardView? = null
+    private var spaceCursorInputConnection: android.view.inputmethod.InputConnection? = null
 
     // Associated phrases mode: when true, candidate bar shows associated phrases
     private var isAssociatedPhrasesMode = false
@@ -320,6 +321,23 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
+        if (event is KeyboardView.KeyEvent.MoveCursor) {
+            val connection = spaceCursorInputConnection ?: return
+            if (currentInputConnection !== connection) return
+            moveCursorBy(event.delta, event.vertical, connection)
+            return
+        }
+        when (event) {
+            KeyboardView.KeyEvent.StartCursorDrag -> {
+                spaceCursorInputConnection = currentInputConnection
+                return
+            }
+            KeyboardView.KeyEvent.EndCursorDrag -> {
+                spaceCursorInputConnection = null
+                return
+            }
+            else -> Unit
+        }
         invalidateEditorAnchors()
         if (pendingSymbol != null && event !is KeyboardView.KeyEvent.Symbol) {
             pendingSymbol = null
@@ -329,7 +347,7 @@ class HkInputMethodService : InputMethodService() {
             is KeyboardView.KeyEvent.Letter -> handleLetter(event.char)
             is KeyboardView.KeyEvent.SwipeCode -> handleSwipeCode(event)
             KeyboardView.KeyEvent.SwipeDelete -> handleSwipeDelete()
-            is KeyboardView.KeyEvent.MoveCursor -> moveCursorBy(event.delta)
+            is KeyboardView.KeyEvent.MoveCursor -> Unit
             is KeyboardView.KeyEvent.Number -> handleNumber(event.digit)
             is KeyboardView.KeyEvent.ShortcutPhrase -> handleShortcutPhrase(event.digit)
             is KeyboardView.KeyEvent.Symbol -> handleSymbol(event)
@@ -340,6 +358,7 @@ class HkInputMethodService : InputMethodService() {
                 commitText(event.text)
             }
             KeyboardView.KeyEvent.Space -> handleSpace()
+            KeyboardView.KeyEvent.StartCursorDrag, KeyboardView.KeyEvent.EndCursorDrag -> Unit
             KeyboardView.KeyEvent.Backspace -> handleBackspace()
             KeyboardView.KeyEvent.Enter -> handleEnter()
             KeyboardView.KeyEvent.HideKeyboard -> {
@@ -493,15 +512,51 @@ class HkInputMethodService : InputMethodService() {
         pendingSwipeChoice = assumed != null
     }
 
-    private fun moveCursorBy(delta: Int) {
+    private fun moveCursorBy(
+        delta: Int,
+        vertical: Boolean,
+        connection: android.view.inputmethod.InputConnection
+    ) {
         if (delta == 0) return
+        if (currentInputConnection !== connection) return
         pendingSwipeChoice = false
         suppressedPunctuationSpaceAnchor = null
         finishPendingPunctuationSpace()
         finishEnglishComposition()
         spaceDeferredUntilNextLatin = false
         if (isEmailSuggestionsMode) clearEmailSuggestions()
-        val connection = currentInputConnection ?: return
+        if (vertical) {
+            val inputType = currentInputEditorInfo?.inputType ?: return
+            val isMultilineText = inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT &&
+                inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
+            if (!isMultilineText) return
+
+            // If text is selected, collapse it toward the direction of travel first.
+            val selection = connection.getExtractedText(ExtractedTextRequest(), 0)
+                ?.takeIf { it.partialStartOffset < 0 && it.text != null &&
+                    it.startOffset >= 0 && it.selectionStart >= 0 && it.selectionEnd >= 0 }
+            if (!connection.getSelectedText(0).isNullOrEmpty()) {
+                if (selection == null) return
+                val localOffset = if (delta < 0) minOf(selection.selectionStart, selection.selectionEnd)
+                    else maxOf(selection.selectionStart, selection.selectionEnd)
+                if (localOffset !in 0..(selection.text?.length ?: 0)) return
+                val absoluteOffset = selection.startOffset + localOffset
+                connection.setSelection(absoluteOffset, absoluteOffset)
+            }
+
+            val key = if (delta < 0) android.view.KeyEvent.KEYCODE_DPAD_UP
+                else android.view.KeyEvent.KEYCODE_DPAD_DOWN
+            for (step in 0 until kotlin.math.abs(delta)) {
+                // Never send a navigation key at the input's document boundary,
+                // where an editor could pass focus to another part of the page.
+                val textBefore = connection.getTextBeforeCursor(1, 0)?.toString()
+                val textAfter = connection.getTextAfterCursor(1, 0)?.toString()
+                if (!CursorMotion.canMoveVertically(delta, isMultilineText, textBefore, textAfter)) break
+                if (!sendCursorNavigationKey(connection, key)) break
+            }
+            return
+        }
+
         val extracted = connection.getExtractedText(ExtractedTextRequest(), 0)
         val next = extracted?.takeIf { it.partialStartOffset < 0 && it.text != null }?.let {
             CursorMotion.selectionInExcerpt(it.text?.toString().orEmpty(), it.startOffset,
@@ -510,11 +565,48 @@ class HkInputMethodService : InputMethodService() {
         if (next != null) {
             connection.setSelection(next, next)
         } else {
-            // Editors that do not expose document offsets can handle native caret keys.
+            // Use native horizontal navigation for editors without full offsets,
+            // while guarding both document edges against focus leaving the field.
             val key = if (delta < 0) android.view.KeyEvent.KEYCODE_DPAD_LEFT
                 else android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-            repeat(kotlin.math.abs(delta)) { sendDownUpKeyEvents(key) }
+            for (step in 0 until kotlin.math.abs(delta)) {
+                val adjacentText = if (delta < 0) connection.getTextBeforeCursor(1, 0)?.toString()
+                    else connection.getTextAfterCursor(1, 0)?.toString()
+                if (adjacentText.isNullOrEmpty()) break
+                if (!sendCursorNavigationKey(connection, key)) break
+            }
         }
+    }
+
+    /** Send drag navigation only to the editor connection that began this move. */
+    private fun sendCursorNavigationKey(
+        connection: android.view.inputmethod.InputConnection,
+        keyCode: Int
+    ): Boolean {
+        if (currentInputConnection !== connection) return false
+        val downTime = android.os.SystemClock.uptimeMillis()
+        val flags = android.view.KeyEvent.FLAG_SOFT_KEYBOARD or
+            android.view.KeyEvent.FLAG_KEEP_TOUCH_MODE
+        fun keyEvent(action: Int, eventTime: Long) = android.view.KeyEvent(
+            downTime,
+            eventTime,
+            action,
+            keyCode,
+            0,
+            0,
+            android.view.KeyCharacterMap.VIRTUAL_KEYBOARD,
+            0,
+            flags,
+            android.view.InputDevice.SOURCE_KEYBOARD
+        )
+
+        val downHandled = connection.sendKeyEvent(
+            keyEvent(android.view.KeyEvent.ACTION_DOWN, downTime)
+        )
+        connection.sendKeyEvent(
+            keyEvent(android.view.KeyEvent.ACTION_UP, android.os.SystemClock.uptimeMillis())
+        )
+        return downHandled && currentInputConnection === connection
     }
 
     private fun handleSwipeDelete() {
@@ -798,7 +890,11 @@ class HkInputMethodService : InputMethodService() {
         } else {
             // Editing already committed text cancels a space held for the next word.
             spaceDeferredUntilNextLatin = false
+            val removesPunctuationSpace = backspaceWillRemovePunctuationSpace()
             deleteOneGrapheme()
+            if (removesPunctuationSpace) {
+                suppressedPunctuationSpaceAnchor = captureEditorAnchor()
+            }
         }
     }
 
@@ -1006,6 +1102,14 @@ class HkInputMethodService : InputMethodService() {
             return false
         }
         return true
+    }
+
+    private fun backspaceWillRemovePunctuationSpace(): Boolean {
+        val connection = currentInputConnection ?: return false
+        if (!connection.getSelectedText(0).isNullOrEmpty()) return false
+        val before = connection.getTextBeforeCursor(64, 0)?.toString() ?: return false
+        return before.endsWith(' ') &&
+            PunctuationSpacing.shouldOfferSpaceAfter(before.dropLast(1))
     }
 
     private fun suppressedPunctuationSpaceStillApplies(anchor: EditorAnchor?): Boolean {

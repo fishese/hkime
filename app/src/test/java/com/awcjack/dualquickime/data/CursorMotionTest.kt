@@ -10,6 +10,32 @@ class CursorMotionTest {
         assertEquals(-1, CursorMotion.stepsForDrag(-16f, 16f))
     }
 
+    @Test fun dragStepsTrackHorizontalAndVerticalMovement() {
+        assertEquals(
+            CursorMotion.DragSteps(horizontal = 2, vertical = -1),
+            CursorMotion.stepsForDrag(32f, -24f, 16f, 24f)
+        )
+    }
+
+    @Test fun verticalDragUsesAHigherMovementThreshold() {
+        assertEquals(
+            CursorMotion.DragSteps(horizontal = 1, vertical = 0),
+            CursorMotion.stepsForDrag(18f, 18f, 18f, 24f)
+        )
+        assertEquals(
+            CursorMotion.DragSteps(horizontal = 1, vertical = 1),
+            CursorMotion.stepsForDrag(18f, 24f, 18f, 24f)
+        )
+    }
+
+    @Test fun verticalMovementStaysInsideMultilineInputBounds() {
+        assertEquals(false, CursorMotion.canMoveVertically(-1, false, "text", "text"))
+        assertEquals(false, CursorMotion.canMoveVertically(-1, true, "", "text"))
+        assertEquals(false, CursorMotion.canMoveVertically(1, true, "text", ""))
+        assertEquals(true, CursorMotion.canMoveVertically(-1, true, "text", "text"))
+        assertEquals(true, CursorMotion.canMoveVertically(1, true, "text", "text"))
+    }
+
     @Test fun movesByGraphemesIncludingEmoji() {
         val text = "a你👍b"
         val emoji = text.indexOf("👍")

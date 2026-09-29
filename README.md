@@ -57,6 +57,7 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 - Light, dark and system themes.
 - Adjustable key height, candidate text size and candidate spacing.
 - Optional Cangjie labels and radical-sequence preview.
+- Hold the spacebar and drag to move the caret; vertical drags navigate wrapped lines in multiline fields, and a held long drag repeats while keeping movement inside the text field.
 - Caps Lock by double-tapping Shift.
 - Hold Backspace for continuous deletion.
 - Dedicated hide-keyboard key.

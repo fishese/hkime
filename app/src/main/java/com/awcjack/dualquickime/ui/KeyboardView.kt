@@ -116,7 +116,12 @@ class KeyboardView @JvmOverloads constructor(
     private var keyPreviewTextSize = 0f
     private var spaceCursorActive = false
     private var spaceCursorOriginX = 0f
-    private var spaceCursorSteps = 0
+    private var spaceCursorOriginY = 0f
+    private var spaceCursorStepsX = 0
+    private var spaceCursorStepsY = 0
+    private var spaceCursorRepeatVertical = false
+    private var spaceCursorRepeatDelta = 0
+    private var spaceCursorRepeatRunnable: Runnable? = null
     private var spaceCursorArm: Runnable? = null
     private var spaceToggleArm: Runnable? = null
     private var swipeWords: Collection<String> = EnglishSuggestions.swipeWords()
@@ -1401,10 +1406,14 @@ class KeyboardView @JvmOverloads constructor(
                     MotionEvent.ACTION_DOWN -> {
                         view.isPressed = true
                         spaceCursorActive = false
+                        cancelSpaceCursorRepeat()
                         cancelSpaceCursorArm()
                         cancelSpaceToggleArm()
+                        onKeyPress?.invoke(KeyEvent.StartCursorDrag)
                         spaceCursorOriginX = event.rawX
-                        spaceCursorSteps = 0
+                        spaceCursorOriginY = event.rawY
+                        spaceCursorStepsX = 0
+                        spaceCursorStepsY = 0
                         val arm = Runnable {
                             spaceCursorActive = true
                             swipeTouch = null
@@ -1413,7 +1422,7 @@ class KeyboardView @JvmOverloads constructor(
                         spaceCursorArm = arm
                         longPressHandler.postDelayed(arm, LONG_PRESS_DELAY)
                         val toggle = Runnable {
-                            if (spaceCursorSteps == 0) {
+                            if (spaceCursorStepsX == 0 && spaceCursorStepsY == 0) {
                                 toggleIgnoreSpaceAfterLatin()
                                 performKeyHaptic(view, longPress = true)
                             }
@@ -1423,7 +1432,8 @@ class KeyboardView @JvmOverloads constructor(
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (kotlin.math.abs(event.rawX - spaceCursorOriginX) > dpToPx(18)) {
+                        if (maxOf(kotlin.math.abs(event.rawX - spaceCursorOriginX),
+                                kotlin.math.abs(event.rawY - spaceCursorOriginY)) > dpToPx(18)) {
                             cancelSpaceToggleArm()
                         }
                         false
@@ -1431,6 +1441,7 @@ class KeyboardView @JvmOverloads constructor(
                     MotionEvent.ACTION_UP -> {
                         view.isPressed = false
                         val wasCursor = spaceCursorActive
+                        cancelSpaceCursorRepeat()
                         cancelSpaceCursorArm()
                         cancelSpaceToggleArm()
                         spaceCursorActive = false
@@ -1438,13 +1449,16 @@ class KeyboardView @JvmOverloads constructor(
                             performKeyHaptic(view)
                             onKeyPress?.invoke(KeyEvent.Space)
                         }
+                        onKeyPress?.invoke(KeyEvent.EndCursorDrag)
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         view.isPressed = false
+                        cancelSpaceCursorRepeat()
                         cancelSpaceCursorArm()
                         cancelSpaceToggleArm()
                         spaceCursorActive = false
+                        onKeyPress?.invoke(KeyEvent.EndCursorDrag)
                         true
                     }
                     else -> false
@@ -1456,21 +1470,88 @@ class KeyboardView @JvmOverloads constructor(
     private fun trackSpaceCursor(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
-                val steps = CursorMotion.stepsForDrag(event.rawX - spaceCursorOriginX, dpToPx(18).toFloat())
-                val delta = steps - spaceCursorSteps
-                if (delta != 0) {
-                    spaceCursorSteps = steps
+                val steps = CursorMotion.stepsForDrag(
+                    event.rawX - spaceCursorOriginX,
+                    event.rawY - spaceCursorOriginY,
+                    dpToPx(SPACE_CURSOR_HORIZONTAL_STEP_DP).toFloat(),
+                    dpToPx(SPACE_CURSOR_VERTICAL_STEP_DP).toFloat()
+                )
+                val deltaX = steps.horizontal - spaceCursorStepsX
+                val deltaY = steps.vertical - spaceCursorStepsY
+                spaceCursorStepsX = steps.horizontal
+                spaceCursorStepsY = steps.vertical
+                if (deltaX != 0 || deltaY != 0) {
                     cancelSpaceToggleArm()
-                    onKeyPress?.invoke(KeyEvent.MoveCursor(delta))
+                    if (deltaX != 0) {
+                        onKeyPress?.invoke(KeyEvent.MoveCursor(deltaX))
+                    }
+                    if (deltaY != 0) {
+                        onKeyPress?.invoke(KeyEvent.MoveCursor(deltaY, vertical = true))
+                    }
                 }
+                updateSpaceCursorRepeat(steps.horizontal, steps.vertical, deltaX, deltaY)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                cancelSpaceCursorRepeat()
                 cancelSpaceToggleArm()
+                onKeyPress?.invoke(KeyEvent.EndCursorDrag)
                 spaceCursorActive = false
                 spaceKeyView?.isPressed = false
             }
         }
         return true
+    }
+
+    private fun updateSpaceCursorRepeat(
+        stepsX: Int, stepsY: Int, deltaX: Int, deltaY: Int
+    ) {
+        if (deltaX != 0 || deltaY != 0) {
+            if (kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX)) {
+                spaceCursorRepeatVertical = true
+                spaceCursorRepeatDelta = deltaY.compareTo(0)
+            } else {
+                spaceCursorRepeatVertical = false
+                spaceCursorRepeatDelta = deltaX.compareTo(0)
+            }
+        }
+
+        val longDrag = maxOf(kotlin.math.abs(stepsX), kotlin.math.abs(stepsY)) >=
+            SPACE_CURSOR_REPEAT_THRESHOLD_STEPS
+        if (!longDrag) {
+            cancelSpaceCursorRepeat()
+            return
+        }
+        val newRepeat = spaceCursorRepeatRunnable == null
+        val repeat = spaceCursorRepeatRunnable ?: object : Runnable {
+            override fun run() {
+                if (!spaceCursorActive || maxOf(kotlin.math.abs(spaceCursorStepsX),
+                        kotlin.math.abs(spaceCursorStepsY)) < SPACE_CURSOR_REPEAT_THRESHOLD_STEPS) {
+                    cancelSpaceCursorRepeat()
+                    return
+                }
+                val delta = spaceCursorRepeatDelta
+                if (delta == 0) {
+                    cancelSpaceCursorRepeat()
+                    return
+                }
+                onKeyPress?.invoke(KeyEvent.MoveCursor(delta, vertical = spaceCursorRepeatVertical))
+                longPressHandler.postDelayed(this, SPACE_CURSOR_REPEAT_INTERVAL_MS)
+            }
+        }
+        spaceCursorRepeatRunnable = repeat
+        // Repeat only after the user pauses at a long drag, then reset the pause
+        // delay whenever another cursor step is taken by finger movement.
+        if (deltaX != 0 || deltaY != 0 || newRepeat) {
+            longPressHandler.removeCallbacks(repeat)
+            longPressHandler.postDelayed(repeat, SPACE_CURSOR_REPEAT_DELAY_MS)
+        }
+    }
+
+    private fun cancelSpaceCursorRepeat() {
+        spaceCursorRepeatRunnable?.let { longPressHandler.removeCallbacks(it) }
+        spaceCursorRepeatRunnable = null
+        spaceCursorRepeatVertical = false
+        spaceCursorRepeatDelta = 0
     }
 
     private fun cancelSpaceCursorArm() {
@@ -2222,6 +2303,8 @@ class KeyboardView @JvmOverloads constructor(
         keyPreviewLabel = null
         hideSwipeTrail()
         cancelSpaceCursorArm()
+        cancelSpaceCursorRepeat()
+        onKeyPress?.invoke(KeyEvent.EndCursorDrag)
         spaceCursorActive = false
         backspaceRepeatRunnable?.let { backspaceHandler.removeCallbacks(it) }
         backspaceRepeatRunnable = null
@@ -2277,7 +2360,12 @@ class KeyboardView @JvmOverloads constructor(
         data class ClipboardPaste(val text: String) : KeyEvent()
         data class CalculatorInsert(val text: String) : KeyEvent()
         object Space : KeyEvent()
-        data class MoveCursor(val delta: Int) : KeyEvent()
+        object StartCursorDrag : KeyEvent()
+        object EndCursorDrag : KeyEvent()
+        data class MoveCursor(
+            val delta: Int,
+            val vertical: Boolean = false
+        ) : KeyEvent()
         object Backspace : KeyEvent()
         object Enter : KeyEvent()
         object HideKeyboard : KeyEvent()
@@ -2294,6 +2382,11 @@ class KeyboardView @JvmOverloads constructor(
         private const val BACKSPACE_REPEAT_INTERVAL = 50L  // ms between subsequent repeats
         private const val LONG_PRESS_DELAY = 300L  // ms before long-press triggers
         private const val SPACE_TOGGLE_HOLD_MS = 1000L
+        private const val SPACE_CURSOR_REPEAT_THRESHOLD_STEPS = 8
+        private const val SPACE_CURSOR_REPEAT_DELAY_MS = 450L
+        private const val SPACE_CURSOR_REPEAT_INTERVAL_MS = 90L
+        private const val SPACE_CURSOR_HORIZONTAL_STEP_DP = 18
+        private const val SPACE_CURSOR_VERTICAL_STEP_DP = 24
         private const val SWIPE_TRAIL_LINGER_MS = 320L
 
         // Visible gap between keys is twice this value. It only shrinks the painted key;

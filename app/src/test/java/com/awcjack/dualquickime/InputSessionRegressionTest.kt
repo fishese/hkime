@@ -115,21 +115,39 @@ class InputSessionRegressionTest {
 
     @Test fun cursorDragUsesTheDocumentOffsetForLongText() {
         connection.reset("a".repeat(12000) + "👍b")
+        key(KeyboardView.KeyEvent.StartCursorDrag)
         key(KeyboardView.KeyEvent.MoveCursor(-1))
         assertEquals(12002, connection.cursor)
         key(KeyboardView.KeyEvent.MoveCursor(-1))
         assertEquals(12000, connection.cursor)
         key(KeyboardView.KeyEvent.MoveCursor(1))
         assertEquals(12002, connection.cursor)
+        key(KeyboardView.KeyEvent.EndCursorDrag)
     }
 
     @Test fun cursorDragUsesNativeCaretKeysWhenEditorDoesNotProvideOffsets() {
         connection.reset("abc")
         connection.exposesExcerpt = false
+        key(KeyboardView.KeyEvent.StartCursorDrag)
         key(KeyboardView.KeyEvent.MoveCursor(-2))
         assertEquals(listOf(android.view.KeyEvent.KEYCODE_DPAD_LEFT,
             android.view.KeyEvent.KEYCODE_DPAD_LEFT), connection.caretKeys)
         assertEquals(3, connection.cursor)
+        key(KeyboardView.KeyEvent.EndCursorDrag)
+    }
+
+    @Test fun cursorDragStopsWhenTheFocusedEditorChanges() {
+        connection.reset("original")
+        val focusedElsewhere = ExcerptConnection(View(service)).apply { reset("other") }
+        key(KeyboardView.KeyEvent.StartCursorDrag)
+        ReflectionHelpers.setField(service, "mStartedInputConnection", focusedElsewhere)
+
+        key(KeyboardView.KeyEvent.MoveCursor(-1))
+
+        assertTrue(connection.caretKeys.isEmpty())
+        assertTrue(focusedElsewhere.caretKeys.isEmpty())
+        assertEquals("other".length, focusedElsewhere.cursor)
+        key(KeyboardView.KeyEvent.EndCursorDrag)
     }
 
     @Test fun spaceConfirmsEnglishSwipeWithOnlyOneSeparator() {
@@ -180,6 +198,20 @@ class InputSessionRegressionTest {
         key(KeyboardView.KeyEvent.Letter('x'))
         key(KeyboardView.KeyEvent.Space)
         assertEquals("xhello", connection.text)
+    }
+
+    @Test fun deletingCommittedPunctuationSpaceKeepsTheNextWordAttached() {
+        connection.reset("test")
+        key(KeyboardView.KeyEvent.Symbol('.'))
+        key(KeyboardView.KeyEvent.Space)
+        assertEquals("test. ", connection.text)
+
+        key(KeyboardView.KeyEvent.Backspace)
+        key(KeyboardView.KeyEvent.Letter('c'))
+        key(KeyboardView.KeyEvent.Letter('o'))
+        key(KeyboardView.KeyEvent.Letter('m'))
+
+        assertEquals("test.com", connection.text)
     }
 
     @Test fun movingAwayDuringCompositionDoesNotRestoreSpaceOrMoveCaretBack() {

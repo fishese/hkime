@@ -4,6 +4,8 @@ import java.text.BreakIterator
 
 /** Grapheme-aware caret movement for the space-bar drag gesture. */
 internal object CursorMotion {
+    data class DragSteps(val horizontal: Int, val vertical: Int)
+
     /** Selection indices are local to an excerpt; setSelection needs document indices. */
     fun selectionInExcerpt(
         text: String, startOffset: Int, selectionStart: Int, selectionEnd: Int, delta: Int
@@ -17,6 +19,24 @@ internal object CursorMotion {
 
     fun stepsForDrag(dxPx: Float, stepPx: Float): Int =
         if (stepPx <= 0f) 0 else (dxPx / stepPx).toInt()
+
+    fun stepsForDrag(dxPx: Float, dyPx: Float, stepPx: Float): DragSteps =
+        DragSteps(stepsForDrag(dxPx, stepPx), stepsForDrag(dyPx, stepPx))
+
+    fun stepsForDrag(
+        dxPx: Float, dyPx: Float, horizontalStepPx: Float, verticalStepPx: Float
+    ): DragSteps = DragSteps(
+        stepsForDrag(dxPx, horizontalStepPx),
+        stepsForDrag(dyPx, verticalStepPx)
+    )
+
+    /** Allow vertical navigation only in multiline editors and inside their text bounds. */
+    fun canMoveVertically(
+        delta: Int, isMultilineText: Boolean, textBefore: String?, textAfter: String?
+    ): Boolean {
+        if (delta == 0 || !isMultilineText) return false
+        return if (delta < 0) !textBefore.isNullOrEmpty() else !textAfter.isNullOrEmpty()
+    }
 
     fun offsetByGraphemes(text: String, index: Int, delta: Int): Int {
         val pos = index.coerceIn(0, text.length)
