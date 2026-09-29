@@ -102,9 +102,9 @@ See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for full details.
 
 ### Requirements
 
-- Android Studio Hedgehog (2023.1.1) or newer
-- JDK 17 or newer
-- Android SDK API 34
+- JDK 17
+- Android SDK API 34 and SDK Build Tools 35.0.0
+- The checked-in Gradle Wrapper (Gradle 8.14.5); if using Android Studio, use a version compatible with Android Gradle Plugin 8.13.2
 
 For a debug build:
 
@@ -125,6 +125,7 @@ For a release build, create a local `keystore.properties` containing `storeFile`
 ```
 
 Keep signing keys and credentials private.
+Signed APK outputs are under `app/build/outputs/apk/release/`. See [the release guide](releases/README.md) for versioning, tagging, and GitHub APK assets.
 
 ## Dictionary data
 

@@ -10,3 +10,5 @@ Signed HK IME APKs are attached to [GitHub Releases](https://github.com/fishese/
 - Build the signed APK from the commit being tagged, and attach that APK to the matching GitHub Release. Do not label an APK with a version from a different commit.
 
 For a release, verify the package's version name and code from the built APK before uploading. When reporting a build, include its tag or commit and the APK asset name; this lets testers distinguish it from older downloads even if they kept an APK file locally.
+
+Give uploaded APK assets versioned names, such as `HK-IME-0.3.48-universal-release.apk` and `HK-IME-0.3.48-arm64-v8a-release.apk`. Offer the universal APK for general downloads. If an ABI-specific APK was used for phone testing, compare its SHA-256 with the universal APK; include it separately only when the files differ.

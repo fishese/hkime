@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.3.48 — 2026-09-29
+
+- Upgrade Gradle to 8.14.5, Android Gradle Plugin to 8.13.2, and Kotlin Gradle Plugin to 2.3.21.
+- Keep emoji punctuation spacing compatible with Android 7.0 and later.
+
 ## 0.3.47 — 2026-09-29
 
 - Disable automatic punctuation spacing in password, email, and identified username fields.

@@ -246,13 +246,7 @@ Run relevant tests and, if practical:
 
 ## Test APK
 
-After the implementation and tests pass, build a **debug-signed APK** using the repository's existing debug build/signing setup so it can be installed for manual testing.
-
-- Do not use, expose, replace, or modify any release signing key/keystore.
-- Use the normal Android/Gradle debug signing configuration already available to the project.
-- Commit the resulting debug APK to the repository in the same location/convention used by this project for test APKs. If the repository already has an established APK artifact workflow or documented convention, follow it rather than inventing a new one.
-- Clearly report the APK path, variant, and commit containing it.
-- If a debug APK cannot be built or committed safely with the existing setup, explain the blocker instead of changing signing infrastructure.
+For a test build that installs over an existing HK IME installation, increment both Android version values and use the project's configured release signing. Run the unit tests and `assembleRelease`, then install the device-compatible APK. Do not commit APKs or signing material. Publish signed APKs as versioned GitHub Release assets after merging and tagging; see [the release guide](../releases/README.md).
 
 ## Completion report
 

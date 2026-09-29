@@ -30,13 +30,13 @@ object PunctuationSpacing {
         val codePoint = text.codePointAt(0)
         if (Character.isDigit(codePoint)) return false
         if (Character.isLetter(codePoint)) return true
-        val block = Character.UnicodeBlock.of(codePoint) ?: return false
-        return block == Character.UnicodeBlock.EMOTICONS ||
-            block == Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS_AND_PICTOGRAPHS ||
-            block == Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS ||
-            block == Character.UnicodeBlock.TRANSPORT_AND_MAP_SYMBOLS ||
-            block == Character.UnicodeBlock.DINGBATS ||
-            block == Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS ||
-            codePoint in 0x1F1E6..0x1F1FF // Regional indicators used in flag emoji.
+        // These ranges avoid UnicodeBlock fields unavailable on older Android versions.
+        return codePoint in 0x2600..0x26FF || // Miscellaneous Symbols.
+            codePoint in 0x2700..0x27BF || // Dingbats.
+            codePoint in 0x1F1E6..0x1F1FF || // Regional indicators used in flags.
+            codePoint in 0x1F300..0x1F5FF || // Miscellaneous Symbols and Pictographs.
+            codePoint in 0x1F600..0x1F64F || // Emoticons.
+            codePoint in 0x1F680..0x1F6FF || // Transport and Map Symbols.
+            codePoint in 0x1F900..0x1F9FF // Supplemental Symbols and Pictographs.
     }
 }

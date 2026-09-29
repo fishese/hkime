@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 plugins {
@@ -21,8 +22,8 @@ android {
         applicationId = "cc.fishese.hkime"
         minSdk = 24
         targetSdk = 34
-        versionCode = 53
-        versionName = "0.3.47"
+        versionCode = 54
+        versionName = "0.3.48"
     }
 
     // Release signing configuration (only if keystore.properties exists)
@@ -55,9 +56,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
 
     // Generate separate APKs per ABI to reduce download size
     // arm64-v8a: Modern 64-bit devices (most common)
@@ -77,6 +75,12 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
     }
 }
 

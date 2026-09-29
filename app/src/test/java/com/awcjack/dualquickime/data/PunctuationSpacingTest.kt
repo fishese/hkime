@@ -26,4 +26,10 @@ class PunctuationSpacingTest {
         assertFalse(PunctuationSpacing.needsSpaceBefore("你好，", "hello"))
         assertFalse(PunctuationSpacing.needsSpaceBefore("", "hello"))
     }
+
+    @Test fun spacesBeforeEmojiFromEachSupportedUnicodeRange() {
+        listOf("☀", "✈", "🇭🇰", "🗺", "😀", "🚀", "🦄").forEach { emoji ->
+            assertTrue(emoji, PunctuationSpacing.needsSpaceBefore("Done.", emoji))
+        }
+    }
 }

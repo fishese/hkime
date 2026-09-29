@@ -1,5 +1,9 @@
 # Contributing dictionary entries
 
+## Build toolchain
+
+Use the checked-in Gradle Wrapper (`gradlew` or `gradlew.bat`) with JDK 17. The wrapper version is recorded in `gradle/wrapper/gradle-wrapper.properties`; Android Gradle Plugin and Kotlin Gradle Plugin versions are in the root `build.gradle.kts`. When upgrading the build, keep those three versions within the vendors' published compatibility ranges and run the unit tests and release build.
+
 HK IME merges Cantonese romanization, Cangjie, Quick (速成), and English aliases. Before adding a word or character, review **all four methods**. Add a correct input code for each applicable method, or explicitly note why a method is intentionally omitted. Do not invent a code just to fill every column.
 
 The project-owned overlay is `app/src/main/assets/method-phrase-overrides.tsv`. Each entry is `code<TAB>method<TAB>candidate`, where `method` is `cantonese`, `cangjie`, `quick`, or `english`. Multiple lines may share a code or candidate. Comments beginning with `#` can record deliberate omissions and their reason. For example, `𨋢` has `lip`/Cantonese, `jjyt`/Cangjie, `jt`/Quick, and `lift`/English entries. Cangjie phrase shorthand may also appear in Quick; check whether its first/last-key behavior is actually useful before adding a separate Quick entry.
