@@ -69,7 +69,21 @@
     <string name="settings_gesture_delete_desc">在空白鍵左滑，先刪輸入，再刪上一個詞</string>
     <string name="settings_swipe_typing">滑動輸入（測試中）</string>
     <string name="settings_swipe_typing_desc">滑過字母輸入詞或編碼。密碼欄關閉。</string>
+    <string name="settings_shortcuts">常用短語捷徑</string>
+    <string name="settings_expand_section">展開%1$s</string>
+    <string name="settings_collapse_section">收起%1$s</string>
+    <string name="settings_shortcut_hint">數字 %1$d 的短語</string>
     <string name="settings_shortcuts_desc">長按數字鍵輸入對應短語</string>
+    <string name="settings_custom_dictionary">自訂詞庫</string>
+    <string name="settings_custom_add">新增詞條</string>
+    <string name="settings_custom_edit">編輯</string>
+    <string name="settings_custom_delete">刪除</string>
+    <string name="settings_custom_empty">尚未有自訂詞條。</string>
+    <string name="settings_custom_code">輸入碼（只限英文字母）</string>
+    <string name="settings_custom_candidate">建議字詞或短語</string>
+    <string name="settings_custom_save">儲存</string>
+    <string name="settings_custom_invalid">請輸入 1–32 個英文字母的輸入碼，以及 1–100 個字元的獨立詞語。</string>
+    <string name="settings_custom_delete_confirm">刪除 %1$s → %2$s？</string>
     <string name="settings_custom_dictionary_desc">字母編碼對應一條短語，只存在本機</string>
 
     <!-- Recent Candidates -->

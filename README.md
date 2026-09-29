@@ -52,7 +52,7 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 ### Emoji and everyday keyboard features
 
 - Full emoji keyboard with categories and skin-tone selection.
-- Context-aware half-width/full-width punctuation.
+- Context-aware half-width/full-width punctuation, with an underlined space before the next word or emoji after half-width punctuation. Backspace removes the pending space and keeps the adjacent word attached while you type or correct it, so punctuation can stay inside a word such as `sendit.sh`.
 - Email-domain suggestions after `@` in email fields, and in other fields when the text before `@` is an address.
 - Light, dark and system themes.
 - Adjustable key height, candidate text size and candidate spacing.

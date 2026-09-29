@@ -1,4 +1,4 @@
-# Curated HK/TW modern phrase suggestions
+# Curated HK/TW Phrase Suggestions: Historical Design Brief
 
 Historical design brief: this overlay has been implemented. The service was
 subsequently renamed to `HkInputMethodService.kt`; implementation details in

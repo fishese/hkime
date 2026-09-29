@@ -180,10 +180,10 @@ object EnglishSuggestions {
             .mapNotNull { matchCase(typed, it.key) }
     }
 
-    fun correction(typed: String): String? {
+    fun correction(typed: String, isWord: (String) -> Boolean = { false }): String? {
         if (typed.length !in 5..20 || typed.any { it !in 'a'..'z' && it !in 'A'..'Z' }) return null
         val lower = typed.lowercase()
-        if (lower in commonWords) return null
+        if (lower in commonWords || isWord(lower)) return null
         val matches = commonWords.asSequence()
             .filter { kotlin.math.abs(it.length - lower.length) <= 1 && oneEditApart(lower, it) }
             .take(2).toList()

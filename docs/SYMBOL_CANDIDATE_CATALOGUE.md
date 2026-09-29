@@ -1,4 +1,4 @@
-# Symbol Candidate Catalogue Plan
+# Symbol Candidate Catalogue: Historical Design Brief
 
 Historical design brief: the symbol catalogue is now implemented in
 `SymbolCatalogue.kt` and `KeyboardView.kt`. The current code and tests, not

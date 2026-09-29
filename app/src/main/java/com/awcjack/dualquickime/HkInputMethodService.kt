@@ -71,6 +71,9 @@ class HkInputMethodService : InputMethodService() {
     private var swipeChineseCodes: List<String> = emptyList()
     private var pendingSwipeChoice = false
     private var deferredSpaceAnchor: EditorAnchor? = null
+    private var pendingPunctuationSpace = false
+    private var pendingPunctuationSpaceAnchor: EditorAnchor? = null
+    private var suppressedPunctuationSpaceAnchor: EditorAnchor? = null
     private var spaceDeferredUntilNextLatin = false
         set(value) {
             field = value
@@ -280,6 +283,8 @@ class HkInputMethodService : InputMethodService() {
         keyboardView?.refreshTheme()
         // Clear composition when starting new input
         pendingSymbol = null
+        clearPendingPunctuationSpaceState()
+        suppressedPunctuationSpaceAnchor = null
         lastSelectedText = ""
         spaceDeferredUntilNextLatin = false
         clearComposition()
@@ -491,6 +496,8 @@ class HkInputMethodService : InputMethodService() {
     private fun moveCursorBy(delta: Int) {
         if (delta == 0) return
         pendingSwipeChoice = false
+        suppressedPunctuationSpaceAnchor = null
+        finishPendingPunctuationSpace()
         finishEnglishComposition()
         spaceDeferredUntilNextLatin = false
         if (isEmailSuggestionsMode) clearEmailSuggestions()
@@ -514,6 +521,11 @@ class HkInputMethodService : InputMethodService() {
         // A delete gesture drops the assumed choice instead of accepting it.
         pendingSwipeChoice = false
         if (isPasswordField) return
+        if (pendingPunctuationSpace) {
+            cancelPendingPunctuationSpace()
+            suppressedPunctuationSpaceAnchor = captureEditorAnchor()
+            return
+        }
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         if (composition.rawKeys.isNotEmpty()) {
@@ -538,6 +550,7 @@ class HkInputMethodService : InputMethodService() {
 
     private fun handleNumber(digit: Int) {
         if (isEmailSuggestionsMode) {
+            finishPendingPunctuationSpace()
             val digitStr = digit.toString()
             commitText(digitStr)
             emailTypedSoFar += digitStr
@@ -545,6 +558,7 @@ class HkInputMethodService : InputMethodService() {
             updateEmailSuggestionsView()
             return
         }
+        finishPendingPunctuationSpace()
         val committingRawLatin = composition.rawKeys.isNotEmpty()
         finishEnglishComposition()
         // A held space returns once before the number. Later digits stay attached,
@@ -572,6 +586,10 @@ class HkInputMethodService : InputMethodService() {
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
             candidatesStart, candidatesEnd)
+        if (pendingPunctuationSpace && CompositionSelection.movedOutside(
+                newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            finishPendingPunctuationSpace()
+        }
         if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
             // Finish in place; navigation must not insert a held space or move the caret back.
@@ -606,8 +624,15 @@ class HkInputMethodService : InputMethodService() {
 
     private fun invalidateEditorAnchors() {
         // Read current editor state instead of trusting delayed selection callbacks from our own edits.
+        if (pendingPunctuationSpace && !anchorMatches(pendingPunctuationSpaceAnchor)) {
+            finishPendingPunctuationSpace()
+        }
         if (composition.rawKeys.isEmpty() && spaceDeferredUntilNextLatin &&
             !anchorMatches(deferredSpaceAnchor)) spaceDeferredUntilNextLatin = false
+        if (suppressedPunctuationSpaceAnchor != null &&
+            !suppressedPunctuationSpaceStillApplies(suppressedPunctuationSpaceAnchor)) {
+            suppressedPunctuationSpaceAnchor = null
+        }
         if (isEmailSuggestionsMode && !anchorMatches(emailAnchor)) clearEmailSuggestions()
     }
 
@@ -622,6 +647,9 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleSymbol(event: KeyboardView.KeyEvent.Symbol) {
+        // A new symbol starts a new punctuation context; a prior Backspace choice
+        // should not suppress spacing after this symbol.
+        suppressedPunctuationSpaceAnchor = null
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
@@ -648,6 +676,7 @@ class HkInputMethodService : InputMethodService() {
             enterEmailSuggestionsMode()
         } else if (keyboardView?.isNumberPadMode() != true) {
             showSymbolCandidates(inserted, alternatives)
+            startPendingPunctuationSpace()
         }
     }
 
@@ -660,16 +689,20 @@ class HkInputMethodService : InputMethodService() {
 
     private fun handleSymbolCandidateSelected(candidate: String) {
         val pending = pendingSymbol ?: return
+        cancelPendingPunctuationSpace()
         pendingSymbol = null
         val ic = currentInputConnection
-        if (pending.canReplace(candidate, ic?.getSelectedText(0)?.toString(),
-                ic?.getTextBeforeCursor(pending.insertedText.length, 0)?.toString())) {
-            ic?.beginBatchEdit()
-            ic?.deleteSurroundingText(pending.insertedText.length, 0)
-            ic?.commitText(candidate, 1)
-            ic?.endBatchEdit()
+        var replaced = false
+        if (ic != null && pending.canReplace(candidate, ic.getSelectedText(0)?.toString(),
+                ic.getTextBeforeCursor(pending.insertedText.length, 0)?.toString())) {
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(pending.insertedText.length, 0)
+            ic.commitText(candidate, 1)
+            ic.endBatchEdit()
+            replaced = true
         }
         keyboardView?.clearCandidates()
+        if (replaced) startPendingPunctuationSpace()
     }
 
     private fun handleEmoji(emoji: String) {
@@ -687,10 +720,16 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleSpace() {
+        suppressedPunctuationSpaceAnchor = null
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        if (pendingPunctuationSpace) {
+            finishPendingPunctuationSpace()
+            spaceDeferredUntilNextLatin = false
+            return
+        }
         val ignoreCommitSpace = ThemeManager.getIgnoreSpaceAfterLatin(this)
         val rawLatin = composition.rawKeys.isNotEmpty() && !pendingSwipeChoice
         val hadComposition = composition.rawKeys.isNotEmpty()
@@ -713,6 +752,12 @@ class HkInputMethodService : InputMethodService() {
         swipeEnglishWords = emptyList()
         swipeChineseCodes = emptyList()
         lastSelectedText = ""
+        if (pendingPunctuationSpace) {
+            spaceDeferredUntilNextLatin = false
+            cancelPendingPunctuationSpace()
+            suppressedPunctuationSpaceAnchor = captureEditorAnchor()
+            return
+        }
         if (isEmailSuggestionsMode) {
             spaceDeferredUntilNextLatin = false
             if (emailTypedSoFar.isNotEmpty()) {
@@ -800,6 +845,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleEnter() {
+        suppressedPunctuationSpaceAnchor = null
         if (isEmailSuggestionsMode) {
             clearEmailSuggestions()
         }
@@ -859,6 +905,7 @@ class HkInputMethodService : InputMethodService() {
         val latinWord = EnglishSuggestions.isLatinWord(text)
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString().orEmpty()
         val punctSpace = if (composition.rawKeys.isEmpty() &&
+            !isPunctuationSpaceSuppressed() &&
             PunctuationSpacing.needsSpaceBefore(beforeCursor, text)) " " else ""
         val leadingSpace = if (LatinSpaceCommit.restoreDeferredSpace(
                 restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, keptLatin)) " " else ""
@@ -922,6 +969,7 @@ class HkInputMethodService : InputMethodService() {
 
     /** Finish raw Latin if any; otherwise the held space no longer has a Latin word to join. */
     private fun finishLatinOrDropDeferredSpace() {
+        cancelPendingPunctuationSpace()
         if (!finishEnglishComposition()) spaceDeferredUntilNextLatin = false
     }
 
@@ -931,8 +979,93 @@ class HkInputMethodService : InputMethodService() {
 
     private fun insertSpaceAfterHalfPunctuation(nextText: String) {
         if (isEmailSuggestionsMode) return
-        val before = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString().orEmpty()
+        val connection = currentInputConnection ?: return
+        if (pendingPunctuationSpace) {
+            if (!anchorMatches(pendingPunctuationSpaceAnchor)) {
+                finishPendingPunctuationSpace()
+                return
+            }
+            val before = connection.getTextBeforeCursor(64, 0)?.toString().orEmpty()
+            val beforeWithoutPendingSpace = before.dropLast(1)
+            if (PunctuationSpacing.needsSpaceBefore(beforeWithoutPendingSpace, nextText)) {
+                finishPendingPunctuationSpace()
+            } else {
+                cancelPendingPunctuationSpace()
+            }
+            return
+        }
+        if (isPunctuationSpaceSuppressed()) return
+        val before = connection.getTextBeforeCursor(64, 0)?.toString().orEmpty()
         if (PunctuationSpacing.needsSpaceBefore(before, nextText)) commitText(" ")
+    }
+
+    private fun isPunctuationSpaceSuppressed(): Boolean {
+        val anchor = suppressedPunctuationSpaceAnchor ?: return false
+        if (!suppressedPunctuationSpaceStillApplies(anchor)) {
+            suppressedPunctuationSpaceAnchor = null
+            return false
+        }
+        return true
+    }
+
+    private fun suppressedPunctuationSpaceStillApplies(anchor: EditorAnchor?): Boolean {
+        if (anchor == null) return false
+        val connection = currentInputConnection ?: return false
+        if (!connection.getSelectedText(0).isNullOrEmpty()) return false
+
+        val currentCursor = editorCursor()
+        val charsAfterAnchor = if (anchor.cursor != null && currentCursor != null) {
+            currentCursor - anchor.cursor
+        } else {
+            null
+        }
+        if (charsAfterAnchor != null && charsAfterAnchor < 0) return false
+        if (charsAfterAnchor != null && charsAfterAnchor > 1024) return false
+
+        val contextLength = if (charsAfterAnchor != null) {
+            anchor.prefix.length + charsAfterAnchor
+        } else {
+            maxOf(512, anchor.prefix.length)
+        }
+        val context = connection.getTextBeforeCursor(contextLength, 0)?.toString() ?: return false
+        if (!context.startsWith(anchor.prefix)) return false
+        // Keep the user's choice while they edit the adjacent word, but let a
+        // separating space end that context.
+        return context.drop(anchor.prefix.length).none { it.isWhitespace() }
+    }
+
+    private fun startPendingPunctuationSpace() {
+        if (pendingPunctuationSpace || keyboardView?.isNumberPadMode() == true) return
+        val connection = currentInputConnection ?: return
+        val before = connection.getTextBeforeCursor(64, 0)?.toString().orEmpty()
+        if (!PunctuationSpacing.shouldOfferSpaceAfter(before)) return
+        if (connection.setComposingText(" ", 1)) {
+            pendingPunctuationSpace = true
+            pendingPunctuationSpaceAnchor = captureEditorAnchor()
+        } else {
+            // Preserve spacing in editors that reject composing text.
+            connection.commitText(" ", 1)
+        }
+    }
+
+    private fun finishPendingPunctuationSpace() {
+        if (!pendingPunctuationSpace) return
+        currentInputConnection?.finishComposingText()
+        clearPendingPunctuationSpaceState()
+    }
+
+    private fun cancelPendingPunctuationSpace() {
+        if (!pendingPunctuationSpace) return
+        currentInputConnection?.let { connection ->
+            connection.setComposingText("", 1)
+            connection.finishComposingText()
+        }
+        clearPendingPunctuationSpaceState()
+    }
+
+    private fun clearPendingPunctuationSpaceState() {
+        pendingPunctuationSpace = false
+        pendingPunctuationSpaceAnchor = null
     }
 
     // ==================== ASSOCIATED PHRASES ====================
@@ -1099,7 +1232,7 @@ class HkInputMethodService : InputMethodService() {
         if (!isPasswordField && ThemeManager.getMethodEnglish(this) && ThemeManager.getEnglishSpellCheck(this)) {
             val typedWord = getDisplayKeys(rawKeys)
             val fixes = (
-                listOfNotNull(EnglishSuggestions.correction(typedWord)) +
+                listOfNotNull(EnglishSuggestions.correction(typedWord, englishAutocomplete::contains)) +
                     EnglishSuggestions.neighbourKeyCorrections(
                         typedWord,
                         isWord = { englishAutocomplete.contains(it) },
