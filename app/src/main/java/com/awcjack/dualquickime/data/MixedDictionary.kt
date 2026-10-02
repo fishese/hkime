@@ -1,9 +1,6 @@
 package com.awcjack.dualquickime.data
 
 import android.content.res.AssetManager
-import java.io.ObjectInputStream
-import java.util.LinkedHashMap
-import java.util.zip.ZipInputStream
 
 /**
  * Reader for the Apache-2.0 Mixed Chinese Keyboard Plus v2.1 dictionary format.
@@ -18,24 +15,23 @@ class MixedDictionary(
 ) {
     enum class Script { TRADITIONAL, SIMPLIFIED }
 
-    private val shardCache = object : LinkedHashMap<String, String>(8, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean =
-            size > MAX_CACHED_SHARDS
+    private val shardCache = ShardCache(assets, 8, 8 * 1024 * 1024)
+    private val resultCache = object : LinkedHashMap<String, List<String>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>?): Boolean = size > 32
     }
 
     @Synchronized
     fun lookup(rawCode: String): List<String> {
         val code = rawCode.lowercase()
         if (code.isEmpty() || code.any { it !in 'a'..'z' }) return emptyList()
+        resultCache[code]?.let { return it }
 
         val shardName = shardName(code)
-        val shard = shardCache[shardName] ?: loadShard(shardName)?.also {
-            shardCache[shardName] = it
-        } ?: return emptyList()
+        val shard = shardCache.get("mck/$shardName") ?: return emptyList()
 
         val dictionaryKey = code.drop(1)
-        val value = findValue(shard, dictionaryKey) ?: return emptyList()
-        return decodeMckCandidates(value, script == Script.SIMPLIFIED)
+        val value = shard.value(dictionaryKey)
+        return (value?.let { decodeMckCandidates(it, script == Script.SIMPLIFIED) } ?: emptyList()).also { resultCache[code] = it }
     }
 
     private fun shardName(code: String): String {
@@ -44,30 +40,7 @@ class MixedDictionary(
         return "mix_map_ext_${first}${if (highSecondChar) "1" else ""}.cs2"
     }
 
-    private fun loadShard(name: String): String? = runCatching {
-        assets.open("mck/$name").use { input ->
-            ZipInputStream(input).use { zip ->
-                requireNotNull(zip.nextEntry) { "Missing zip entry in $name" }
-                ObjectInputStream(zip).use { objects -> objects.readObject() as String }
-            }
-        }
-    }.getOrNull()
-
-    private fun findValue(shard: String, key: String): String? {
-        val needle = "$key\t"
-        var lineStart = if (shard.startsWith(needle)) 0 else shard.indexOf("\n$needle")
-        if (lineStart < 0) return null
-        if (lineStart > 0) lineStart++
-        val valueStart = lineStart + needle.length
-        val lineEnd = shard.indexOf('\n', valueStart).let { if (it < 0) shard.length else it }
-        return shard.substring(valueStart, lineEnd)
-    }
-
-    private companion object {
-        const val MAX_CACHED_SHARDS = 8
-    }
 }
-
 /** Decode one dictionary value without Android dependencies, so it is directly testable. */
 internal fun decodeMckCandidates(value: String, simplified: Boolean): List<String> {
     val backspace = value.indexOf('\b')
