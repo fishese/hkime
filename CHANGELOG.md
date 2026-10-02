@@ -1,5 +1,16 @@
 # HK IME changelog
 
+## 0.3.57 — 2026-10-03
+
+- Recycle candidate views while preserving every result, learned expansion, colors and configured sizes.
+- Prepare dictionaries and suggestions in the background, coalesce rapid queries and reject stale results after cursor or field changes.
+- Index dictionary shards with bounded caches; optimize English completion, learned-prefix lookup and swipe decoding, and cap gesture samples.
+- Serialize and persist histories on an ordered background worker, preserving clear/save ordering.
+- Reject sensitive and non-text clipboard clips. Use temporary session history when encrypted storage fails, with visible status and retry; migrate old history only after encrypted persistence succeeds.
+- Preserve continuation suggestions after candidate-grid navigation, fit emoji columns to screen width, and cancel detached keyboard timers.
+- Reuse unchanged keyboard setup and shorten the learned-combination setting description in English and Traditional Chinese.
+- Validate with 236 passing tests and zero lint errors. Slower-phone latency and memory profiling remain pending; see the performance implementation report.
+
 ## 0.3.56
 
 - Narrow the learned expand/collapse control to 20dp, with the actual hide-keyboard touch width as a minimum.

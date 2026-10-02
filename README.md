@@ -45,6 +45,7 @@ A built-in calculator handles basic **+ − × ÷** arithmetic. Results can be i
 - Local clipboard history with recent and pinned items.
 - Long-press number keys 0–9 to insert saved phrase shortcuts.
 - Clipboard history can be disabled or cleared in Settings.
+- Clipboard history rejects source-marked sensitive clips and non-text clips. Persistent history uses encrypted storage; if it becomes unavailable, the panel shows temporary session storage with a retry control.
 
 ### Learned Chinese combinations
 
@@ -74,6 +75,8 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 - Enter respects the receiving app's Done, Go, Next, Previous, Search and Send actions, while multiline fields get a normal line break.
 - With Latin space restoration enabled, spaces appear immediately while typing English and are removed when you select Chinese. Opening quotes/brackets preserve a separator; closing Latin quotes/brackets can offer the following space.
 - Optional haptic feedback.
+
+For performance changes and validation limits in 0.3.57, see [the implementation report](docs/PERFORMANCE_IMPLEMENTATION_2026-10-03.md). Candidate views are recycled, dictionary lookup and suggestion preparation run in the background, and histories use ordered background persistence. Slower-phone timing and memory targets still require physical-device profiling.
 
 ## Cangjie key mapping
 
