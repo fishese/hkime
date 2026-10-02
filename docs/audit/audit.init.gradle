@@ -1,0 +1,7 @@
+gradle.beforeProject { p ->
+    if (p.path == ':app') {
+        p.plugins.withId('com.android.application') {
+            p.android.sourceSets.test.java.srcDir(new File(p.rootDir, 'docs/audit'))
+        }
+    }
+}
