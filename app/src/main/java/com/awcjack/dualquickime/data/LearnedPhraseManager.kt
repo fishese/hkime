@@ -15,6 +15,7 @@ object LearnedPhraseManager {
     private val saveHandler = Handler(Looper.getMainLooper())
     private var pendingContext: Context? = null
     private val saveTask = Runnable { flush() }
+    private val writer = OrderedStoreWriter()
 
     fun recordAppend(context: Context, prefix: String, selected: String, now: Long = System.currentTimeMillis()) {
         if (!ThemeManager.getLearnedPhrasesEnabled(context)) return
@@ -29,13 +30,15 @@ object LearnedPhraseManager {
         pendingContext = null
         saveHandler.removeCallbacks(saveTask)
         val model = cached ?: return
-        val array = JSONArray()
-        model.entries().forEach { entry ->
-            array.put(JSONObject().put("prefix", entry.prefix).put("next", entry.next)
-                .put("score", entry.score).put("updated", entry.updated))
+        val entries = model.entries()
+        writer.replace {
+            val array = JSONArray()
+            entries.forEach { entry ->
+                array.put(JSONObject().put("prefix", entry.prefix).put("next", entry.next)
+                    .put("score", entry.score).put("updated", entry.updated))
+            }
+            check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).commit())
         }
-        // apply updates memory immediately and queues disk I/O off the typing thread.
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
     }
 
     fun suggestions(context: Context, prefix: String, now: Long = System.currentTimeMillis()): List<String> =
@@ -45,12 +48,13 @@ object LearnedPhraseManager {
         saveHandler.removeCallbacks(saveTask)
         pendingContext = null
         cached = LearnedPhraseModel()
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply()
+        val app = context.applicationContext
+        writer.clear { check(app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).commit()) }
     }
 
     fun invalidateCache() {
         // A keyboard restart must not discard selections waiting for a disk save.
-        if (pendingContext == null) cached = null
+        if (pendingContext == null && !writer.isPending && !writer.failed) cached = null
     }
 
     private fun load(context: Context): LearnedPhraseModel {

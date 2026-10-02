@@ -10,10 +10,13 @@ data class ClipboardHistoryItem(
     val isPinned: Boolean = false    // Whether this item is pinned
 ) {
     companion object {
+        private val lastId = java.util.concurrent.atomic.AtomicLong()
+        internal fun observeId(id: Long) { lastId.updateAndGet { maxOf(it, id) } }
+        internal fun nextId(): Long = lastId.updateAndGet { maxOf(it + 1, System.currentTimeMillis()) }
         fun create(text: String, isPinned: Boolean = false): ClipboardHistoryItem {
             val now = System.currentTimeMillis()
             return ClipboardHistoryItem(
-                id = now,
+                id = nextId(),
                 text = text,
                 timestamp = now,
                 isPinned = isPinned

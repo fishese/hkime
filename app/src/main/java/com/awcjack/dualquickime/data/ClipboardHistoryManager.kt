@@ -2,404 +2,250 @@ package com.awcjack.dualquickime.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Build
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.text.InputType
 import android.view.inputmethod.EditorInfo
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Manages clipboard history persistence and operations.
- * Uses EncryptedSharedPreferences to protect clipboard data at rest.
- *
- * Security features:
- * - Encrypted storage using AES256-GCM
- * - Optional TTL (time-to-live) for non-pinned items
- * - Configurable password field filtering
- */
+/** Main-thread history model; cryptography, migration and serialization have a single worker owner. */
 object ClipboardHistoryManager {
-    private const val TAG = "ClipboardHistoryManager"
     private const val PREFS_NAME = "clipboard_history_encrypted"
+    private const val SETTINGS = "clipboard_history_settings"
     private const val KEY_HISTORY = "clipboard_history"
     private const val KEY_ENABLED = "clipboard_enabled"
     private const val KEY_SKIP_PASSWORD_FIELDS = "skip_password_fields"
     private const val KEY_TTL_HOURS = "ttl_hours"
+    private const val CLEAR_RECENT = "clear_recent_before"
+    private const val CLEAR_PINNED = "clear_pinned_before"
+    private const val REMOVED_IDS = "removed_item_ids"
+    private val legacyNames = listOf(PREFS_NAME + "_fallback", "clipboard_history_prefs")
+    const val MAX_HISTORY_SIZE = 50
+    const val MAX_PINNED_SIZE = 10
+    const val MIN_TEXT_LENGTH = 2
+    const val MAX_TEXT_LENGTH = 5000
+    const val DEFAULT_TTL_HOURS = 24
 
-    const val MAX_HISTORY_SIZE = 50          // Maximum non-pinned items
-    const val MAX_PINNED_SIZE = 10           // Maximum pinned items
-    const val MIN_TEXT_LENGTH = 2            // Minimum text length to store
-    const val MAX_TEXT_LENGTH = 5000         // Maximum text length to store
-    const val DEFAULT_TTL_HOURS = 24         // Default TTL: 24 hours (0 = disabled)
+    enum class StorageState { NOT_STARTED, LOADING, ENCRYPTED, MEMORY_ONLY }
+    var storageState = StorageState.NOT_STARTED
+        private set
+    private val main = Handler(Looper.getMainLooper())
+    private val writer = OrderedStoreWriter()
+    private var backend: SharedPreferences? = null
+    private var history = mutableListOf<ClipboardHistoryItem>()
+    private var dirty = false
+    private val listeners = mutableSetOf<() -> Unit>()
+    private var initialization = 0L
+    private var historyRevision = 0L
+    @android.annotation.SuppressLint("StaticFieldLeak") // Application context only.
+    private var appContext: Context? = null
+    private var knownSecureCeiling = -1L
+    internal var storageFactory: (Context) -> SharedPreferences = ::createEncrypted
 
-    // Cached data
-    private var cachedHistory: MutableList<ClipboardHistoryItem>? = null
-    private var cachedEnabled: Boolean? = null
-    private var cachedSkipPasswordFields: Boolean? = null
-    private var cachedTtlHours: Int? = null
-    private var encryptedPrefs: SharedPreferences? = null
+    fun addListener(listener: () -> Unit) { listeners.add(listener) }
+    fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
+    private fun notifyChanged() { listeners.toList().forEach { it() } }
+    private fun settings(context: Context) = context.applicationContext.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE)
 
-    /**
-     * Check if clipboard history is enabled.
-     */
     fun isEnabled(context: Context): Boolean {
-        if (cachedEnabled == null) {
-            cachedEnabled = getPrefs(context).getBoolean(KEY_ENABLED, true)
-        }
-        return cachedEnabled!!
+        initialize(context)
+        // Unknown encrypted settings must be recovered before capturing a clip.
+        return settings(context).getBoolean(KEY_ENABLED, storageState != StorageState.LOADING)
     }
-
-    /**
-     * Enable or disable clipboard history.
-     */
     fun setEnabled(context: Context, enabled: Boolean) {
-        cachedEnabled = enabled
-        getPrefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        settings(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        initialize(context)
     }
+    fun isSkipPasswordFieldsEnabled(context: Context) = settings(context).getBoolean(KEY_SKIP_PASSWORD_FIELDS, true)
+    fun setSkipPasswordFields(context: Context, enabled: Boolean) { settings(context).edit().putBoolean(KEY_SKIP_PASSWORD_FIELDS, enabled).apply() }
+    fun getTtlHours(context: Context) = settings(context).getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS).coerceAtLeast(0)
+    fun setTtlHours(context: Context, hours: Int) { settings(context).edit().putInt(KEY_TTL_HOURS, hours.coerceAtLeast(0)).apply() }
 
-    /**
-     * Check if password field filtering is enabled.
-     */
-    fun isSkipPasswordFieldsEnabled(context: Context): Boolean {
-        if (cachedSkipPasswordFields == null) {
-            cachedSkipPasswordFields = getPrefs(context).getBoolean(KEY_SKIP_PASSWORD_FIELDS, true)
-        }
-        return cachedSkipPasswordFields!!
+    fun isPasswordField(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        val kind = type and InputType.TYPE_MASK_CLASS
+        val variation = type and InputType.TYPE_MASK_VARIATION
+        return kind == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD ||
+            kind == InputType.TYPE_CLASS_TEXT && variation in setOf(InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD, InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
     }
-
-    /**
-     * Enable or disable password field filtering.
-     */
-    fun setSkipPasswordFields(context: Context, enabled: Boolean) {
-        cachedSkipPasswordFields = enabled
-        getPrefs(context).edit().putBoolean(KEY_SKIP_PASSWORD_FIELDS, enabled).apply()
-    }
-
-    /**
-     * Get TTL in hours for non-pinned items (0 = disabled).
-     */
-    fun getTtlHours(context: Context): Int {
-        if (cachedTtlHours == null) {
-            cachedTtlHours = getPrefs(context).getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS)
-        }
-        return cachedTtlHours!!
-    }
-
-    /**
-     * Set TTL in hours for non-pinned items (0 = disabled).
-     */
-    fun setTtlHours(context: Context, hours: Int) {
-        cachedTtlHours = hours
-        getPrefs(context).edit().putInt(KEY_TTL_HOURS, hours).apply()
-    }
-
-    /**
-     * Check if the current input field is a password field.
-     */
-    fun isPasswordField(editorInfo: EditorInfo?): Boolean {
-        if (editorInfo == null) return false
-
-        val inputType = editorInfo.inputType
-        val inputClass = inputType and android.text.InputType.TYPE_MASK_CLASS
-        val inputVariation = inputType and android.text.InputType.TYPE_MASK_VARIATION
-
-        // Check for password input types
-        return (inputClass == android.text.InputType.TYPE_CLASS_TEXT &&
-            (inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-             inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-             inputVariation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)) ||
-            (inputClass == android.text.InputType.TYPE_CLASS_NUMBER &&
-                inputVariation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD)
-    }
-
-    /**
-     * Add an item to clipboard history.
-     * Handles deduplication - if text exists, moves it to top.
-     *
-     * @param context Application context
-     * @param text The text to add
-     * @param editorInfo Optional EditorInfo to check for password fields
-     */
     fun addItem(context: Context, text: String, editorInfo: EditorInfo? = null) {
-        if (!isEnabled(context)) return
-        if (text.length < MIN_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) return
-        if (text.isBlank()) return
-
-        // Skip if from password field and filtering is enabled
-        if (isSkipPasswordFieldsEnabled(context) && isPasswordField(editorInfo)) {
-            return
-        }
-
-        val history = loadHistory(context)
-
-        // Check for duplicate
-        val existingIndex = history.indexOfFirst { it.text == text }
-        if (existingIndex >= 0) {
-            val existing = history[existingIndex]
-            if (existing.isPinned) {
-                // If pinned, just update timestamp
-                history[existingIndex] = existing.copy(timestamp = System.currentTimeMillis())
-            } else {
-                // Remove old and add to top
-                history.removeAt(existingIndex)
-                history.add(0, ClipboardHistoryItem.create(text))
-            }
-        } else {
-            // Add new item at top
-            history.add(0, ClipboardHistoryItem.create(text))
-        }
-
-        // Enforce limits and TTL
-        enforceHistoryLimits(context, history)
-
-        saveHistory(context, history)
-        cachedHistory = history
+        if (!isEnabled(context) || text.length !in MIN_TEXT_LENGTH..MAX_TEXT_LENGTH || text.isBlank() ||
+            isSkipPasswordFieldsEnabled(context) && isPasswordField(editorInfo)) return
+        val existing = history.firstOrNull { it.text == text }
+        history.removeAll { it.text == text }
+        history.add(0, existing?.copy(timestamp = System.currentTimeMillis()) ?: ClipboardHistoryItem.create(text))
+        limit(context)
+        saveHistory()
     }
-
-    /**
-     * Get all clipboard history items (pinned first, then by timestamp).
-     * Automatically removes expired items based on TTL.
-     */
     fun getHistory(context: Context): List<ClipboardHistoryItem> {
-        val history = loadHistory(context)
+        initialize(context)
+        if (limit(context)) saveHistory()
+        return history.sortedWith(compareByDescending<ClipboardHistoryItem> { it.isPinned }.thenByDescending { it.timestamp })
+    }
+    fun getPinnedItems(context: Context) = getHistory(context).filter { it.isPinned }
+    fun getRecentItems(context: Context) = getHistory(context).filterNot { it.isPinned }
+    fun togglePin(context: Context, itemId: Long) {
+        initialize(context)
+        val index = history.indexOfFirst { it.id == itemId }
+        if (index < 0) return
+        val item = history[index]
+        if (!item.isPinned && history.count { it.isPinned } >= MAX_PINNED_SIZE) return
+        history[index] = item.copy(id = if (item.isPinned) ClipboardHistoryItem.nextId() else item.id, isPinned = !item.isPinned)
+        saveHistory()
+    }
+    fun removeItem(context: Context, itemId: Long) {
+        initialize(context)
+        if (history.none { it.id == itemId }) return
+        val config = settings(context)
+        if (backend != null || itemId <= knownSecureCeiling) {
+            val removed = config.getStringSet(REMOVED_IDS, emptySet()).orEmpty().toMutableSet()
+            removed.add(itemId.toString())
+            config.edit().putStringSet(REMOVED_IDS, removed).apply()
+        }
+        history.removeAll { it.id == itemId }
+        saveHistory()
+    }
+    fun clearHistory(context: Context, includePinned: Boolean = false) {
+        initialize(context)
+        val app = context.applicationContext
+        appContext = app
+        val boundary = ClipboardHistoryItem.nextId()
+        settings(app).edit().apply {
+            putLong(CLEAR_RECENT, boundary)
+            if (includePinned) putLong(CLEAR_PINNED, boundary)
+            apply()
+        }
+        history.removeAll { includePinned || !it.isPinned }
+        val current = backend
+        val retained = history.toList()
+        writer.clear {
+            legacyNames.forEach { name ->
+                val prefs = app.getSharedPreferences(name, Context.MODE_PRIVATE)
+                val keep = if (includePinned) emptyList() else decode(prefs.getString(KEY_HISTORY, null)).filter { it.isPinned }
+                check(prefs.edit().putString(KEY_HISTORY, encode(keep)).commit())
+            }
+            if (current != null) runCatching { check(current.edit().putString(KEY_HISTORY, encode(retained)).commit()) }
+        }
+        saveHistory()
+    }
+    fun invalidateCache() = Unit
+    fun retryStorage(context: Context) {
+        if (storageState != StorageState.MEMORY_ONLY) return
+        storageState = StorageState.NOT_STARTED
+        initialize(context)
+    }
 
-        // Clean up expired items
-        val ttlHours = getTtlHours(context)
-        if (ttlHours > 0) {
-            val expiredRemoved = removeExpiredItems(history, ttlHours)
-            if (expiredRemoved) {
-                saveHistory(context, history)
-                cachedHistory = history
+    private fun initialize(context: Context) {
+        if (storageState != StorageState.NOT_STARTED) return
+        val app = context.applicationContext
+        appContext = app
+        val token = ++initialization
+        storageState = StorageState.LOADING
+        writer.clear {
+            val sources = legacyNames.map { app.getSharedPreferences(it, Context.MODE_PRIVATE) }
+            var configuration = sources.firstOrNull { it.contains(KEY_ENABLED) }
+            val result = runCatching {
+                val prefs = storageFactory(app)
+                if (prefs.contains(KEY_ENABLED)) configuration = prefs
+                val records = decode(prefs.getString(KEY_HISTORY, null)) + sources.flatMap { decode(it.getString(KEY_HISTORY, null)) }
+                val config = settings(app)
+                val migrationTtl = if (config.contains(KEY_TTL_HOURS)) getTtlHours(app)
+                    else configuration?.getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS) ?: DEFAULT_TTL_HOURS
+                val merged = bounded(filterCleared(app, records), migrationTtl)
+                check(prefs.edit().putString(KEY_HISTORY, encode(merged)).commit())
+                sources.forEach { check(it.edit().remove(KEY_HISTORY).commit()) }
+                prefs to merged
+            }
+            val enabled = runCatching { configuration?.getBoolean(KEY_ENABLED, true) ?: true }.getOrDefault(false)
+            val skip = runCatching { configuration?.getBoolean(KEY_SKIP_PASSWORD_FIELDS, true) ?: true }.getOrDefault(true)
+            val ttl = runCatching { configuration?.getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS) ?: DEFAULT_TTL_HOURS }.getOrDefault(DEFAULT_TTL_HOURS)
+            main.post {
+                if (token != initialization) return@post
+                val config = settings(app)
+                config.edit().apply {
+                    if (!config.contains(KEY_ENABLED)) putBoolean(KEY_ENABLED, enabled)
+                    if (!config.contains(KEY_SKIP_PASSWORD_FIELDS)) putBoolean(KEY_SKIP_PASSWORD_FIELDS, skip)
+                    if (!config.contains(KEY_TTL_HOURS)) putInt(KEY_TTL_HOURS, ttl)
+                    apply()
+                }
+                backend = result.getOrNull()?.first
+                if (backend != null) knownSecureCeiling = maxOf(knownSecureCeiling, result.getOrNull()?.second?.maxOfOrNull { it.id } ?: -1)
+                storageState = if (backend != null) StorageState.ENCRYPTED else StorageState.MEMORY_ONLY
+                history = bounded(history + filterCleared(app, result.getOrNull()?.second.orEmpty()), getTtlHours(app)).toMutableList()
+                history.forEach { ClipboardHistoryItem.observeId(it.id) }
+                if (dirty && backend != null) saveHistory()
+                notifyChanged()
             }
         }
-
-        return history.sortedWith(
-            compareByDescending<ClipboardHistoryItem> { it.isPinned }
-                .thenByDescending { it.timestamp }
-        )
     }
-
-    /**
-     * Get only pinned items.
-     */
-    fun getPinnedItems(context: Context): List<ClipboardHistoryItem> {
-        return loadHistory(context)
-            .filter { it.isPinned }
-            .sortedByDescending { it.timestamp }
+    private fun filterCleared(context: Context, items: List<ClipboardHistoryItem>): List<ClipboardHistoryItem> {
+        val config = settings(context)
+        val recent = config.getLong(CLEAR_RECENT, -1)
+        val pinned = config.getLong(CLEAR_PINNED, -1)
+        val removed = config.getStringSet(REMOVED_IDS, emptySet()).orEmpty()
+        return items.filter { it.id.toString() !in removed && it.id > if (it.isPinned) pinned else recent }
     }
-
-    /**
-     * Get only non-pinned (recent) items.
-     */
-    fun getRecentItems(context: Context): List<ClipboardHistoryItem> {
-        return loadHistory(context)
-            .filter { !it.isPinned }
-            .sortedByDescending { it.timestamp }
-    }
-
-    /**
-     * Toggle pin status of an item.
-     */
-    fun togglePin(context: Context, itemId: Long) {
-        val history = loadHistory(context)
-        val index = history.indexOfFirst { it.id == itemId }
-        if (index >= 0) {
-            val item = history[index]
-            val newPinned = !item.isPinned
-
-            // Check pinned limit
-            if (newPinned) {
-                val pinnedCount = history.count { it.isPinned }
-                if (pinnedCount >= MAX_PINNED_SIZE) {
-                    return // Don't allow more pinned items
+    private fun saveHistory() {
+        val revision = ++historyRevision
+        dirty = true
+        val prefs = backend ?: return
+        val token = initialization
+        val snapshot = history.toList()
+        knownSecureCeiling = maxOf(knownSecureCeiling, snapshot.maxOfOrNull { it.id } ?: -1)
+        writer.replace {
+            val success = runCatching { check(prefs.edit().putString(KEY_HISTORY, encode(snapshot)).commit()) }.isSuccess
+            main.post {
+                if (token != initialization) return@post
+                if (!success) { dirty = true; backend = null; storageState = StorageState.MEMORY_ONLY; notifyChanged() }
+                else if (revision == historyRevision) {
+                    // The newest snapshot is durable; older deletion tombstones
+                    // are no longer needed, and must not accumulate indefinitely.
+                    appContext?.let { settings(it).edit().remove(REMOVED_IDS).apply() }
                 }
             }
-
-            history[index] = item.copy(isPinned = newPinned)
-            saveHistory(context, history)
-            cachedHistory = history
         }
+        dirty = false
     }
-
-    /**
-     * Remove an item from history.
-     */
-    fun removeItem(context: Context, itemId: Long) {
-        val history = loadHistory(context)
-        history.removeAll { it.id == itemId }
-        saveHistory(context, history)
-        cachedHistory = history
+    private fun limit(context: Context): Boolean {
+        val next = bounded(history, getTtlHours(context))
+        if (next == history) return false
+        history = next.toMutableList()
+        return true
     }
-
-    /**
-     * Clear all history.
-     */
-    fun clearHistory(context: Context, includePinned: Boolean = false) {
-        if (includePinned) {
-            saveHistory(context, mutableListOf())
-            cachedHistory = mutableListOf()
-        } else {
-            val history = loadHistory(context)
-            history.removeAll { !it.isPinned }
-            saveHistory(context, history)
-            cachedHistory = history
-        }
+    private fun bounded(items: List<ClipboardHistoryItem>, ttl: Int): List<ClipboardHistoryItem> {
+        val expiry = System.currentTimeMillis() - ttl.toLong() * 3_600_000
+        val unique = items.filter { it.text.length in MIN_TEXT_LENGTH..MAX_TEXT_LENGTH && it.text.isNotBlank() }
+            .sortedByDescending { it.timestamp }.distinctBy { it.text }
+        return unique.filter { it.isPinned }.take(MAX_PINNED_SIZE) +
+            unique.filter { !it.isPinned && (ttl <= 0 || it.timestamp >= expiry) }.take(MAX_HISTORY_SIZE)
     }
-
-    /**
-     * Invalidate cache (call when settings might have changed externally).
-     */
-    fun invalidateCache() {
-        cachedHistory = null
-        cachedEnabled = null
-        cachedSkipPasswordFields = null
-        cachedTtlHours = null
+    private fun decode(json: String?): List<ClipboardHistoryItem> = runCatching {
+        if (json == null) return emptyList()
+        val array = JSONArray(json)
+        (0 until minOf(array.length(), 1000)).mapNotNull { index -> runCatching {
+            val item = array.getJSONObject(index)
+            ClipboardHistoryItem(item.getLong("id"), item.getString("text"), item.getLong("timestamp"), item.optBoolean("isPinned", false))
+        }.getOrNull() }
+    }.getOrDefault(emptyList())
+    private fun encode(items: List<ClipboardHistoryItem>): String = JSONArray().apply {
+        items.forEach { item -> put(JSONObject().put("id", item.id).put("text", item.text)
+            .put("timestamp", item.timestamp).put("isPinned", item.isPinned)) }
+    }.toString()
+    private fun createEncrypted(context: Context): SharedPreferences {
+        val key = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        return EncryptedSharedPreferences.create(context, PREFS_NAME, key,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
     }
-
-    /**
-     * Get EncryptedSharedPreferences instance.
-     * Falls back to regular SharedPreferences on older devices or if encryption fails.
-     */
-    private fun getPrefs(context: Context): SharedPreferences {
-        encryptedPrefs?.let { return it }
-
-        return try {
-            // Create or get the master key for encryption
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            // Create EncryptedSharedPreferences
-            val prefs = EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-            encryptedPrefs = prefs
-
-            // Migrate data from old unencrypted prefs if they exist
-            migrateFromUnencryptedPrefs(context, prefs)
-
-            prefs
-        } catch (e: Exception) {
-            // Fallback to unencrypted prefs if encryption fails
-            // This can happen on some devices with hardware security issues
-            Log.w(TAG, "Failed to create EncryptedSharedPreferences, falling back to unencrypted: ${e.message}")
-            context.getSharedPreferences(PREFS_NAME + "_fallback", Context.MODE_PRIVATE)
-        }
-    }
-
-    /**
-     * Migrate data from old unencrypted SharedPreferences to encrypted storage.
-     */
-    private fun migrateFromUnencryptedPrefs(context: Context, encryptedPrefs: SharedPreferences) {
-        val oldPrefsName = "clipboard_history_prefs"
-        val oldPrefs = context.getSharedPreferences(oldPrefsName, Context.MODE_PRIVATE)
-
-        // Check if old prefs have data and new prefs are empty
-        val oldHistory = oldPrefs.getString(KEY_HISTORY, null)
-        val newHistory = encryptedPrefs.getString(KEY_HISTORY, null)
-
-        if (oldHistory != null && newHistory == null) {
-            // Migrate all data
-            encryptedPrefs.edit().apply {
-                putString(KEY_HISTORY, oldHistory)
-                oldPrefs.getBoolean(KEY_ENABLED, true).let { putBoolean(KEY_ENABLED, it) }
-                apply()
-            }
-
-            // Clear old unencrypted data
-            oldPrefs.edit().clear().apply()
-
-            Log.i(TAG, "Migrated clipboard history to encrypted storage")
-        }
-    }
-
-    private fun loadHistory(context: Context): MutableList<ClipboardHistoryItem> {
-        if (cachedHistory != null) {
-            return cachedHistory!!
-        }
-
-        val prefs = getPrefs(context)
-        val jsonString = prefs.getString(KEY_HISTORY, null) ?: return mutableListOf()
-
-        return try {
-            val jsonArray = JSONArray(jsonString)
-            val items = mutableListOf<ClipboardHistoryItem>()
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                items.add(deserializeItem(obj))
-            }
-            cachedHistory = items
-            items
-        } catch (e: Exception) {
-            mutableListOf()
-        }
-    }
-
-    private fun saveHistory(context: Context, history: List<ClipboardHistoryItem>) {
-        val jsonArray = JSONArray()
-        history.forEach { item ->
-            jsonArray.put(serializeItem(item))
-        }
-        getPrefs(context).edit().putString(KEY_HISTORY, jsonArray.toString()).apply()
-    }
-
-    private fun serializeItem(item: ClipboardHistoryItem): JSONObject {
-        return JSONObject().apply {
-            put("id", item.id)
-            put("text", item.text)
-            put("timestamp", item.timestamp)
-            put("isPinned", item.isPinned)
-        }
-    }
-
-    private fun deserializeItem(json: JSONObject): ClipboardHistoryItem {
-        return ClipboardHistoryItem(
-            id = json.getLong("id"),
-            text = json.getString("text"),
-            timestamp = json.getLong("timestamp"),
-            isPinned = json.optBoolean("isPinned", false)
-        )
-    }
-
-    /**
-     * Remove items that have exceeded the TTL.
-     * @return true if any items were removed
-     */
-    private fun removeExpiredItems(history: MutableList<ClipboardHistoryItem>, ttlHours: Int): Boolean {
-        if (ttlHours <= 0) return false
-
-        val expirationTime = System.currentTimeMillis() - (ttlHours * 60 * 60 * 1000L)
-        val sizeBefore = history.size
-
-        // Only remove non-pinned items that have expired
-        history.removeAll { !it.isPinned && it.timestamp < expirationTime }
-
-        return history.size < sizeBefore
-    }
-
-    private fun enforceHistoryLimits(context: Context, history: MutableList<ClipboardHistoryItem>) {
-        // First, remove expired non-pinned items
-        val ttlHours = getTtlHours(context)
-        if (ttlHours > 0) {
-            removeExpiredItems(history, ttlHours)
-        }
-
-        // Separate pinned and non-pinned
-        val pinned = history.filter { it.isPinned }.sortedByDescending { it.timestamp }
-        val nonPinned = history.filter { !it.isPinned }.sortedByDescending { it.timestamp }
-
-        // Enforce limits
-        val limitedPinned = pinned.take(MAX_PINNED_SIZE)
-        val limitedNonPinned = nonPinned.take(MAX_HISTORY_SIZE)
-
-        // Rebuild history
-        history.clear()
-        history.addAll(limitedPinned)
-        history.addAll(limitedNonPinned)
+    internal fun resetForTests(factory: (Context) -> SharedPreferences = ::createEncrypted) {
+        initialization++
+        storageState = StorageState.NOT_STARTED
+        backend = null; history.clear(); dirty = false; historyRevision = 0
+        appContext = null; knownSecureCeiling = -1
+        listeners.clear(); storageFactory = factory
     }
 }

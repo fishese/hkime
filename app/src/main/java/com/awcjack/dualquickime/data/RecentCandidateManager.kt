@@ -18,6 +18,7 @@ object RecentCandidateManager {
     private val saveHandler = Handler(Looper.getMainLooper())
     private var pendingSave = false
     private var pendingContext: Context? = null
+    private val writer = OrderedStoreWriter()
 
     fun recordUsage(context: Context, code: String, character: String) {
         if (code.isBlank() || character.isBlank()) return
@@ -43,15 +44,18 @@ object RecentCandidateManager {
         return rankCandidates(counts.keys.toList(), counts)
     }
 
+    internal fun countsForCode(context: Context, code: String): Map<String, Int> = loadData(context)[code]?.toMap().orEmpty()
+
     fun clearAll(context: Context) {
         cancelPendingSave()
         cachedData = linkedMapOf()
-        saveData(context, cachedData!!)
+        val app = context.applicationContext
+        writer.clear { check(app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_RECENT_DATA).commit()) }
     }
 
     fun invalidateCache() {
         // Preserve pending selections; otherwise restarting the IME can discard them.
-        if (!pendingSave) cachedData = null
+        if (!pendingSave && !writer.isPending && !writer.failed) cachedData = null
     }
 
     private fun scheduleSave(context: Context) {
@@ -81,11 +85,11 @@ object RecentCandidateManager {
         if (json != null) runCatching {
             val objectData = JSONObject(json)
             val codes = objectData.keys()
-            while (codes.hasNext()) {
+            while (codes.hasNext() && result.size < MAX_CODES) {
                 val code = codes.next()
                 val array = objectData.getJSONArray(code)
                 val counts = linkedMapOf<String, Int>()
-                for (i in 0 until array.length()) {
+                for (i in 0 until minOf(array.length(), MAX_RECENT_PER_CODE)) {
                     // Older builds stored plain strings, most-recent-first.
                     val entry = array.get(i)
                     if (entry is String) counts[entry] = 1
@@ -102,6 +106,12 @@ object RecentCandidateManager {
     }
 
     private fun saveData(context: Context, data: Map<String, Map<String, Int>>) {
+        val snapshot = data.mapValues { it.value.toMap() }
+        val app = context.applicationContext
+        writer.replace { writeSnapshot(app, snapshot) }
+    }
+
+    private fun writeSnapshot(context: Context, data: Map<String, Map<String, Int>>) {
         val objectData = JSONObject()
         for ((code, counts) in data) {
             val array = JSONArray()
@@ -110,8 +120,8 @@ object RecentCandidateManager {
             }
             objectData.put(code, array)
         }
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-            .putString(KEY_RECENT_DATA, objectData.toString()).apply()
+        check(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_RECENT_DATA, objectData.toString()).commit())
     }
 }
 
