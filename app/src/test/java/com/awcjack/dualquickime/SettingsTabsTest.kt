@@ -24,6 +24,9 @@ class SettingsTabsTest {
         assertTrue(isShown(row))
         assertTrue(isShown(content.findText(activity.getString(R.string.settings_english_options))))
         assertTrue(isShown(content.findText(activity.getString(R.string.settings_latin_sentence_case))))
+        assertTrue(isShown(content.findText(activity.getString(R.string.settings_chinese_typo_options))))
+        assertTrue(isShown(content.findText(activity.getString(R.string.settings_cantonese_typo))))
+        assertTrue(isShown(content.findText(activity.getString(R.string.settings_cangjie_typo))))
     }
 
     private fun isShown(view: View): Boolean {

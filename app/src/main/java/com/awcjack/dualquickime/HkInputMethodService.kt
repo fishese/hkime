@@ -14,6 +14,7 @@ import com.awcjack.dualquickime.data.AssociatedPhrasesParser
 import com.awcjack.dualquickime.data.MckRelatedPhrases
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.EnglishAutocomplete
+import com.awcjack.dualquickime.data.EnglishTypoMatcher
 import com.awcjack.dualquickime.data.UnicodeWordSuggestions
 import com.awcjack.dualquickime.data.SymbolCatalogue
 import com.awcjack.dualquickime.data.PendingSymbol
@@ -35,6 +36,7 @@ import com.awcjack.dualquickime.data.CustomDictionaryManager
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.promoteReviewedCharacter
+import com.awcjack.dualquickime.data.mergeTypoCandidates
 import com.awcjack.dualquickime.data.promoteEverydayCantonese
 import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.NumericPadSpec
@@ -64,6 +66,7 @@ class HkInputMethodService : InputMethodService() {
     private lateinit var mixedDictionary: MixedDictionary
     private lateinit var methodMembership: MethodMembership
     private var englishAutocomplete = EnglishAutocomplete.EMPTY
+    private lateinit var englishTypoMatcher: EnglishTypoMatcher
     private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
@@ -133,6 +136,7 @@ class HkInputMethodService : InputMethodService() {
         englishAutocomplete = runCatching {
             EnglishAutocomplete.parse(assets.open("english-autocomplete.txt"))
         }.getOrDefault(EnglishAutocomplete.EMPTY)
+        englishTypoMatcher = EnglishTypoMatcher(englishAutocomplete.allWords(), EnglishSuggestions.typoWords())
         mckRelatedPhrases = MckRelatedPhrases(assets)
         // Load associated phrases table
         loadAssociatedPhrasesTable()
@@ -1323,6 +1327,15 @@ class HkInputMethodService : InputMethodService() {
             add(MethodMembership.Method.ENGLISH)
     }
 
+    private fun canSuggestTypos(): Boolean {
+        if (isPasswordField || isEmailField || isUsernameField || pendingSwipeChoice ||
+            swipeEnglishWords.isNotEmpty() || swipeChineseCodes.isNotEmpty()) return false
+        val type = currentInputEditorInfo?.inputType ?: return true
+        return (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            (type and InputType.TYPE_MASK_VARIATION) != InputType.TYPE_TEXT_VARIATION_URI &&
+            (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) == 0
+    }
+
     private fun updateComposition(rawKeys: String) {
         val pageSize = ThemeManager.getCandidatesPerPage(this)
 
@@ -1358,23 +1371,6 @@ class HkInputMethodService : InputMethodService() {
         candidates = prioritizeCustomCandidates(
             CustomDictionaryManager.lookup(this, lookupKeys), candidates)
 
-        // English remains visible in the editor. Offer only unambiguous one-edit
-        // spelling fixes, and never silently replace what the user typed.
-        if (!isPasswordField && ThemeManager.getMethodEnglish(this) && ThemeManager.getEnglishSpellCheck(this)) {
-            val typedWord = getDisplayKeys(rawKeys)
-            val fixes = (
-                listOfNotNull(EnglishSuggestions.correction(typedWord, englishAutocomplete::contains)) +
-                    EnglishSuggestions.neighbourKeyCorrections(
-                        typedWord,
-                        isWord = { englishAutocomplete.contains(it) },
-                        isAmbiguousPrefix = { englishAutocomplete.hasAtLeastCompletions(it, 12) },
-                    )
-                ).distinctBy { it.lowercase() }
-            if (fixes.isNotEmpty()) {
-                candidates = fixes + candidates.filterNot { c -> fixes.any { it.equals(c, ignoreCase = true) } }
-            }
-        }
-
         // English autocomplete is below the bundled Chinese choices by default.
         // Learned per-code usage can lift a frequently selected word above them.
         if (!isPasswordField && ThemeManager.getMethodEnglish(this)) {
@@ -1386,6 +1382,24 @@ class HkInputMethodService : InputMethodService() {
         }
         if (ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
+        }
+
+        // Protect exact characters/full English words, but allow recovered characters
+        // before exact phrase shorthand (nfo -> ngo/我 before nfo/年貨).
+        if (canSuggestTypos()) {
+            val englishFixes = if (MethodMembership.Method.ENGLISH in enabledMethods &&
+                ThemeManager.getEnglishSpellCheck(this)) englishTypoMatcher.suggestions(getDisplayKeys(rawKeys))
+                else emptyList()
+            val recoveryMethods = enabledMethods.filterTo(mutableSetOf()) {
+                (it == MethodMembership.Method.CANTONESE && ThemeManager.getCantoneseTypoRecovery(this)) ||
+                    (it == MethodMembership.Method.CANGJIE && ThemeManager.getCangjieTypoRecovery(this))
+            }
+            val chineseFixes = methodMembership.recoverCodes(lookupKeys, recoveryMethods)
+                .flatMap { it.candidates }
+            candidates = mergeTypoCandidates(getDisplayKeys(rawKeys), candidates, englishFixes, chineseFixes) {
+                if (ThemeManager.getRecentCandidatesEnabled(this))
+                    RecentCandidateManager.reorderCandidates(this, lookupKeys, it) else it
+            }
         }
 
         // Symbols are exact English keyword matches and deliberately follow

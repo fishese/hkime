@@ -1,6 +1,6 @@
 package com.awcjack.dualquickime.data
 
-/** Small offline English lexicon; only an unambiguous single-edit typo is suggested. */
+/** Common English vocabulary and compatibility helpers for offline suggestions. */
 object EnglishSuggestions {
     fun isLatinWord(candidate: String): Boolean = candidate.isNotEmpty() &&
         candidate.all { it in 'a'..'z' || it in 'A'..'Z' }
@@ -39,7 +39,7 @@ object EnglishSuggestions {
         which while white whole will window with within without woman word words work working world would write
         writing wrong year yellow yesterday young your yourself candidate candidates cantonese cangjie chinese
         english keyboard clipboard shortcut convert conversion correction dictionary frequency suggestion
-        testing tested tests okay favourite grey pikmin
+        testing tested tests okay favourite grey pikmin sound sounds
         accommodation advice advise affect appropriate assure beginning calendar colleague convenient definitely
         effect ensure environment guarantee immediately insure licence license maintenance necessary occurred
         opportunity organise organize practice practise privilege recommendation restaurant stationary stationery
@@ -53,6 +53,8 @@ object EnglishSuggestions {
     """.trimIndent().split(Regex("\\s+")).toSet()
 
     internal fun swipeWords(): Set<String> = commonWords
+
+    internal fun typoWords(): Set<String> = commonWords
 
     /** A small, deterministic prefix list; the caller ranks it after Chinese candidates. */
     fun completions(typed: String): List<String> {
@@ -106,19 +108,6 @@ object EnglishSuggestions {
         }.toList()
     }
 
-    /**
-     * Keys that touch each letter on the on-screen QWERTY, computed from the key centres at
-     * the layout's weights (row 2 indented half a key, row 3 starting after the 1.8-weight
-     * shift key): two keys are neighbours when their centres are within ~1.45 key widths.
-     */
-    private val neighbours: Map<Char, String> = mapOf(
-        'a' to "qsw", 'b' to "hjnv", 'c' to "fgvx", 'd' to "efrsxz", 'e' to "drsw",
-        'f' to "cdgrtx", 'g' to "cfhtvy", 'h' to "bgjuvy", 'i' to "jkou", 'j' to "bhiknu",
-        'k' to "ijlmno", 'l' to "kmop", 'm' to "kln", 'n' to "bjkm", 'o' to "iklp",
-        'p' to "lo", 'q' to "aw", 'r' to "deft", 's' to "adewz", 't' to "fgry",
-        'u' to "hijy", 'v' to "bcgh", 'w' to "aeqs", 'x' to "cdfz", 'y' to "ghtu", 'z' to "dsx",
-    )
-
     private fun matchCase(typed: String, word: String): String? = when {
         typed.all { it.isUpperCase() } -> word.uppercase()
         typed.first().isUpperCase() && typed.drop(1).all { it.isLowerCase() } ->
@@ -164,13 +153,13 @@ object EnglishSuggestions {
             note(String(swapped), 1)
         }
         for (i in chars.indices) {
-            for (a in neighbours[chars[i]].orEmpty()) {
+            for (a in ('a'..'z').filter { KeyProximity.adjacent(chars[i], it) }) {
                 val one = chars.copyOf()
                 one[i] = a
                 note(String(one), 1)
                 if (maxSubstitutions < 2) continue
                 for (j in i + 1 until chars.size) {
-                    for (b in neighbours[chars[j]].orEmpty()) {
+                    for (b in ('a'..'z').filter { KeyProximity.adjacent(chars[j], it) }) {
                         val two = one.copyOf()
                         two[j] = b
                         note(String(two), 2)

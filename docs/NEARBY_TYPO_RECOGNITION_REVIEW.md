@@ -1,8 +1,27 @@
 # Nearby-typo recognition: review and implementation proposal
 
-Status: design/review only. No keyboard behaviour, dictionaries, settings, or APK changed.
+Status: implementation added on this branch (see below); the original review is retained as design history. No APK built or signed.
 Reviewed main commit: `56ee238148c7bc0a7b0fee86ac2143f1b682d869`.
 Working branch: `review/nearby-typo-recognition`.
+
+## Implementation update — 2026-10-02
+
+The approved scope now includes English, Cantonese and Cangjie. Quick recovery remains excluded.
+
+- EnglishTypoMatcher uses a weighted-edit trie over the bundled English lexicon plus the existing common-word set. Nearby substitutions/transpositions cost 2; distant substitutions and insertion/deletion cost 3. The budget is 2 for 3–4 letters and 4 for 5–20 letters: two nearby slips fit, two arbitrary spelling changes do not. Short words must be common. Results are capped at two/four, and searches at 12,000 visited nodes and a six-character completion suffix.
+- One-edit fuzzy prefixes can produce unfinished-word completions. Whole-word results rank ahead of fuzzy completions, then edit cost/common-word membership/length/alphabetical order. These are heuristics, not learned probabilities. Already valid words and mixed-case identifiers are not English-corrected.
+- Added sound/sounds coverage to the asset, common set and asset generator. The old matcher already allowed oftrm's two substitutions in principle; this example is now an explicit end-to-end regression requirement rather than an assumed old failure cause.
+- Chinese recovery generates one-edit code variants and reads only verified membership/override entries directly. It performs no repeated MCK shard searches. Cantonese allows nearby substitution/transposition; Cangjie also allows missing/extra keys. Input must be at least three letters; Cangjie recovered codes are at most five. At most three corrected code/method pairs contribute, without truncating a code's character choices. This does not attempt to recover every uncertain/unindexed MCK phrase.
+- Cantonese/Cangjie have independent, default-on settings on the Input tab. English retains its existing spelling-suggestions toggle. Disabled input methods contribute no recovered codes.
+- **Updated priority requested by the user:** exact single characters and exact full English words first; English fixes/recovered single characters next; exact phrase shorthand and English prefix completions next; recovered phrases last. Thus nfo's 年貨 shorthand does not block ngo's 我. Learning ranks groups independently; it cannot push a phrase above protected characters. With no inferred results, existing order is unchanged.
+- Raw composition, space/enter/caret commits, case and candidate-tap behaviour are unchanged. No automatic correction, network lookup, touch recording or new learning store was added.
+- Recovery is suppressed for passwords, email/username fields, URI/no-suggestions input types and active swipe results. Existing exact suggestions/domain handling are unchanged.
+
+Regression tests cover the three reported examples, broader insertion/deletion, first-letter slips, transpositions, two-adjacent versus two-distant errors, fuzzy prefixes, enabled-method provenance, Quick exclusions, supplementary characters, group ranking, toggles and literal space commits.
+
+Verification limitation: Gradle could not download its distribution because this execution environment reported Network is unreachable. Android/JUnit/Robolectric tests and APK compilation therefore have not run here. Static diff/resource/data checks are not a substitute for those tests or phone latency measurements. Before merging, run ./gradlew testDebugUnitTest assembleDebug and test suggestion latency/order on a phone.
+
+## Original review (historical)
 
 ## Summary
 

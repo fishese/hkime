@@ -95,7 +95,12 @@
     <string name="settings_recent_candidates_clear_confirm_yes">清除</string>
     <string name="settings_recent_candidates_cleared">最近候選字記錄已清除</string>
     <string name="settings_english_spell_check">建議英文拼字修正</string>
-    <string name="settings_english_spell_check_desc">只建議一處明確修正，點選後才改字</string>
+    <string name="settings_english_spell_check_desc">建議鄰近按鍵及拼字修正，點選後才改字</string>
+    <string name="settings_chinese_typo_options">中文錯碼建議</string>
+    <string name="settings_cantonese_typo">廣東話拼音錯碼建議</string>
+    <string name="settings_cantonese_typo_desc">容許一次鄰近按鍵誤按或相鄰字母對調，精確單字符合優先</string>
+    <string name="settings_cangjie_typo">倉頡錯碼建議</string>
+    <string name="settings_cangjie_typo_desc">容許一次鄰近按鍵誤按、漏碼、多碼或對調，精確單字符合優先</string>
     <string name="settings_latin_sentence_case">拉丁字母句首大寫</string>
     <string name="settings_latin_sentence_case_desc">換行後，或句末標點加空格後大寫。按鍵顯示該大小寫。</string>
     <string name="settings_key_preview">按鍵預覽</string>

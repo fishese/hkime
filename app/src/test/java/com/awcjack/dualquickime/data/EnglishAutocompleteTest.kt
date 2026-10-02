@@ -23,7 +23,7 @@ class EnglishAutocompleteTest {
         for (word in listOf(
             "app", "apple", "autocorrect", "booking", "forms", "inventory", "organise",
             "occurred", "pairs", "supporting", "users", "voicemail",
-            "paint", "birthday", "computer", "family", "school", "testing"
+            "paint", "birthday", "computer", "family", "school", "testing", "sounds"
         )) {
             assertTrue(word, dictionary.contains(word))
             assertTrue(word, word in dictionary.completions(word))

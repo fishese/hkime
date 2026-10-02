@@ -75,6 +75,32 @@ class MethodMembership(lines: Sequence<String>, phraseOverrides: Sequence<String
             phraseMethods[code.lowercase() to candidate].orEmpty().any { it in enabled }
         }
 
+    internal data class Recovery(val code: String, val method: Method, val cost: Int,
+                                 val candidates: List<String>)
+
+    /** Verified method entries only; never scan MCK shards or guess uncertain provenance. */
+    internal fun recoverCodes(rawCode: String, enabled: Set<Method>): List<Recovery> {
+        val code = rawCode.lowercase(java.util.Locale.ROOT)
+        if (code.length !in 3..12 || code.any { it !in 'a'..'z' }) return emptyList()
+        val result = mutableListOf<Recovery>()
+        for (method in listOf(Method.CANTONESE, Method.CANGJIE)) {
+            if (method !in enabled || (method == Method.CANGJIE && code.length > 6)) continue
+            val variants = KeyProximity.codeVariants(code, allowLengthEdits = method == Method.CANGJIE)
+            for ((alternative, cost) in variants) {
+                if (alternative.length < 3 || (method == Method.CANGJIE && alternative.length > 5)) continue
+                val characters = byCode[alternative]?.get(method).orEmpty().toList()
+                val phrases = overrideCandidatesByCode[alternative].orEmpty().filter {
+                    method in phraseMethods[alternative to it].orEmpty()
+                }
+                val candidates = (characters + phrases).distinct()
+                if (candidates.isNotEmpty()) result.add(Recovery(alternative, method, cost, candidates))
+            }
+        }
+        // Bound CODE alternatives, not characters: ngo should expose all its real choices.
+        return result.sortedWith(compareBy<Recovery> { it.cost }.thenBy { it.code }
+            .thenBy { it.method.ordinal }).distinctBy { it.code to it.method }.take(3)
+    }
+
     /** Keep MCK order and retain any unassigned candidates by default. */
     fun filter(code: String, candidates: List<String>, enabled: Set<Method>,
                includeUncertain: Boolean = true): List<String> {

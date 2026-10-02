@@ -263,6 +263,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val input = settingsPages[1]
         moveSection(R.id.sectionMethodsHeader, input)
+        addChineseTypoSettings(addSettingsSection(input, R.string.settings_chinese_typo_options))
         val englishOptions = addSettingsSection(input, R.string.settings_english_options)
         moveView(findViewById(R.id.latinSentenceCaseRow), englishOptions)
         moveView(findViewById(R.id.englishSpellCheckRow), englishOptions)
@@ -321,6 +322,33 @@ class SettingsActivity : AppCompatActivity() {
         val description = parent.getChildAt(parent.indexOfChild(control) + 1)
         moveView(control, target)
         moveView(description, target)
+    }
+
+    private fun addChineseTypoSettings(container: LinearLayout) {
+        fun addToggle(title: Int, description: Int, checked: Boolean, save: (Boolean) -> Unit) {
+            container.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(10) }
+                addView(LinearLayout(this@SettingsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    addView(TextView(this@SettingsActivity).apply { setText(title); textSize = 15f })
+                    addView(TextView(this@SettingsActivity).apply { setText(description); textSize = 12f })
+                })
+                addView(SwitchCompat(this@SettingsActivity).apply {
+                    contentDescription = getString(title)
+                    isChecked = checked
+                    setOnCheckedChangeListener { _, enabled -> save(enabled) }
+                })
+            })
+        }
+        addToggle(R.string.settings_cantonese_typo, R.string.settings_cantonese_typo_desc,
+            ThemeManager.getCantoneseTypoRecovery(this)) { ThemeManager.setCantoneseTypoRecovery(this, it) }
+        addToggle(R.string.settings_cangjie_typo, R.string.settings_cangjie_typo_desc,
+            ThemeManager.getCangjieTypoRecovery(this)) { ThemeManager.setCangjieTypoRecovery(this, it) }
     }
 
     private fun addSettingsSection(page: LinearLayout, titleId: Int): LinearLayout {

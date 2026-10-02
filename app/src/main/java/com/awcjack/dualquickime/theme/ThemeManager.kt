@@ -23,6 +23,8 @@ object ThemeManager {
     private const val KEY_CANDIDATE_TEXT_SIZE = "candidate_text_sp"
     private const val KEY_SHOW_KEY_RADICALS = "show_key_radicals"
     private const val KEY_ENGLISH_SPELL_CHECK = "english_spell_check"
+    private const val KEY_CANTONESE_TYPO_RECOVERY = "cantonese_typo_recovery"
+    private const val KEY_CANGJIE_TYPO_RECOVERY = "cangjie_typo_recovery"
     private const val KEY_SPACE_AFTER_ENGLISH_CANDIDATE = "space_after_english_candidate"
     private const val KEY_IGNORE_SPACE_AFTER_LATIN = "ignore_space_after_latin"
     private const val KEY_RESTORE_SPACE_BETWEEN_LATIN = "restore_space_between_latin"
@@ -307,6 +309,15 @@ object ThemeManager {
         cachedEnglishSpellCheck = enabled
         getPrefs(context).edit().putBoolean(KEY_ENGLISH_SPELL_CHECK, enabled).apply()
     }
+
+    fun getCantoneseTypoRecovery(context: Context) =
+        getPrefs(context).getBoolean(KEY_CANTONESE_TYPO_RECOVERY, true)
+    fun setCantoneseTypoRecovery(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_CANTONESE_TYPO_RECOVERY, enabled).apply()
+    fun getCangjieTypoRecovery(context: Context) =
+        getPrefs(context).getBoolean(KEY_CANGJIE_TYPO_RECOVERY, true)
+    fun setCangjieTypoRecovery(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_CANGJIE_TYPO_RECOVERY, enabled).apply()
 
     fun getSpaceAfterEnglishCandidate(context: Context): Boolean {
         if (cachedSpaceAfterEnglishCandidate == null) {

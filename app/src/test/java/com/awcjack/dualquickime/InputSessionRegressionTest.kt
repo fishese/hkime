@@ -68,6 +68,13 @@ class InputSessionRegressionTest {
     @Before fun setup() {
         service = Robolectric.buildService(HkInputMethodService::class.java).create().get()
         ThemeManager.setRecentCandidatesEnabled(service, false)
+        ThemeManager.setEnglishSpellCheck(service, true)
+        ThemeManager.setCantoneseTypoRecovery(service, true)
+        ThemeManager.setCangjieTypoRecovery(service, true)
+        ThemeManager.setMethodEnglish(service, true)
+        ThemeManager.setMethodCantonese(service, true)
+        ThemeManager.setMethodCangjie(service, true)
+        ThemeManager.setMethodQuick(service, true)
         ThemeManager.setIgnoreSpaceAfterLatin(service, false)
         ThemeManager.setRestoreSpaceBetweenLatin(service, true)
         ThemeManager.setSpaceAfterEnglishCandidate(service, true)
@@ -97,6 +104,58 @@ class InputSessionRegressionTest {
     private fun selectDomain(domain: String) {
         HkInputMethodService::class.java.getDeclaredMethod("handleEmailSuggestionSelected", String::class.java)
             .apply { isAccessible = true }.invoke(service, domain)
+    }
+
+    private fun currentCandidates(): List<String> =
+        ReflectionHelpers.getField<CompositionState>(service, "composition").candidates
+
+    private fun typeLetters(text: String) {
+        for (letter in text) key(KeyboardView.KeyEvent.Letter(letter))
+    }
+
+    @Test fun nearbyTyposAreSuggestedWithoutReplacingComposingText() {
+        typeLetters("oftrm")
+        assertTrue("often" in currentCandidates())
+        assertEquals("oftrm", connection.text)
+        key(KeyboardView.KeyEvent.Space)
+        assertEquals("oftrm ", connection.text)
+    }
+
+    @Test fun nfoRecoversNgoAheadOfItsExactPhraseShorthand() {
+        typeLetters("nfo")
+        val candidates = currentCandidates()
+        assertTrue("我" in candidates)
+        assertEquals("nfo", connection.text)
+        val phrase = candidates.indexOf("年貨")
+        if (phrase >= 0) assertTrue(candidates.indexOf("我") < phrase)
+    }
+
+    @Test fun EnglishAndChineseRecoveryTogglesAreIndependent() {
+        ThemeManager.setMethodEnglish(service, false)
+        ThemeManager.setMethodCangjie(service, false)
+        ThemeManager.setMethodQuick(service, false)
+        typeLetters("nfo")
+        assertTrue("我" in currentCandidates())
+        call("clearComposition")
+        connection.reset("")
+        ThemeManager.setCantoneseTypoRecovery(service, false)
+        typeLetters("nfo")
+        assertFalse("我" in currentCandidates())
+    }
+
+    @Test fun spellcheckOffAndSensitiveFieldsDoNotAddEnglishFixes() {
+        ThemeManager.setEnglishSpellCheck(service, false)
+        typeLetters("sohnds")
+        assertFalse("sounds" in currentCandidates())
+        ThemeManager.setEnglishSpellCheck(service, true)
+        for (field in listOf("isPasswordField", "isEmailField", "isUsernameField")) {
+            call("clearComposition")
+            connection.reset("")
+            ReflectionHelpers.setField(service, field, true)
+            typeLetters("sohnds")
+            assertFalse(field, "sounds" in currentCandidates())
+            ReflectionHelpers.setField(service, field, false)
+        }
     }
 
     @Test fun settingsOpensAndSlidersKeepTheirRealRangesOnAndroid7() {

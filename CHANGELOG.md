@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Expand offline English suggestions to bounded nearby-key, missing/extra-letter and transposition matching, including typo-tolerant unfinished words.
+- Add `sounds` to the English lexicon and regression cases for `oftrm`, `sohnds` and `nfo`.
+- Add independently switchable Cantonese and Cangjie code recovery; leave Quick recovery disabled.
+- Keep exact single characters and complete English words ahead of recovery, but allow recovered characters ahead of phrase shorthand.
+- Suppress new typo recovery in password, email, username, URL and no-suggestions fields, and during swipe composition.
+
 ## 0.3.48 — 2026-09-29
 
 - Upgrade Gradle to 8.14.5, Android Gradle Plugin to 8.13.2, and Kotlin Gradle Plugin to 2.3.21.

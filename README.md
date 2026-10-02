@@ -13,7 +13,8 @@ HK IME is an offline Android keyboard built for natural Hong Kong Chinese–Engl
 Latin text appears directly in the app as you type, while matching Chinese candidates remain available in the candidate bar. Tap a Chinese candidate to replace the composing code, or simply continue typing to keep the English text.
 
 - Cantonese romanization, Cangjie, Quick and English suggestions share one input buffer.
-- English autocomplete and conservative one-edit spelling suggestions work offline and never replace typed text without a tap.
+- English autocomplete and typo suggestions work offline, including two nearby-key slips such as `oftrm → often`. Text changes only when you tap a suggestion.
+- Cantonese and Cangjie can suggest valid nearby codes. Exact single-character matches stay first; recovered characters can appear before phrase shorthand (`nfo → 我` via `ngo`). Each has its own switch under Chinese typo suggestions. Quick typo recovery is not enabled.
 - Moving the cursor away from an unfinished English composition commits it in place, making typo corrections natural.
 - Frequently selected candidates can be learned and promoted for the same input code.
 - Add your own input-code → word/phrase entries with the custom dictionary.

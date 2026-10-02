@@ -72,7 +72,7 @@ def main() -> None:
         "app", "autocorrect", "availability", "booking", "commonly", "forms", "inventory",
         "locate", "occurred", "organise", "pairs", "qr", "reset", "stationary",
         "supporting", "sync", "uninstall", "users", "vendor", "voicemail",
-        "testing", "tested", "tests", "okay", "favourite", "grey", "pikmin", "our",
+        "testing", "tested", "tests", "okay", "favourite", "grey", "pikmin", "our", "sound", "sounds",
         "asked", "asking", "began", "changed", "decided", "default", "does", "doing",
         "getting", "going", "growing", "having", "into", "longer", "looking", "making",
         "selected", "selection", "settings", "started", "taking", "trying", "typed",
