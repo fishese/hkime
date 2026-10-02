@@ -163,6 +163,10 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateRow: LinearLayout? = null
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
+    private var learnedCandidateTexts = emptySet<String>()
+    private var hideKeyboardKey: TextView? = null
+    private var learnedSuggestionsExpanded = false
+    private var learnedExpansionCandidates = emptyList<String>()
     private var symbolUtilBar: View? = null
     private var symbolCandidateBar: View? = null
     private var pageIndicator: TextView? = null
@@ -1040,20 +1044,41 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     /** Show all choices in a continuously scrollable strip. */
-    fun setCandidates(candidates: List<String>) {
-        val visibleCandidates = sanitizeCandidates(candidates)
+    fun setCandidates(candidates: List<String>, learned: Set<String> = emptySet()) {
+        val allCandidates = sanitizeCandidates(candidates)
+        val candidatesChanged = learnedExpansionCandidates != allCandidates
+        if (candidatesChanged || learnedCandidateTexts != learned) {
+            learnedSuggestionsExpanded = false
+        }
+        learnedExpansionCandidates = allCandidates
+        val allLearned = allCandidates.filter { it in learned }
+        val previewLearned = if (learnedSuggestionsExpanded) allLearned else allLearned.take(5)
+        val visibleCandidates = previewLearned + allCandidates.filter { it !in learned }
+        // Learned candidates use exactly the same content-sized pills as dictionary candidates.
+        candidateScroll?.isFillViewport = false
+        candidateRow?.layoutParams?.let { params ->
+            params.width = LayoutParams.WRAP_CONTENT
+            candidateRow?.layoutParams = params
+        }
         if (isSymbolMode && symbolCandidateBar != null) {
             symbolUtilBar?.visibility = View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
         }
         hideNumberRow()
-        if (displayedCandidates != visibleCandidates) {
+        if (candidatesChanged || displayedCandidates != visibleCandidates || learnedCandidateTexts != learned) {
+            learnedCandidateTexts = learned.toSet()
             displayedCandidates = visibleCandidates
             candidateRow?.removeAllViews()
             candidateSlots.clear()
-            visibleCandidates.forEach { candidate ->
+            visibleCandidates.forEachIndexed { index, candidate ->
+                if (index == previewLearned.size && allLearned.size > 5) {
+                    candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+                }
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
+                    setTextColor(if (candidate in learned) colors.learnedCandidateText else colors.candidateText)
+                    contentDescription = if (candidate in learned)
+                        context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
                     visibility = View.VISIBLE
                     setOnClickListener {
                         performKeyHaptic(this)
@@ -1063,13 +1088,59 @@ class KeyboardView @JvmOverloads constructor(
                 candidateSlots.add(slot)
                 candidateRow?.addView(slot)
             }
+            if (visibleCandidates.size == previewLearned.size && allLearned.size > 5) {
+                candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+            }
             candidateScroll?.scrollTo(0, 0)
         }
-        pageIndicator?.visibility = if (visibleCandidates.size > 1) View.VISIBLE else View.GONE
+        pageIndicator?.visibility = if (allCandidates.size > 1) View.VISIBLE else View.GONE
         updateCandidatePosition()
     }
 
+    private fun createLearnedExpansionButton(allCandidates: List<String>, learned: Set<String>): TextView = TextView(context).apply {
+        tag = "learned-expansion"
+        layoutParams = LayoutParams(maxOf(dpToPx(20), hideKeyboardKey?.width ?: 0), candidateBarHeightPx() - dpToPx(4))
+        gravity = Gravity.CENTER
+        text = if (learnedSuggestionsExpanded) "‹" else "›"
+        textSize = 24f
+        setTextColor(colors.learnedCandidateText)
+        contentDescription = context.getString(if (learnedSuggestionsExpanded)
+            com.awcjack.dualquickime.R.string.show_fewer_learned_suggestions else
+            com.awcjack.dualquickime.R.string.show_more_learned_suggestions)
+        background = createPillBackground(colors.candidateBarBackground, colors.candidatePillBackgroundPressed)
+        setOnClickListener {
+            performKeyHaptic(this)
+            learnedSuggestionsExpanded = !learnedSuggestionsExpanded
+            setCandidates(allCandidates, learned)
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        if (updateLearnedExpansionWidths(hideKeyboardKey?.measuredWidth ?: 0)) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        }
+    }
+
+    private fun updateLearnedExpansionWidths(hideKeyWidth: Int): Boolean {
+        val row = candidateRow ?: return false
+        var changed = false
+        val targetWidth = maxOf(dpToPx(20), hideKeyWidth)
+        for (index in 0 until row.childCount) {
+            val child = row.getChildAt(index)
+            if (child.tag == "learned-expansion" && child.layoutParams.width != targetWidth) {
+                child.layoutParams = child.layoutParams.apply { width = targetWidth }
+                changed = true
+            }
+        }
+        return changed
+    }
+
     private fun updateCandidatePosition() {
+        pageIndicator?.apply {
+            textSize = 11f
+            contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
+        }
         if (displayedCandidates.size <= 1) return
         val scrollX = candidateScroll?.scrollX ?: 0
         val firstVisible = candidateSlots.indexOfFirst { it.right > scrollX }.coerceAtLeast(0)
@@ -1083,6 +1154,9 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun clearCandidateStrip() {
+        learnedSuggestionsExpanded = false
+        learnedExpansionCandidates = emptyList()
+        learnedCandidateTexts = emptySet()
         displayedCandidates = emptyList()
         candidateRow?.removeAllViews()
         candidateSlots.clear()
@@ -1597,6 +1671,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpecialKey(label: String, weight: Float, onClick: () -> Unit): TextView {
         return TextView(context).apply {
+            if (label == "⌄") {
+                hideKeyboardKey = this
+            }
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight)
             gravity = Gravity.CENTER
             text = label
@@ -2038,9 +2115,10 @@ class KeyboardView @JvmOverloads constructor(
      * @param initialPage The page to display initially (0-based, in terms of grid pages).
      */
     fun showCandidateGrid(allCandidates: List<String>, initialPage: Int = 0) {
+        val learned = learnedCandidateTexts
         isCandidateGridMode = true
         buildKeyboard()
-        candidateGridView?.setCandidates(allCandidates, initialPage)
+        candidateGridView?.setCandidates(allCandidates, initialPage, learned)
     }
 
     /**

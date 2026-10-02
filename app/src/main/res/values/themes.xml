@@ -4,5 +4,12 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="clearHistoryButtonStyle">@style/Widget.HkIme.ClearButton</item>
+    </style>
+    <attr name="clearHistoryButtonStyle" format="reference" />
+
+    <style name="Widget.HkIme.ClearButton" parent="Widget.AppCompat.Button">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textSize">15sp</item>
     </style>
 </resources>

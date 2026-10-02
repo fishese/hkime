@@ -286,6 +286,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         moveView(recentRow, history)
         moveView(findViewById(R.id.btnClearRecentCandidates), history)
+        addLearnedPhraseSettings(history)
         moveSection(R.id.sectionClipboardHeader, other)
         moveSection(R.id.sectionAboutHeader, other)
 
@@ -322,6 +323,48 @@ class SettingsActivity : AppCompatActivity() {
         val description = parent.getChildAt(parent.indexOfChild(control) + 1)
         moveView(control, target)
         moveView(description, target)
+    }
+
+    private fun addLearnedPhraseSettings(container: LinearLayout) {
+        container.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, dp(8))
+            addView(LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                addView(TextView(this@SettingsActivity).apply {
+                    setText(R.string.settings_learned_phrases); textSize = 15f
+                })
+                addView(TextView(this@SettingsActivity).apply {
+                    setText(R.string.settings_learned_phrases_desc); textSize = 12f
+                })
+            })
+            addView(SwitchCompat(this@SettingsActivity).apply {
+                id = R.id.switchLearnedPhrases
+                contentDescription = getString(R.string.settings_learned_phrases)
+                isChecked = ThemeManager.getLearnedPhrasesEnabled(this@SettingsActivity)
+                setOnCheckedChangeListener { _, enabled ->
+                    ThemeManager.setLearnedPhrasesEnabled(this@SettingsActivity, enabled)
+                }
+            })
+        })
+        container.addView(androidx.appcompat.widget.AppCompatButton(this, null, R.attr.clearHistoryButtonStyle).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            id = R.id.btnClearLearnedPhrases
+            setText(R.string.settings_learned_phrases_clear)
+            setOnClickListener {
+                AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle(R.string.settings_learned_phrases_clear)
+                    .setMessage(R.string.settings_learned_phrases_clear_message)
+                    .setPositiveButton(R.string.settings_recent_candidates_clear_confirm_yes) { _, _ ->
+                        com.awcjack.dualquickime.data.LearnedPhraseManager.clearAll(this@SettingsActivity)
+                        Toast.makeText(this@SettingsActivity, R.string.settings_learned_phrases_cleared, Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null).show()
+            }
+        })
     }
 
     private fun addChineseTypoSettings(container: LinearLayout) {

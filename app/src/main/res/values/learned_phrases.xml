@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_learned_phrases">Learn Chinese combinations</string>
+    <string name="settings_learned_phrases_desc">Suggest the next character from combinations you select. Frequent and recent combinations rank higher; learned suggestions appear in teal. Saved only on this device. Off by default. Passwords, identifiers and private fields are excluded. Turning off keeps saved entries.</string>
+    <string name="settings_learned_phrases_clear">Clear learned combinations</string>
+    <string name="settings_learned_phrases_clear_message">Delete all learned combinations? Other dictionaries and recent candidate history will be kept.</string>
+    <string name="settings_learned_phrases_cleared">Learned combinations cleared</string>
+    <string name="learned_candidate_accessibility">%1$s, learned combination</string>
+    <item name="switchLearnedPhrases" type="id" />
+    <item name="btnClearLearnedPhrases" type="id" />
+    <string name="show_more_suggestions">Show more suggestions</string>
+    <string name="show_more_learned_suggestions">Show more learned suggestions</string>
+    <string name="show_fewer_learned_suggestions">Show fewer learned suggestions</string>
+</resources>

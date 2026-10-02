@@ -38,6 +38,14 @@ object ThemeManager {
     private const val KEY_KEY_PREVIEW = "key_preview_enabled"
     private const val KEY_LATIN_SENTENCE_CASE = "latin_sentence_case"
 
+    fun getLearnedPhrasesEnabled(context: Context): Boolean =
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean("learned_phrases_enabled", false)
+
+    fun setLearnedPhrasesEnabled(context: Context, enabled: Boolean) {
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean("learned_phrases_enabled", enabled).apply()
+    }
+
     const val THEME_LIGHT = 0
     const val THEME_DARK = 1
     const val THEME_AUTO = 2
