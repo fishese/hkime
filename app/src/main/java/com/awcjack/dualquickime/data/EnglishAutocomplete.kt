@@ -1,6 +1,7 @@
 package com.awcjack.dualquickime.data
 
 import java.io.InputStream
+import java.util.PriorityQueue
 
 /** Offline English completions, independent of the conservative typo-correction lexicon. */
 class EnglishAutocomplete private constructor(private val words: List<String>) {
@@ -24,19 +25,17 @@ class EnglishAutocomplete private constructor(private val words: List<String>) {
         }
         val prefix = typed.lowercase()
         val index = words.binarySearch(prefix).let { if (it < 0) -it - 1 else it }
-        val matches = ArrayList<String>()
+        val ranking = compareBy<String> { COMMON_WORD_ORDER[it] ?: Int.MAX_VALUE }
+            .thenBy { it.length }.thenBy { it }
+        val matches = PriorityQueue(8, ranking.reversed())
         for (i in index until words.size) {
             val word = words[i]
             if (!word.startsWith(prefix)) break
             if (isRedundantSimplePlural(word, prefix)) continue
-            matches.add(word)
+            if (matches.size < 8) matches.add(word)
+            else if (ranking.compare(word, matches.peek()) < 0) { matches.poll(); matches.add(word) }
         }
-        return matches.sortedWith(
-            compareBy<String> { COMMON_WORD_ORDER[it] ?: Int.MAX_VALUE }
-                .thenBy { it.length }
-                .thenBy { it }
-        )
-            .take(8)
+        return matches.sortedWith(ranking)
             .map { word -> when {
                 typed.all { it.isUpperCase() } -> word.uppercase()
                 typed.first().isUpperCase() && typed.drop(1).all { it.isLowerCase() } ->
