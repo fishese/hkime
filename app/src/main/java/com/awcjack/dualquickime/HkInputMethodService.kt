@@ -43,6 +43,9 @@ import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.NumericPadSpec
 import com.awcjack.dualquickime.data.MethodMembership
 import com.awcjack.dualquickime.data.RecentCandidateManager
+import com.awcjack.dualquickime.data.LearnedPhraseManager
+import com.awcjack.dualquickime.data.LearnedPhraseModel
+import com.awcjack.dualquickime.data.PhraseLearningPolicy
 import com.awcjack.dualquickime.data.SimplexTable
 import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
@@ -95,6 +98,9 @@ class HkInputMethodService : InputMethodService() {
     // Associated phrases mode: when true, candidate bar shows associated phrases
     private var isAssociatedPhrasesMode = false
     private var associatedPhrases = listOf<String>()
+    private var learnedAssociatedCandidates = emptySet<String>()
+    private var learnedPhraseContext = ""
+    private var learnedPhraseAnchor: EditorAnchor? = null
     private var lastCommittedChar = ""
 
     // Track current keyboard mode
@@ -264,8 +270,23 @@ class HkInputMethodService : InputMethodService() {
         return true
     }
 
+    override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(info, restarting)
+        resetLearnedPhraseContext()
+        clearAssociatedPhrases()
+    }
+
+    override fun onFinishInput() {
+        LearnedPhraseManager.flush()
+        resetLearnedPhraseContext()
+        clearAssociatedPhrases()
+        super.onFinishInput()
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        resetLearnedPhraseContext()
+        LearnedPhraseManager.invalidateCache()
         // Invalidate caches to pick up any settings changes
         ThemeManager.invalidateCache()
         keyboardView?.setSwipeCodes(methodMembership.swipeCodes(enabledMethods()))
@@ -433,6 +454,7 @@ class HkInputMethodService : InputMethodService() {
      * to select first — handy for fixing a sentence they just typed.
      */
     private fun handleConvertChinese(direction: KeyboardView.KeyEvent.ConvertDirection) {
+        resetLearnedPhraseContext()
         if (!ChineseConverter.isAvailable()) return
 
         // Commit any pending composition first so it isn't lost.
@@ -496,6 +518,7 @@ class HkInputMethodService : InputMethodService() {
     private fun handleLetter(char: Char) {
         // A new letter accepts the underlined swipe choice, then starts fresh.
         confirmPendingSwipeChoice()
+        if (composition.rawKeys.isEmpty() && !anchorMatches(learnedPhraseAnchor)) resetLearnedPhraseContext()
         swipeEnglishWords = emptyList()
         swipeChineseCodes = emptyList()
         if (isEmailSuggestionsMode) {
@@ -556,6 +579,7 @@ class HkInputMethodService : InputMethodService() {
     ) {
         if (delta == 0) return
         if (currentInputConnection !== connection) return
+        resetLearnedPhraseContext()
         pendingSwipeChoice = false
         suppressedPunctuationSpaceAnchor = null
         finishPendingPunctuationSpace()
@@ -647,6 +671,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleSwipeDelete() {
+        resetLearnedPhraseContext()
         // A delete gesture drops the assumed choice instead of accepting it.
         pendingSwipeChoice = false
         if (isPasswordField) return
@@ -725,6 +750,7 @@ class HkInputMethodService : InputMethodService() {
         }
         if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            resetLearnedPhraseContext()
             // Finish in place; navigation must not insert a held space or move the caret back.
             spaceDeferredUntilNextLatin = false
             currentInputConnection?.finishComposingText()
@@ -756,6 +782,10 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun invalidateEditorAnchors() {
+        if (learnedPhraseAnchor != null && composition.rawKeys.isEmpty() && !anchorMatches(learnedPhraseAnchor)) {
+            resetLearnedPhraseContext()
+            if (isAssociatedPhrasesMode) clearAssociatedPhrases()
+        }
         // Read current editor state instead of trusting delayed selection callbacks from our own edits.
         if (pendingPunctuationSpace && !anchorMatches(pendingPunctuationSpaceAnchor)) {
             finishPendingPunctuationSpace()
@@ -894,6 +924,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleBackspace() {
+        resetLearnedPhraseContext()
         if (pendingLatinSpace) {
             resolvePendingLatinSpace(keep = false)
             spaceDeferredUntilNextLatin = false
@@ -1014,6 +1045,7 @@ class HkInputMethodService : InputMethodService() {
         }
 
         finishLatinOrDropDeferredSpace()
+        resetLearnedPhraseContext()
         dispatchEditorActionOrEnter()
     }
 
@@ -1054,12 +1086,13 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun commitCandidate(text: String) {
+        val visibleComposition = if (pendingSwipeChoice) {
+            composition.candidates.firstOrNull().orEmpty().let {
+                (if (LatinSpaceCommit.keptAsLatin(it)) deferredLatinPrefix() else "") + it
+            }
+        } else if (composition.rawKeys.isNotEmpty()) deferredLatinPrefix() + getDisplayKeys(composition.rawKeys)
+        else ""
         pendingSwipeChoice = false
-        // Record usage for recent candidates feature
-        if (!isPasswordField && ThemeManager.getRecentCandidatesEnabled(this) &&
-            composition.rawKeys.isNotEmpty()) {
-            RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
-        }
         val keptLatin = LatinSpaceCommit.keptAsLatin(text)
         val latinWord = EnglishSuggestions.isLatinWord(text)
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString().orEmpty()
@@ -1071,10 +1104,14 @@ class HkInputMethodService : InputMethodService() {
         spaceDeferredUntilNextLatin = false
         val needsSpace = candidateNeedsSpace(text)
         lastSelectedText = punctSpace + leadingSpace + text + if (needsSpace) " " else ""
-        commitText(lastSelectedText)
+        val committed = commitChineseCandidate(text, lastSelectedText, visibleComposition)
+        if (committed && canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this) &&
+            composition.rawKeys.isNotEmpty()) {
+            RecentCandidateManager.recordUsage(this, composition.rawKeys, text)
+        }
         clearComposition()
         // Associated phrases follow Chinese selections, not Latin autocomplete.
-        if (!latinWord) showAssociatedPhrases(text.lastOrNull()?.toString() ?: "")
+        if (committed && !latinWord) showAssociatedPhrases(LearnedPhraseModel.characters(text).lastOrNull().orEmpty())
     }
 
     private fun getDisplayKeys(text: String): String {
@@ -1094,8 +1131,7 @@ class HkInputMethodService : InputMethodService() {
     private fun confirmPendingSwipeChoice() {
         if (!pendingSwipeChoice) return
         val choice = composition.candidates.firstOrNull()
-        pendingSwipeChoice = false
-        if (choice != null) commitCandidate(choice)
+        if (choice != null) commitCandidate(choice) else pendingSwipeChoice = false
     }
 
     /**
@@ -1115,6 +1151,7 @@ class HkInputMethodService : InputMethodService() {
             }
             return false
         }
+        resetLearnedPhraseContext()
         if (LatinSpaceCommit.restoreDeferredSpace(
                 restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, true)) {
             spaceDeferredUntilNextLatin = false
@@ -1150,8 +1187,37 @@ class HkInputMethodService : InputMethodService() {
         if (!finishEnglishComposition()) spaceDeferredUntilNextLatin = false
     }
 
-    private fun commitText(text: String) {
-        currentInputConnection?.commitText(text, 1)
+    private fun commitText(text: String): Boolean {
+        resetLearnedPhraseContext()
+        return currentInputConnection?.commitText(text, 1) == true
+    }
+
+    private fun resetLearnedPhraseContext() {
+        learnedPhraseContext = ""
+        learnedPhraseAnchor = null
+    }
+
+    private fun canPersonalize(): Boolean = PhraseLearningPolicy.allows(currentInputEditorInfo) &&
+        !isPasswordField && !isEmailField && !isUsernameField
+
+    private fun allowsPhraseLearning(): Boolean = ThemeManager.getLearnedPhrasesEnabled(this) && canPersonalize()
+
+    /** Only our own successful Chinese selections train the model, never surrounding app text. */
+    private fun commitChineseCandidate(selected: String, committed: String = selected, visibleComposition: String = ""): Boolean {
+        val connection = currentInputConnection
+        val before = connection?.getTextBeforeCursor(64 + visibleComposition.length, 0)?.toString()
+        val prefix = before?.takeIf { it.endsWith(visibleComposition) }?.dropLast(visibleComposition.length)?.takeLast(64)
+        val cursor = editorCursor()?.minus(visibleComposition.length)
+        val previous = if (learnedPhraseAnchor?.matches(cursor, connection?.getSelectedText(0)?.toString(), prefix) == true)
+            learnedPhraseContext else ""
+        val canLearn = allowsPhraseLearning() && committed == selected && LearnedPhraseModel.isChinese(selected)
+        val success = commitText(committed)
+        if (success && canLearn) {
+            LearnedPhraseManager.recordAppend(this, previous, selected)
+            learnedPhraseContext = LearnedPhraseModel.tail(previous + selected)
+            learnedPhraseAnchor = captureEditorAnchor()
+        }
+        return success
     }
 
     private fun insertSpaceAfterHalfPunctuation(nextText: String) {
@@ -1269,10 +1335,12 @@ class HkInputMethodService : InputMethodService() {
         // The original keyboard indexes related words by the full preceding
         // prefix as well as one character (e.g. 抗病 -> 毒). Prefer that order.
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
-        val phrases = AssociatedPhraseSuggestions.merge(
+        val learned = if (allowsPhraseLearning() && anchorMatches(learnedPhraseAnchor))
+            LearnedPhraseManager.suggestions(this, learnedPhraseContext) else emptyList()
+        val phrases = (learned + AssociatedPhraseSuggestions.merge(
             beforeCursor, character, curatedAssociatedPhrases,
             mckRelatedPhrases::lookup, associatedPhrasesTable::lookup
-        )
+        )).distinct()
         if (phrases.isEmpty()) {
             clearAssociatedPhrases()
             return
@@ -1281,6 +1349,7 @@ class HkInputMethodService : InputMethodService() {
         // Enter associated phrases mode
         isAssociatedPhrasesMode = true
         associatedPhrases = phrases
+        learnedAssociatedCandidates = learned.toSet()
         lastCommittedChar = character
 
         updateAssociatedPhrasesView()
@@ -1292,6 +1361,7 @@ class HkInputMethodService : InputMethodService() {
     private fun clearAssociatedPhrases() {
         isAssociatedPhrasesMode = false
         associatedPhrases = emptyList()
+        learnedAssociatedCandidates = emptySet()
         lastCommittedChar = ""
         keyboardView?.clearCandidates()
     }
@@ -1300,10 +1370,14 @@ class HkInputMethodService : InputMethodService() {
      * Update the candidate bar to show associated phrases.
      */
     private fun updateAssociatedPhrasesView() {
+        if (learnedAssociatedCandidates.isNotEmpty() && !allowsPhraseLearning()) {
+            showAssociatedPhrases(lastCommittedChar)
+            return
+        }
         keyboardView?.let { view ->
             // Clear composition display since we're showing associated phrases
             view.setComposition("", "")
-            view.setCandidates(associatedPhrases)
+            view.setCandidates(associatedPhrases, learnedAssociatedCandidates)
         }
     }
 
@@ -1314,9 +1388,9 @@ class HkInputMethodService : InputMethodService() {
         spaceDeferredUntilNextLatin = false
         insertSpaceAfterHalfPunctuation(phrase)
         lastSelectedText = phrase
-        commitText(phrase)
+        commitChineseCandidate(phrase)
         // Show associated phrases for the last character of the selected phrase
-        val lastChar = phrase.lastOrNull()?.toString() ?: ""
+        val lastChar = LearnedPhraseModel.characters(phrase).lastOrNull().orEmpty()
         showAssociatedPhrases(lastChar)
     }
 
@@ -1433,7 +1507,7 @@ class HkInputMethodService : InputMethodService() {
                 else EnglishSuggestions.completions(typed)
             candidates = (contractions + candidates + swipeEnglishWords + english).distinct()
         }
-        if (ThemeManager.getRecentCandidatesEnabled(this)) {
+        if (canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this)) {
             candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
         }
 
@@ -1450,7 +1524,7 @@ class HkInputMethodService : InputMethodService() {
             val chineseFixes = methodMembership.recoverCodes(lookupKeys, recoveryMethods)
                 .flatMap { it.typedCandidates() }
             candidates = mergeTypoCandidates(getDisplayKeys(rawKeys), candidates, englishFixes + chineseFixes) {
-                if (ThemeManager.getRecentCandidatesEnabled(this))
+                if (canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this))
                     RecentCandidateManager.reorderCandidates(this, lookupKeys, it) else it
             }
         }
@@ -1547,6 +1621,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        LearnedPhraseManager.flush()
         super.onDestroy()
         // Unregister clipboard listener to avoid memory leaks
         clipboardManager?.removePrimaryClipChangedListener(clipboardListener)

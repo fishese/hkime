@@ -32,6 +32,7 @@ class CandidateGridView @JvmOverloads constructor(
     private lateinit var colors: KeyboardColors
 
     private var allCandidates: List<String> = emptyList()
+    private var learnedCandidates = emptySet<String>()
     private var currentPage: Int = 0
 
     // Grid layout constants
@@ -67,8 +68,9 @@ class CandidateGridView @JvmOverloads constructor(
      * @param candidates All candidates to display.
      * @param initialPage The page to show initially (0-based).
      */
-    fun setCandidates(candidates: List<String>, initialPage: Int = 0) {
+    fun setCandidates(candidates: List<String>, initialPage: Int = 0, learned: Set<String> = emptySet()) {
         allCandidates = candidates
+        learnedCandidates = learned.toSet()
         currentPage = initialPage.coerceIn(0, maxOf(0, totalPages - 1))
         buildView()
     }
@@ -146,7 +148,9 @@ class CandidateGridView @JvmOverloads constructor(
                 charCount <= 4 -> 15f
                 else -> 12f
             }
-            setTextColor(colors.candidateText)
+            setTextColor(if (candidate in learnedCandidates) colors.learnedCandidateText else colors.candidateText)
+            contentDescription = if (candidate in learnedCandidates)
+                context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
             background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
             elevation = dpToPx(1).toFloat()
             // Single line, scale text to fit

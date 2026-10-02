@@ -33,6 +33,10 @@ data class KeyboardColors(
     val clipboardDeleteIcon: Int,
     val clipboardEmptyText: Int
 ) {
+    val learnedCandidateText: Int get() =
+        if (androidx.core.graphics.ColorUtils.calculateLuminance(candidatePillBackground) < 0.5)
+            0xFF80CBC4.toInt() else 0xFF00796B.toInt()
+
     // Convenience property for accent color (same as compositionText)
     val accentColor: Int get() = compositionText
 }

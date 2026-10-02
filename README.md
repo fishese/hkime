@@ -46,6 +46,14 @@ A built-in calculator handles basic **+ − × ÷** arithmetic. Results can be i
 - Long-press number keys 0–9 to insert saved phrase shortcuts.
 - Clipboard history can be disabled or cleared in Settings.
 
+### Learned Chinese combinations
+
+Enable **Other → History → Learn Chinese combinations** to suggest the next character from Chinese sequences you select. For example, after selecting **落樓話我知**, a later **落** can suggest **樓**, then **落樓** can suggest **話**, and so on. Learned suggestions appear in teal in both the candidate strip and expanded grid.
+
+More frequent combinations rank higher, with gradual decay when unused (a 30-day half-life). Longer matching context takes priority. The option is off by default; turning it off stops learning and learned suggestions while keeping saved entries. **Clear learned combinations** deletes them separately from recent candidate history and custom dictionaries.
+
+Learning uses successful Chinese candidate selections in the current continuous typing session. It does not import pasted text or existing app text. Passwords, usernames, email addresses, URLs, names, addresses, numeric fields, credential hints and fields requesting no personalized learning are excluded. All learned entries stay in private on-device storage. See [the implementation notes](docs/LEARNED_COMBINATIONS.md).
+
 ### Simplified ⇄ Traditional conversion
 
 The **簡⇄繁** utility converts selected Chinese text, or the most recent sentence when nothing is selected, using offline OpenCC Hong Kong mappings. Tap for automatic direction detection, or long-press to choose **繁→簡** or **簡→繁** explicitly.

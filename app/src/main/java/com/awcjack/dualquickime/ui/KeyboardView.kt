@@ -163,6 +163,7 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateRow: LinearLayout? = null
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
+    private var learnedCandidateTexts = emptySet<String>()
     private var symbolUtilBar: View? = null
     private var symbolCandidateBar: View? = null
     private var pageIndicator: TextView? = null
@@ -1040,20 +1041,24 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     /** Show all choices in a continuously scrollable strip. */
-    fun setCandidates(candidates: List<String>) {
+    fun setCandidates(candidates: List<String>, learned: Set<String> = emptySet()) {
         val visibleCandidates = sanitizeCandidates(candidates)
         if (isSymbolMode && symbolCandidateBar != null) {
             symbolUtilBar?.visibility = View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
         }
         hideNumberRow()
-        if (displayedCandidates != visibleCandidates) {
+        if (displayedCandidates != visibleCandidates || learnedCandidateTexts != learned) {
+            learnedCandidateTexts = learned.toSet()
             displayedCandidates = visibleCandidates
             candidateRow?.removeAllViews()
             candidateSlots.clear()
             visibleCandidates.forEach { candidate ->
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
+                    setTextColor(if (candidate in learned) colors.learnedCandidateText else colors.candidateText)
+                    contentDescription = if (candidate in learned)
+                        context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
                     visibility = View.VISIBLE
                     setOnClickListener {
                         performKeyHaptic(this)
@@ -1083,6 +1088,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun clearCandidateStrip() {
+        learnedCandidateTexts = emptySet()
         displayedCandidates = emptyList()
         candidateRow?.removeAllViews()
         candidateSlots.clear()
@@ -2038,9 +2044,10 @@ class KeyboardView @JvmOverloads constructor(
      * @param initialPage The page to display initially (0-based, in terms of grid pages).
      */
     fun showCandidateGrid(allCandidates: List<String>, initialPage: Int = 0) {
+        val learned = learnedCandidateTexts
         isCandidateGridMode = true
         buildKeyboard()
-        candidateGridView?.setCandidates(allCandidates, initialPage)
+        candidateGridView?.setCandidates(allCandidates, initialPage, learned)
     }
 
     /**

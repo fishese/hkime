@@ -20,11 +20,17 @@
 
 ## Unreleased
 
+- Add optional Chinese continuation learning, including chains such as 落 → 樓 → 話 → 我 → 知.
+- Rank learned continuations by matching context and frequency with a 30-day half-life; cap private on-device storage.
+- Display learned suggestions in teal in the candidate strip and grid, with an accessible learned label.
+- Add enable/disable and independent clear controls under Other → History, in English and Traditional Chinese.
+- Exclude passwords, usernames, email/URL/name/address fields, numeric inputs, credential hints and editors requesting no personalized learning. Apply the same exclusions to recent candidate history.
+
 - Expand offline English suggestions to bounded nearby-key, missing/extra-letter and transposition matching, including typo-tolerant unfinished words.
 - Add `sounds` to the English lexicon and regression cases for `oftrm`, `sohnds` and `nfo`.
 - Add independently switchable Cantonese and Cangjie code recovery; leave Quick recovery disabled.
 - Keep exact single characters and complete English words ahead of recovery, but allow recovered characters ahead of phrase shorthand.
-- Suppress new typo recovery in password, email, username, URL and no-suggestions fields, and during swipe composition.
+- Suppress new typo recovery in password, email, username, URL fields, and during swipe composition; ordinary NO_SUGGESTIONS text fields remain supported as of 0.3.51.
 
 ## 0.3.48 — 2026-09-29
 
