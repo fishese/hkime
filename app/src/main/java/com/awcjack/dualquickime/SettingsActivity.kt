@@ -349,7 +349,9 @@ class SettingsActivity : AppCompatActivity() {
                 }
             })
         })
-        container.addView(Button(this).apply {
+        container.addView(androidx.appcompat.widget.AppCompatButton(this, null, R.attr.clearHistoryButtonStyle).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             id = R.id.btnClearLearnedPhrases
             setText(R.string.settings_learned_phrases_clear)
             setOnClickListener {

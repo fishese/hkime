@@ -49,3 +49,5 @@ Manual acceptance on a phone:
 5. Type in password, username and private fields: no learned suggestions or saved associations. Switch back to an ordinary note and verify it learns again.
 
 Automated validation: `testDebugUnitTest assembleDebug --offline` passed with 212 tests and zero failures. Signed release packaging and release lint passed. Version 0.3.52 (code 58) was installed over 0.3.51 on the Samsung test phone; package metadata was verified. The phone currently selects Mixed Chinese Keyboard, so switch to HK IME before testing this build. Interactive phrase-learning acceptance remains for the user to test.
+
+Phone follow-up: the user confirmed learning works in both a search field and Google Keep. The observed Keep flags (`inputType=0xac001`, `imeOptions=0x54000001`) do not request no personalized learning. There is no minimum repetition threshold: a selected transition is learned on first use and gains priority on reuse.

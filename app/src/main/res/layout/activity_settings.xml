@@ -432,10 +432,8 @@
                     android:id="@+id/btnClearRecentCandidates"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
                     android:text="@string/settings_recent_candidates_clear"
-                    android:textSize="15sp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    style="@style/Widget.HkIme.ClearButton" />
 
                 <LinearLayout
                     android:id="@+id/latinSentenceCaseRow"
@@ -1017,10 +1015,8 @@
                     android:id="@+id/btnClearClipboard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
                     android:text="@string/settings_clipboard_clear"
-                    android:textSize="15sp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    style="@style/Widget.HkIme.ClearButton" />
 
             </LinearLayout>
 

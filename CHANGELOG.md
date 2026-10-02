@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## 0.3.53
+
+- Use the same filled button style for clearing recent candidates, clipboard history and learned combinations.
+
 ## 0.3.52
 
 - Add optional Chinese continuation learning, including chains such as 落 → 樓 → 話 → 我 → 知.
