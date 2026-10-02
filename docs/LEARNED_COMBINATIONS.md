@@ -1,6 +1,6 @@
 # Learned Chinese combinations
 
-Branch: `feature/learned-phrase-suggestions`, based on local `main` at `fd83fca` (the accepted typo and spacing changes).
+Developed on `feature/learned-phrase-suggestions` from `fd83fca` (the accepted typo and spacing changes). Merged into local `main` after phone acceptance of signed 0.3.56.
 
 ## User behavior
 
@@ -51,3 +51,7 @@ Manual acceptance on a phone:
 Automated validation: `testDebugUnitTest assembleDebug --offline` passed with 212 tests and zero failures. Signed release packaging and release lint passed. Version 0.3.52 (code 58) was installed over 0.3.51 on the Samsung test phone; package metadata was verified. The phone currently selects Mixed Chinese Keyboard, so switch to HK IME before testing this build. Interactive phrase-learning acceptance remains for the user to test.
 
 Phone follow-up: the user confirmed learning works in both a search field and Google Keep. The observed Keep flags (`inputType=0xac001`, `imeOptions=0x54000001`) do not request no personalized learning. There is no minimum repetition threshold: a selected transition is learned on first use and gains priority on reuse.
+
+## Release acceptance
+
+The user confirmed signed 0.3.56 works well on the Samsung phone, including the narrower expand/collapse control. The release retains version 0.3.56 (code 62) and the tested behavior. Main contains the complete feature history and its documentation.
