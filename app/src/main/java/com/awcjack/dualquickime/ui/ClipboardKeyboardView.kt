@@ -52,6 +52,8 @@ class ClipboardKeyboardView @JvmOverloads constructor(
     private var emptyStateView: LinearLayout? = null
     private var emptyIconView: TextView? = null
     private var emptyMessageView: TextView? = null
+    private var storageMessage: TextView? = null
+    private val storageListener: () -> Unit = { refreshContent() }
 
     // Tab icons
     private val tabIcons = listOf("📋", "📌")  // All, Pinned
@@ -140,6 +142,18 @@ class ClipboardKeyboardView @JvmOverloads constructor(
             clipboardScrollView?.addView(clipboardContainer)
             addView(clipboardScrollView)
             addView(emptyStateView)
+            storageMessage = TextView(context).apply {
+                layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.TOP)
+                setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+                textSize = 12f
+                setTextColor(colors.clipboardEmptyText)
+                setBackgroundColor(colors.keyboardBackground)
+                setOnClickListener {
+                    ClipboardHistoryManager.retryStorage(context)
+                    refreshContent()
+                }
+            }
+            addView(storageMessage)
 
             // Populate with initial tab
             populateClipboard(currentTab)
@@ -154,6 +168,15 @@ class ClipboardKeyboardView @JvmOverloads constructor(
             0 -> ClipboardHistoryManager.getHistory(context)
             1 -> ClipboardHistoryManager.getPinnedItems(context)
             else -> ClipboardHistoryManager.getHistory(context)
+        }
+        val state = ClipboardHistoryManager.storageState
+        val showStatus = state != ClipboardHistoryManager.StorageState.ENCRYPTED
+        storageMessage?.apply {
+            visibility = if (showStatus) View.VISIBLE else View.GONE
+            setText(if (state == ClipboardHistoryManager.StorageState.MEMORY_ONLY) R.string.clipboard_storage_temporary else R.string.clipboard_storage_loading)
+        }
+        clipboardScrollView?.layoutParams = (clipboardScrollView?.layoutParams as? FrameLayout.LayoutParams)?.apply {
+            topMargin = if (showStatus) dpToPx(40) else 0
         }
 
         if (items.isEmpty()) {
@@ -486,7 +509,14 @@ class ClipboardKeyboardView @JvmOverloads constructor(
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        ClipboardHistoryManager.addListener(storageListener)
+        refreshContent()
+    }
+
     override fun onDetachedFromWindow() {
+        ClipboardHistoryManager.removeListener(storageListener)
         super.onDetachedFromWindow()
         backspaceRepeatRunnable?.let { backspaceHandler.removeCallbacks(it) }
         backspaceRepeatRunnable = null

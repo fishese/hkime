@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings_learned_phrases">學習常用中文組合</string>
-    <string name="settings_learned_phrases_desc">根據你選過的組合建議下一個字。常用及最近使用的組合會排得較前，學習建議以青綠色顯示。只儲存在此裝置，預設關閉。密碼、帳號及私人欄位不會用作學習。關閉後仍保留已儲存組合。</string>
+    <string name="settings_learned_phrases_desc">學習所選組合，以青綠色建議下一字，按常用及最近使用排序。只存於此裝置，預設關閉；不學習密碼、帳號或私人欄位。關閉後保留已存組合。</string>
     <string name="settings_learned_phrases_clear">清除已學習組合</string>
     <string name="settings_learned_phrases_clear_message">刪除所有已學習組合？其他字典及最近候選字紀錄將會保留。</string>
     <string name="settings_learned_phrases_cleared">已清除學習組合</string>

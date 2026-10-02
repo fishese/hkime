@@ -772,6 +772,21 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private val clipboardStorageListener: () -> Unit = {
+        findViewById<SwitchCompat>(R.id.switchClipboardEnabled)?.isChecked = ClipboardHistoryManager.isEnabled(this)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ClipboardHistoryManager.addListener(clipboardStorageListener)
+        clipboardStorageListener()
+    }
+
+    override fun onStop() {
+        ClipboardHistoryManager.removeListener(clipboardStorageListener)
+        super.onStop()
+    }
+
     private fun setupVersionInfo() {
         findViewById<TextView>(R.id.textVersionInfo).text =
             getString(R.string.version_info, BuildConfig.VERSION_NAME)

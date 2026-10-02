@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clipboard_storage_loading">正在載入剪貼簿…</string>
+    <string name="clipboard_storage_temporary">剪貼簿紀錄暫存於記憶體。按此重試安全儲存。</string>
+</resources>
