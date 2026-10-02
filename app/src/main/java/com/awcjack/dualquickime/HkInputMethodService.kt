@@ -23,6 +23,7 @@ import com.awcjack.dualquickime.data.AssociatedPhraseSuggestions
 import com.awcjack.dualquickime.data.CuratedAssociatedPhrases
 import com.awcjack.dualquickime.data.CinParser
 import com.awcjack.dualquickime.data.ClipboardHistoryManager
+import com.awcjack.dualquickime.data.ClipboardCapture
 import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.SwipeDeletion
 import com.awcjack.dualquickime.data.CompositionState
@@ -51,6 +52,11 @@ import com.awcjack.dualquickime.data.ShortcutPhraseManager
 import com.awcjack.dualquickime.theme.ThemeManager
 import com.awcjack.dualquickime.ui.KeyboardView
 import java.util.Locale
+import android.os.Handler
+import android.os.Looper
+import com.awcjack.dualquickime.data.CandidateWorker
+import com.awcjack.dualquickime.data.rankCandidates
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Quick (速成) Input Method Service for Android.
@@ -66,12 +72,19 @@ import java.util.Locale
  */
 class HkInputMethodService : InputMethodService() {
 
-    private lateinit var simplexTable: SimplexTable
+    private val candidateWorker = CandidateWorker()
+    private val candidateMain = Handler(Looper.getMainLooper())
+    private val candidateRevision = AtomicLong()
+    private var resourcesReady = false
+    private var destroyed = false
+    private var lookupPending = false
+    private var associatedAnchor: EditorAnchor? = null
+    private var simplexTable = SimplexTable(emptyList())
     private lateinit var mixedDictionary: MixedDictionary
-    private lateinit var methodMembership: MethodMembership
+    private var methodMembership = MethodMembership(emptySequence())
     private var englishAutocomplete = EnglishAutocomplete.EMPTY
-    private lateinit var englishTypoMatcher: EnglishTypoMatcher
-    private lateinit var associatedPhrasesTable: AssociatedPhrasesTable
+    private var englishTypoMatcher = EnglishTypoMatcher(emptyList(), emptySet())
+    private var associatedPhrasesTable = AssociatedPhrasesTable.EMPTY
     private var curatedAssociatedPhrases = CuratedAssociatedPhrases.EMPTY
     private lateinit var mckRelatedPhrases: MckRelatedPhrases
     private var composition = CompositionState.EMPTY
@@ -134,21 +147,31 @@ class HkInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
-        // Load simplex data based on user setting (extended by default)
-        loadSimplexTable()
         mixedDictionary = MixedDictionary(assets)
-        methodMembership = assets.open("method-membership.tsv").bufferedReader().use { membership ->
-            assets.open("method-phrase-overrides.tsv").bufferedReader().use { overrides ->
-                MethodMembership(membership.lineSequence(), overrides.lineSequence())
+        mckRelatedPhrases = MckRelatedPhrases(assets)
+        currentCharsetExtended = ThemeManager.getUseExtendedCharset(this)
+        val filename = ThemeManager.getSimplexFilename(this)
+        candidateWorker.executor.execute {
+            simplexTable = readSimplexTable(filename)
+            methodMembership = runCatching {
+                assets.open("method-membership.tsv").bufferedReader().use { membership ->
+                    assets.open("method-phrase-overrides.tsv").bufferedReader().use { overrides ->
+                        MethodMembership(membership.lineSequence(), overrides.lineSequence())
+                    }
+                }
+            }.getOrElse { MethodMembership(emptySequence()) }
+            englishAutocomplete = runCatching { EnglishAutocomplete.parse(assets.open("english-autocomplete.txt")) }
+                .getOrDefault(EnglishAutocomplete.EMPTY)
+            englishTypoMatcher = EnglishTypoMatcher(englishAutocomplete.allWords(), EnglishSuggestions.typoWords())
+            loadAssociatedPhrasesTable()
+            candidateMain.post {
+                if (!destroyed) {
+                    resourcesReady = true
+                    keyboardView?.setSwipeWords(englishAutocomplete.allWords())
+                    refreshSwipeVocabulary()
+                }
             }
         }
-        englishAutocomplete = runCatching {
-            EnglishAutocomplete.parse(assets.open("english-autocomplete.txt"))
-        }.getOrDefault(EnglishAutocomplete.EMPTY)
-        englishTypoMatcher = EnglishTypoMatcher(englishAutocomplete.allWords(), EnglishSuggestions.typoWords())
-        mckRelatedPhrases = MckRelatedPhrases(assets)
-        // Load associated phrases table
-        loadAssociatedPhrasesTable()
 
         // Register clipboard listener to capture system clipboard changes
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -158,13 +181,29 @@ class HkInputMethodService : InputMethodService() {
     /**
      * Load the simplex table based on user's character set preference.
      */
+    private fun readSimplexTable(filename: String): SimplexTable = runCatching {
+        CinParser().parse(assets.open(filename))
+    }.getOrElse { SimplexTable(emptyList()) }
+
     private fun loadSimplexTable() {
+        currentCharsetExtended = ThemeManager.getUseExtendedCharset(this)
         val filename = ThemeManager.getSimplexFilename(this)
-        try {
-            simplexTable = CinParser().parse(assets.open(filename))
-        } catch (e: Exception) {
-            // Fallback to empty table if loading fails
-            simplexTable = SimplexTable(emptyList())
+        candidateWorker.executor.execute { simplexTable = readSimplexTable(filename) }
+    }
+
+    private fun refreshSwipeVocabulary() {
+        if (!resourcesReady || !ThemeManager.getSwipeTyping(this)) {
+            keyboardView?.setSwipeCodes(emptySet())
+            return
+        }
+        val methods = enabledMethods()
+        val view = keyboardView
+        candidateWorker.executor.execute {
+            val codes = methodMembership.swipeCodes(methods)
+            candidateMain.post {
+                if (!destroyed && view === keyboardView && methods == enabledMethods() && ThemeManager.getSwipeTyping(this))
+                    view?.setSwipeCodes(codes)
+            }
         }
     }
 
@@ -200,23 +239,17 @@ class HkInputMethodService : InputMethodService() {
     private fun handleSystemClipboardChange() {
         if (!ClipboardHistoryManager.isEnabled(this)) return
 
-        val clip = clipboardManager?.primaryClip ?: return
-        if (clip.itemCount == 0) return
-
-        val item = clip.getItemAt(0)
-        val text = item.coerceToText(this)?.toString()
-
-        if (!text.isNullOrBlank()) {
-            // Best-effort exclusion when the active editor is a password field.
-            // Android does not reveal the source field of an external copy.
+        runCatching {
+            val clip = clipboardManager?.primaryClip ?: return
+            val text = ClipboardCapture.text(clip) ?: return
             ClipboardHistoryManager.addItem(this, text, currentInputEditorInfo)
         }
     }
 
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this).apply {
-            setSwipeWords(englishAutocomplete.allWords())
-            setSwipeCodes(methodMembership.swipeCodes(enabledMethods()))
+            setSwipeWords(if (resourcesReady) englishAutocomplete.allWords() else emptyList())
+            setSwipeCodes(emptySet())
             setOnKeyPressListener { event ->
                 handleKeyEvent(event)
             }
@@ -247,6 +280,7 @@ class HkInputMethodService : InputMethodService() {
             }
             setOnCandidateRefreshRequestedListener {
                 // Refresh candidate view when returning from symbol/emoji/clipboard/grid mode
+                invalidateEditorAnchors()
                 updateCandidateView()
             }
             setOnMaskToggleListener {
@@ -254,6 +288,7 @@ class HkInputMethodService : InputMethodService() {
                 updateCandidateView()
             }
         }
+        refreshSwipeVocabulary()
         return keyboardView!!
     }
 
@@ -271,12 +306,24 @@ class HkInputMethodService : InputMethodService() {
     }
 
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
+        invalidateCandidateWork()
         super.onStartInput(info, restarting)
+        isPasswordField = isPasswordInputField(info)
+        isEmailField = isTextVariation(info, InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS)
+        isUsernameField = isUsernameInputField(info)
+        pendingSymbol = null
+        spaceCursorInputConnection = null
+        clearPendingPunctuationSpaceState()
+        suppressedPunctuationSpaceAnchor = null
+        spaceDeferredUntilNextLatin = false
+        clearComposition()
+        clearEmailSuggestions()
         resetLearnedPhraseContext()
         clearAssociatedPhrases()
     }
 
     override fun onFinishInput() {
+        invalidateCandidateWork()
         LearnedPhraseManager.flush()
         resetLearnedPhraseContext()
         clearAssociatedPhrases()
@@ -284,15 +331,12 @@ class HkInputMethodService : InputMethodService() {
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        invalidateCandidateWork()
         super.onStartInputView(info, restarting)
         resetLearnedPhraseContext()
-        LearnedPhraseManager.invalidateCache()
         // Invalidate caches to pick up any settings changes
         ThemeManager.invalidateCache()
-        keyboardView?.setSwipeCodes(methodMembership.swipeCodes(enabledMethods()))
-        ClipboardHistoryManager.invalidateCache()
-        RecentCandidateManager.invalidateCache()
-        CustomDictionaryManager.invalidateCache()
+        refreshSwipeVocabulary()
 
         // Check if character set setting changed - reload if needed
         val useExtended = ThemeManager.getUseExtendedCharset(this)
@@ -564,12 +608,12 @@ class HkInputMethodService : InputMethodService() {
         letterCases.clear()
         repeat(event.code.length) { letterCases.add(false) }
         updateComposition(event.code)
-        val assumed = composition.candidates.firstOrNull()
-        val display = assumed ?: event.code
+        val display = event.code
+        composition = composition.copy(candidates = listOf(display))
         pendingLatinSpace = false
         currentInputConnection?.setComposingText(
             (if (LatinSpaceCommit.keptAsLatin(display)) deferredLatinPrefix() else "") + display, 1)
-        pendingSwipeChoice = assumed != null
+        pendingSwipeChoice = true
     }
 
     private fun moveCursorBy(
@@ -782,6 +826,7 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun invalidateEditorAnchors() {
+        if (isAssociatedPhrasesMode && associatedAnchor != null && !anchorMatches(associatedAnchor)) clearAssociatedPhrases()
         if (learnedPhraseAnchor != null && composition.rawKeys.isEmpty() && !anchorMatches(learnedPhraseAnchor)) {
             resetLearnedPhraseContext()
             if (isAssociatedPhrasesMode) clearAssociatedPhrases()
@@ -1204,13 +1249,14 @@ class HkInputMethodService : InputMethodService() {
 
     /** Only our own successful Chinese selections train the model, never surrounding app text. */
     private fun commitChineseCandidate(selected: String, committed: String = selected, visibleComposition: String = ""): Boolean {
+        val canLearn = allowsPhraseLearning() && committed == selected && LearnedPhraseModel.isChinese(selected)
+        if (!canLearn) return commitText(committed)
         val connection = currentInputConnection
         val before = connection?.getTextBeforeCursor(64 + visibleComposition.length, 0)?.toString()
         val prefix = before?.takeIf { it.endsWith(visibleComposition) }?.dropLast(visibleComposition.length)?.takeLast(64)
         val cursor = editorCursor()?.minus(visibleComposition.length)
         val previous = if (learnedPhraseAnchor?.matches(cursor, connection?.getSelectedText(0)?.toString(), prefix) == true)
             learnedPhraseContext else ""
-        val canLearn = allowsPhraseLearning() && committed == selected && LearnedPhraseModel.isChinese(selected)
         val success = commitText(committed)
         if (success && canLearn) {
             LearnedPhraseManager.recordAppend(this, previous, selected)
@@ -1327,38 +1373,40 @@ class HkInputMethodService : InputMethodService() {
      * This is called after committing a Chinese character.
      */
     private fun showAssociatedPhrases(character: String) {
-        if (character.isEmpty()) {
-            clearAssociatedPhrases()
-            return
-        }
-
-        // The original keyboard indexes related words by the full preceding
-        // prefix as well as one character (e.g. 抗病 -> 毒). Prefer that order.
-        val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        if (character.isEmpty()) { clearAssociatedPhrases(); return }
+        val revision = candidateRevision.incrementAndGet()
+        val editor = currentInputConnection
+        val info = currentInputEditorInfo
+        val beforeCursor = editor?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val learned = if (allowsPhraseLearning() && anchorMatches(learnedPhraseAnchor))
-            LearnedPhraseManager.suggestions(this, learnedPhraseContext) else emptyList()
-        val phrases = (learned + AssociatedPhraseSuggestions.merge(
-            beforeCursor, character, curatedAssociatedPhrases,
-            mckRelatedPhrases::lookup, associatedPhrasesTable::lookup
-        )).distinct()
-        if (phrases.isEmpty()) {
-            clearAssociatedPhrases()
-            return
-        }
-
-        // Enter associated phrases mode
+            LearnedPhraseManager.suggestions(this, learnedPhraseContext).toList() else emptyList()
+        associatedAnchor = learnedPhraseAnchor ?: captureEditorAnchor()
         isAssociatedPhrasesMode = true
-        associatedPhrases = phrases
+        associatedPhrases = learned
         learnedAssociatedCandidates = learned.toSet()
         lastCommittedChar = character
-
         updateAssociatedPhrasesView()
+        candidateWorker.submit {
+            if (candidateRevision.get() != revision) return@submit
+            val phrases = runCatching { (learned + AssociatedPhraseSuggestions.merge(beforeCursor, character,
+                curatedAssociatedPhrases, mckRelatedPhrases::lookup, associatedPhrasesTable::lookup)).distinct() }.getOrDefault(learned)
+            candidateMain.post {
+                if (destroyed || candidateRevision.get() != revision || currentInputConnection !== editor ||
+                    currentInputEditorInfo !== info || !isAssociatedPhrasesMode) return@post
+                if (associatedAnchor != null && !anchorMatches(associatedAnchor)) { clearAssociatedPhrases(); return@post }
+                if (phrases.isEmpty()) { clearAssociatedPhrases(); return@post }
+                associatedPhrases = phrases
+                updateAssociatedPhrasesView()
+            }
+        }
     }
 
     /**
      * Clear associated phrases mode and return to normal input.
      */
     private fun clearAssociatedPhrases() {
+        invalidateCandidateWork()
+        associatedAnchor = null
         isAssociatedPhrasesMode = false
         associatedPhrases = emptyList()
         learnedAssociatedCandidates = emptySet()
@@ -1464,90 +1512,129 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun updateComposition(rawKeys: String) {
+        val revision = candidateRevision.incrementAndGet()
+        val editor = currentInputConnection
+        val info = currentInputEditorInfo
         val pageSize = ThemeManager.getCandidatesPerPage(this)
-
-        // Filter the merged dictionary using method-specific membership hints,
-        // retaining its ranking and the uninterrupted Latin composition.
-        val lookupKeys = rawKeys
-        val enabledMethods = enabledMethods()
-        var candidates = methodMembership.filter(lookupKeys,
-            mixedDictionary.lookup(lookupKeys), enabledMethods)
-        candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
-        candidates = promoteReviewedCharacter(lookupKeys, candidates)
-
-        // A glide can be ambiguous between short Chinese codes. Keep the best
-        // visible Latin code, but expose nearby valid codes' Chinese candidates.
-        if (swipeChineseCodes.isNotEmpty()) {
-            val alternatives = swipeChineseCodes.flatMap { code ->
-                methodMembership.filter(code, mixedDictionary.lookup(code), enabledMethods) +
-                    methodMembership.supplementalCandidates(code, enabledMethods)
-            }
-            candidates = (candidates + alternatives).distinct()
-        }
-        if (MethodMembership.Method.CANTONESE in enabledMethods) {
-            candidates = promoteEverydayCantonese(candidates)
-        }
-
-        // Retain the original OpenVanilla Quick table as a resilient fallback.
-        if (candidates.isEmpty() && rawKeys.length <= 2 && ThemeManager.getMethodQuick(this)) {
-            candidates = simplexTable.lookup(rawKeys)
-        }
-
-        // User entries precede bundled results, but learned selection counts
-        // below can still lift any frequently used candidate above them.
-        candidates = prioritizeCustomCandidates(
-            CustomDictionaryManager.lookup(this, lookupKeys), candidates)
-
-        // English autocomplete is below the bundled Chinese choices by default.
-        // Learned per-code usage can lift a frequently selected word above them.
-        if (!isPasswordField && ThemeManager.getMethodEnglish(this)) {
-            val typed = getDisplayKeys(rawKeys)
-            val contractions = EnglishSuggestions.contractions(typed)
-            val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
-                else EnglishSuggestions.completions(typed)
-            candidates = (contractions + candidates + swipeEnglishWords + english).distinct()
-        }
-        if (canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this)) {
-            candidates = RecentCandidateManager.reorderCandidates(this, lookupKeys, candidates)
-        }
-
-        // Protect exact characters/full English words, but allow recovered characters
-        // before exact phrase shorthand (nfo -> ngo/我 before nfo/年貨).
-        if (canSuggestTypos()) {
-            val englishFixes = if (MethodMembership.Method.ENGLISH in enabledMethods &&
-                ThemeManager.getEnglishSpellCheck(this)) englishTypoMatcher.candidates(getDisplayKeys(rawKeys))
-                else emptyList()
-            val recoveryMethods = enabledMethods.filterTo(mutableSetOf()) {
-                (it == MethodMembership.Method.CANTONESE && ThemeManager.getCantoneseTypoRecovery(this)) ||
-                    (it == MethodMembership.Method.CANGJIE && ThemeManager.getCangjieTypoRecovery(this))
-            }
-            val chineseFixes = methodMembership.recoverCodes(lookupKeys, recoveryMethods)
-                .flatMap { it.typedCandidates() }
-            candidates = mergeTypoCandidates(getDisplayKeys(rawKeys), candidates, englishFixes + chineseFixes) {
-                if (canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this))
-                    RecentCandidateManager.reorderCandidates(this, lookupKeys, it) else it
-            }
-        }
-
-        // Symbols are exact English keyword matches and deliberately follow
-        // the Chinese dictionary (and any spelling fix).
-        if (!isPasswordField) {
-            candidates = (candidates + UnicodeWordSuggestions.lookupEnglish(rawKeys)).distinct()
-        }
-        // Cangjie and Quick often identify the same text; show it only once.
-        candidates = sanitizeCandidates(candidates)
-
-        composition = CompositionState(
-            rawKeys = rawKeys,
-            candidates = candidates,
-            currentPage = 0,
-            pageSize = pageSize,
-            activeKeyLength = rawKeys.length
-        )
+        val enabledMethods = enabledMethods().toSet()
+        val typed = getDisplayKeys(rawKeys)
+        val password = isPasswordField
+        val quickEnabled = ThemeManager.getMethodQuick(this)
+        val englishEnabled = ThemeManager.getMethodEnglish(this)
+        val spellCheck = ThemeManager.getEnglishSpellCheck(this)
+        val cantoneseRecovery = ThemeManager.getCantoneseTypoRecovery(this)
+        val cangjieRecovery = ThemeManager.getCangjieTypoRecovery(this)
+        val suggestTypos = canSuggestTypos()
+        val custom = CustomDictionaryManager.lookup(this, rawKeys).toList()
+        val counts = if (canPersonalize() && ThemeManager.getRecentCandidatesEnabled(this))
+            RecentCandidateManager.countsForCode(this, rawKeys) else emptyMap()
+        val swipeChineseCodes = this.swipeChineseCodes.toList()
+        val swipeEnglishWords = this.swipeEnglishWords.toList()
+        lookupPending = true
+        composition = CompositionState(rawKeys = rawKeys, pageSize = pageSize, activeKeyLength = rawKeys.length)
         updateUI()
+        candidateWorker.submit {
+            if (candidateRevision.get() != revision) return@submit
+            val results = runCatching {
+                // Filter the merged dictionary using method-specific membership hints,
+                // retaining its ranking and the uninterrupted Latin composition.
+                val lookupKeys = rawKeys
+                var candidates = methodMembership.filter(lookupKeys,
+                    mixedDictionary.lookup(lookupKeys), enabledMethods)
+                candidates = (candidates + methodMembership.supplementalCandidates(lookupKeys, enabledMethods)).distinct()
+                candidates = promoteReviewedCharacter(lookupKeys, candidates)
+
+                // A glide can be ambiguous between short Chinese codes. Keep the best
+                // visible Latin code, but expose nearby valid codes' Chinese candidates.
+                if (swipeChineseCodes.isNotEmpty()) {
+                    val alternatives = swipeChineseCodes.flatMap { code ->
+                        methodMembership.filter(code, mixedDictionary.lookup(code), enabledMethods) +
+                            methodMembership.supplementalCandidates(code, enabledMethods)
+                    }
+                    candidates = (candidates + alternatives).distinct()
+                }
+                if (MethodMembership.Method.CANTONESE in enabledMethods) {
+                    candidates = promoteEverydayCantonese(candidates)
+                }
+
+                // Retain the original OpenVanilla Quick table as a resilient fallback.
+                if (candidates.isEmpty() && rawKeys.length <= 2 && quickEnabled) {
+                    candidates = simplexTable.lookup(rawKeys)
+                }
+
+                // User entries precede bundled results, but learned selection counts
+                // below can still lift any frequently used candidate above them.
+                candidates = prioritizeCustomCandidates(
+                    custom, candidates)
+
+                // English autocomplete is below the bundled Chinese choices by default.
+                // Learned per-code usage can lift a frequently selected word above them.
+                if (!password && englishEnabled) {
+                    val contractions = EnglishSuggestions.contractions(typed)
+                    val english = if (englishAutocomplete.size > 0) englishAutocomplete.completions(typed)
+                        else EnglishSuggestions.completions(typed)
+                    candidates = (contractions + candidates + swipeEnglishWords + english).distinct()
+                }
+                if (counts.isNotEmpty()) {
+                    candidates = rankCandidates(candidates, counts)
+                }
+
+                // Protect exact characters/full English words, but allow recovered characters
+                // before exact phrase shorthand (nfo -> ngo/我 before nfo/年貨).
+                if (suggestTypos) {
+                    val englishFixes = if (MethodMembership.Method.ENGLISH in enabledMethods &&
+                        spellCheck) englishTypoMatcher.candidates(typed)
+                        else emptyList()
+                    val recoveryMethods = enabledMethods.filterTo(mutableSetOf()) {
+                        (it == MethodMembership.Method.CANTONESE && cantoneseRecovery) ||
+                            (it == MethodMembership.Method.CANGJIE && cangjieRecovery)
+                    }
+                    val chineseFixes = methodMembership.recoverCodes(lookupKeys, recoveryMethods)
+                        .flatMap { it.typedCandidates() }
+                    candidates = mergeTypoCandidates(typed, candidates, englishFixes + chineseFixes) {
+                        if (counts.isNotEmpty())
+                            rankCandidates(it, counts) else it
+                    }
+                }
+
+                // Symbols are exact English keyword matches and deliberately follow
+                // the Chinese dictionary (and any spelling fix).
+                if (!password) {
+                    candidates = (candidates + UnicodeWordSuggestions.lookupEnglish(rawKeys)).distinct()
+                }
+                // Cangjie and Quick often identify the same text; show it only once.
+                candidates = sanitizeCandidates(candidates)
+
+                candidates
+            }.getOrDefault(emptyList())
+            candidateMain.post {
+                if (destroyed || candidateRevision.get() != revision || currentInputConnection !== editor ||
+                    currentInputEditorInfo !== info || composition.rawKeys != rawKeys) return@post
+                val before = editor?.getTextBeforeCursor(128, 0)?.toString()
+                if (before != null && !before.endsWith(typed.takeLast(128))) {
+                    clearComposition()
+                    return@post
+                }
+                lookupPending = false
+                composition = CompositionState(rawKeys = rawKeys, candidates = results,
+                    pageSize = pageSize, activeKeyLength = rawKeys.length)
+                if (pendingSwipeChoice && results.isNotEmpty()) {
+                    val choice = results.first()
+                    editor?.setComposingText((if (LatinSpaceCommit.keptAsLatin(choice)) deferredLatinPrefix() else "") + choice, 1)
+                }
+                updateUI()
+            }
+        }
+    }
+
+    private fun invalidateCandidateWork() {
+        candidateRevision.incrementAndGet()
+        candidateWorker.cancel()
+        lookupPending = false
     }
 
     private fun clearComposition() {
+        invalidateCandidateWork()
         composition = CompositionState.EMPTY
         pendingSwipeChoice = false
         swipeEnglishWords = emptyList()
@@ -1572,6 +1659,10 @@ class HkInputMethodService : InputMethodService() {
             updateEmailSuggestionsView()
             return
         }
+        if (isAssociatedPhrasesMode) {
+            updateAssociatedPhrasesView()
+            return
+        }
         keyboardView?.let { view ->
             val isMasked = isPasswordField && isPasswordMaskEnabled
             // Full Cangjie codes have at most five keys; longer buffers are
@@ -1589,6 +1680,8 @@ class HkInputMethodService : InputMethodService() {
                 view.setCandidates(symbol.alternatives)
             } else if (composition.hasCandidates) {
                 view.setCandidates(composition.candidates)
+            } else if (lookupPending && composition.rawKeys.isNotEmpty()) {
+                view.setCandidates(emptyList())
             } else if (composition.rawKeys.isNotEmpty()) {
                 if (isPasswordField) {
                     // Password fields never display a no-match hint.
@@ -1621,6 +1714,10 @@ class HkInputMethodService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        destroyed = true
+        invalidateCandidateWork()
+        candidateWorker.close()
+        candidateMain.removeCallbacksAndMessages(null)
         LearnedPhraseManager.flush()
         super.onDestroy()
         // Unregister clipboard listener to avoid memory leaks

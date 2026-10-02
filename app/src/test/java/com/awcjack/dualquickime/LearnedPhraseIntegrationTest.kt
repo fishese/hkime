@@ -66,15 +66,18 @@ class LearnedPhraseIntegrationTest {
     }
     private fun call(name: String) {
         HkInputMethodService::class.java.getDeclaredMethod(name).apply { isAccessible = true }.invoke(service)
+        settleServiceWork(service)
     }
     private fun select(text: String, association: Boolean = false) {
         HkInputMethodService::class.java.getDeclaredMethod(
             if (association) "handleAssociatedPhraseSelected" else "commitCandidate", String::class.java)
             .apply { isAccessible = true }.invoke(service, text)
+        settleServiceWork(service)
     }
     private fun key(event: KeyboardView.KeyEvent) {
         HkInputMethodService::class.java.getDeclaredMethod("handleKeyEvent", KeyboardView.KeyEvent::class.java)
             .apply { isAccessible = true }.invoke(service, event)
+        settleServiceWork(service)
     }
     private fun suggestions(prefix: String) = LearnedPhraseManager.suggestions(service, prefix)
 
@@ -186,9 +189,27 @@ class LearnedPhraseIntegrationTest {
         ThemeManager.setRecentCandidatesEnabled(service, false)
     }
 
-    private fun texts(view: View): List<TextView> =
-        (if (view is TextView) listOf(view) else emptyList()) +
+    private fun layout(view: KeyboardView) {
+        view.measure(View.MeasureSpec.makeMeasureSpec(540, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.AT_MOST))
+        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+    }
+    private fun slots(view: KeyboardView): List<TextView> {
+        layout(view)
+        return ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots")
+            .sortedBy { it.left }
+    }
+    private fun rowTexts(view: KeyboardView): List<String> {
+        val adapter = ReflectionHelpers.getField<Any>(view, "candidateAdapter")
+        return ReflectionHelpers.getField<List<Any>>(adapter, "items").map {
+            ReflectionHelpers.getField<String>(it, "text")
+        }
+    }
+    private fun texts(view: View): List<TextView> {
+        if (view is KeyboardView) layout(view)
+        return (if (view is TextView) listOf(view) else emptyList()) +
             if (view is ViewGroup) (0 until view.childCount).flatMap { texts(view.getChildAt(it)) } else emptyList()
+    }
 
     @Test fun learnedColorsAndAccessibleLabelSurviveStripAndGridAndMetadataChange() {
         val view = KeyboardView(service)
@@ -212,7 +233,7 @@ class LearnedPhraseIntegrationTest {
         val view = KeyboardView(service)
         val all = listOf("樓", "雨", "街", "車", "山", "海", "地", "雪")
         view.setCandidates(all, all.toSet())
-        val slots = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots")
+        val slots = slots(view)
         assertEquals(all.take(5), slots.map { it.text.toString() })
         var arrow = texts(view).first { it.text == "›" }
         assertEquals("›", arrow.text.toString())
@@ -229,7 +250,7 @@ class LearnedPhraseIntegrationTest {
         view.measure(View.MeasureSpec.makeMeasureSpec(540, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.AT_MOST))
         view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-        val normal = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").first()
+        val normal = slots(view).first()
         assertEquals(learnedWidth, normal.width)
         assertEquals(learnedHeight, normal.height)
         assertEquals(learnedSize, normal.textSize, 0.0f)
@@ -243,7 +264,7 @@ class LearnedPhraseIntegrationTest {
         sixth.performClick()
         assertEquals("海", selected)
         view.setCandidates(all)
-        assertEquals(all, ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+        assertEquals(all, slots(view).map { it.text.toString() })
         assertFalse(ReflectionHelpers.getField<TextView>(view, "pageIndicator").text == "›")
     }
 
@@ -253,23 +274,21 @@ class LearnedPhraseIntegrationTest {
         val bundled = listOf("人", "會", "用", "的", "話", "知", "我")
         view.setCandidates(learned + bundled, learned.toSet())
         assertEquals(learned.take(5) + bundled,
-            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
-        val row = ReflectionHelpers.getField<android.widget.LinearLayout>(view, "candidateRow")
+            slots(view).map { it.text.toString() })
         assertEquals(learned.take(5) + listOf("›") + bundled,
-            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+            rowTexts(view))
         texts(view).first { it.text == "›" }.performClick()
         assertEquals(learned + listOf("‹") + bundled,
-            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+            rowTexts(view))
         texts(view).first { it.text == "‹" }.performClick()
         assertEquals(learned.take(5) + listOf("›") + bundled,
-            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+            rowTexts(view))
         view.setCandidates(learned + bundled)
         assertEquals(learned + bundled,
-            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+            slots(view).map { it.text.toString() })
         view.setCandidates(listOf("樓"), setOf("樓"))
-        val slot = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").first()
+        val slot = slots(view).first()
         assertEquals(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, slot.layoutParams.width)
-        assertEquals(0.0f, (slot.layoutParams as android.widget.LinearLayout.LayoutParams).weight, 0.0f)
         assertEquals(View.GONE, ReflectionHelpers.getField<TextView>(view, "pageIndicator").visibility)
     }
 
@@ -298,7 +317,7 @@ class LearnedPhraseIntegrationTest {
         view.setCandidates(second, second.toSet())
         texts(view).first { it.text == "›" }.performClick()
         assertEquals(second,
-            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+            slots(view).map { it.text.toString() })
     }
 
     @Test fun settingsCanToggleAndClearOnlyLearnedEntries() {

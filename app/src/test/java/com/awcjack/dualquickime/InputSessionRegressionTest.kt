@@ -89,10 +89,12 @@ class InputSessionRegressionTest {
         val method = HkInputMethodService::class.java.getDeclaredMethod("handleKeyEvent", KeyboardView.KeyEvent::class.java)
         method.isAccessible = true
         method.invoke(service, event)
+        settleServiceWork(service)
     }
 
     private fun call(name: String) {
         HkInputMethodService::class.java.getDeclaredMethod(name).apply { isAccessible = true }.invoke(service)
+        settleServiceWork(service)
     }
 
     private fun composing(raw: String, swipe: Boolean = false) {
@@ -140,6 +142,42 @@ class InputSessionRegressionTest {
         HkInputMethodService::class.java.getDeclaredMethod("commitCandidate", String::class.java)
             .apply { isAccessible = true }.invoke(service, "stay")
         assertEquals("stay ", connection.text)
+    }
+
+    @Test fun pendingLookupNeverBlocksLiteralTypingOrPublishesIntoAnotherField() {
+        ordinaryTextField()
+        settleServiceWork(service)
+        val worker = ReflectionHelpers.getField<Any>(service, "candidateWorker")
+        val executor = ReflectionHelpers.getField<java.util.concurrent.ExecutorService>(worker, "executor")
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        executor.execute { entered.countDown(); release.await(10, java.util.concurrent.TimeUnit.SECONDS) }
+        assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+        try {
+            val handler = HkInputMethodService::class.java.getDeclaredMethod("handleKeyEvent", KeyboardView.KeyEvent::class.java).apply { isAccessible = true }
+            "sanf".forEach { handler.invoke(service, KeyboardView.KeyEvent.Letter(it)) }
+            assertEquals("sanf", connection.text)
+            assertTrue(currentCandidates().isEmpty())
+            val other = ExcerptConnection(View(service)).apply { reset("") }
+            ReflectionHelpers.setField(service, "mStartedInputConnection", other)
+            val info = EditorInfo().apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
+            ReflectionHelpers.setField(service, "mInputEditorInfo", info)
+            service.onStartInput(info, false)
+        } finally { release.countDown() }
+        settleServiceWork(service)
+        assertTrue(currentCandidates().isEmpty())
+        assertEquals("", currentConnectionText())
+    }
+
+    private fun currentConnectionText(): String = service.currentInputConnection?.getTextBeforeCursor(100,0).toString()
+
+    @Test fun rapidUnsettledEditsOnlyPublishNewestQuery() {
+        ordinaryTextField()
+        val handler = HkInputMethodService::class.java.getDeclaredMethod("handleKeyEvent", KeyboardView.KeyEvent::class.java).apply { isAccessible = true }
+        "stah".forEach { handler.invoke(service, KeyboardView.KeyEvent.Letter(it)) }
+        settleServiceWork(service)
+        assertEquals("stah", connection.text)
+        assertTrue(currentCandidates().contains("stay"))
     }
 
     @Test fun shortTyposRespectEachLanguageToggleAndRefreshAfterBackspace() {
