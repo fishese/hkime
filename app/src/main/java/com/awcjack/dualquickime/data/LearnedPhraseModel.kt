@@ -6,12 +6,26 @@ import kotlin.math.pow
 class LearnedPhraseModel(entries: List<Entry> = emptyList()) {
     data class Entry(val prefix: String, val next: String, val score: Double, val updated: Long)
     private val data = linkedMapOf<Pair<String, String>, Entry>()
+    private val byPrefix = mutableMapOf<String, MutableMap<String, Entry>>()
+
+    private fun put(entry: Entry) {
+        data[entry.prefix to entry.next] = entry
+        byPrefix.getOrPut(entry.prefix) { linkedMapOf() }[entry.next] = entry
+    }
+
+    private fun remove(entry: Entry) {
+        data.remove(entry.prefix to entry.next)
+        byPrefix[entry.prefix]?.let { bucket ->
+            bucket.remove(entry.next)
+            if (bucket.isEmpty()) byPrefix.remove(entry.prefix)
+        }
+    }
 
     init {
         entries.filter { isChinese(it.prefix) && characters(it.prefix).size <= MAX_CONTEXT &&
             isChinese(it.next) && characters(it.next).size == 1 &&
             it.score.isFinite() && it.score > 0 && it.updated >= 0
-        }.take(MAX_ENTRIES).forEach { data[it.prefix to it.next] = it }
+        }.take(MAX_ENTRIES).forEach(::put)
     }
 
     fun recordAppend(context: String, selected: String, now: Long) {
@@ -22,9 +36,9 @@ class LearnedPhraseModel(entries: List<Entry> = emptyList()) {
                 val prefix = preceding.takeLast(length).joinToString("")
                 val key = prefix to next
                 val previous = data[key]
-                data[key] = Entry(prefix, next,
+                put(Entry(prefix, next,
                     (previous?.let { weight(it, now) } ?: 0.0) + 1.0,
-                    maxOf(now, previous?.updated ?: now))
+                    maxOf(now, previous?.updated ?: now)))
             }
             preceding = (preceding + next).takeLast(MAX_CONTEXT)
         }
@@ -38,8 +52,9 @@ class LearnedPhraseModel(entries: List<Entry> = emptyList()) {
         // Specific context beats a popular continuation of just the final character.
         for (length in chars.size downTo 1) {
             val prefix = chars.takeLast(length).joinToString("")
-            data.values.filter { it.prefix == prefix && weight(it, now) >= MIN_SCORE }
-                .sortedWith(ranking(now)).forEach { result.add(it.next) }
+            val weights = byPrefix[prefix].orEmpty().values.associateWith { weight(it, now) }
+            weights.keys.filter { weights.getValue(it) >= MIN_SCORE }
+                .sortedWith(ranking(weights)).forEach { result.add(it.next) }
         }
         return result.take(limit)
     }
@@ -47,14 +62,18 @@ class LearnedPhraseModel(entries: List<Entry> = emptyList()) {
     fun entries(): List<Entry> = data.values.toList()
 
     private fun prune(now: Long) {
-        data.entries.removeAll { weight(it.value, now) < MIN_SCORE }
-        data.values.groupBy { it.prefix }.values.forEach { entries ->
-            entries.sortedWith(ranking(now)).drop(MAX_PER_PREFIX).forEach { data.remove(it.prefix to it.next) }
+        // One decay evaluation per entry, including the exact expiry semantics of
+        // the original implementation; only overflowing buckets require sorting.
+        val weights = data.values.associateWith { weight(it, now) }
+        weights.filterValues { it < MIN_SCORE }.keys.forEach(::remove)
+        byPrefix.values.filter { it.size > MAX_PER_PREFIX }.forEach { bucket ->
+            bucket.values.sortedWith(ranking(weights)).drop(MAX_PER_PREFIX).forEach(::remove)
         }
-        data.values.sortedWith(ranking(now)).drop(MAX_ENTRIES).forEach { data.remove(it.prefix to it.next) }
+        if (data.size > MAX_ENTRIES)
+            data.values.sortedWith(ranking(weights)).drop(MAX_ENTRIES).forEach(::remove)
     }
 
-    private fun ranking(now: Long) = compareByDescending<Entry> { weight(it, now) }
+    private fun ranking(weights: Map<Entry, Double>) = compareByDescending<Entry> { weights.getValue(it) }
         .thenByDescending { it.updated }.thenBy { it.next }.thenBy { it.prefix }
 
     private fun weight(entry: Entry, now: Long): Double =
