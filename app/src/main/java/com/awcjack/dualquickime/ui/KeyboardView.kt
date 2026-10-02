@@ -164,6 +164,7 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
     private var learnedCandidateTexts = emptySet<String>()
+    private var hideKeyboardKey: TextView? = null
     private var learnedSuggestionsExpanded = false
     private var learnedExpansionCandidates = emptyList<String>()
     private var symbolUtilBar: View? = null
@@ -1097,7 +1098,8 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun createLearnedExpansionButton(allCandidates: List<String>, learned: Set<String>): TextView = TextView(context).apply {
-        layoutParams = LayoutParams(dpToPx(40), candidateBarHeightPx() - dpToPx(4))
+        tag = "learned-expansion"
+        layoutParams = LayoutParams(maxOf(dpToPx(20), hideKeyboardKey?.width ?: 0), candidateBarHeightPx() - dpToPx(4))
         gravity = Gravity.CENTER
         text = if (learnedSuggestionsExpanded) "‹" else "›"
         textSize = 24f
@@ -1111,6 +1113,27 @@ class KeyboardView @JvmOverloads constructor(
             learnedSuggestionsExpanded = !learnedSuggestionsExpanded
             setCandidates(allCandidates, learned)
         }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        if (updateLearnedExpansionWidths(hideKeyboardKey?.measuredWidth ?: 0)) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        }
+    }
+
+    private fun updateLearnedExpansionWidths(hideKeyWidth: Int): Boolean {
+        val row = candidateRow ?: return false
+        var changed = false
+        val targetWidth = maxOf(dpToPx(20), hideKeyWidth)
+        for (index in 0 until row.childCount) {
+            val child = row.getChildAt(index)
+            if (child.tag == "learned-expansion" && child.layoutParams.width != targetWidth) {
+                child.layoutParams = child.layoutParams.apply { width = targetWidth }
+                changed = true
+            }
+        }
+        return changed
     }
 
     private fun updateCandidatePosition() {
@@ -1648,6 +1671,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createSpecialKey(label: String, weight: Float, onClick: () -> Unit): TextView {
         return TextView(context).apply {
+            if (label == "⌄") {
+                hideKeyboardKey = this
+            }
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight)
             gravity = Gravity.CENTER
             text = label

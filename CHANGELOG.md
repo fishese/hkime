@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## 0.3.56
+
+- Narrow the learned expand/collapse control to 20dp, with the actual hide-keyboard touch width as a minimum.
+
 ## 0.3.55
 
 - Keep learned-candidate pill sizes identical to ordinary candidates and respect configured text size and padding.
