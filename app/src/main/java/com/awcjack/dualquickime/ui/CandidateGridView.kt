@@ -68,6 +68,10 @@ class CandidateGridView @JvmOverloads constructor(
      * @param candidates All candidates to display.
      * @param initialPage The page to show initially (0-based).
      */
+    fun updateCandidatesKeepingPage(candidates: List<String>, learned: Set<String>) {
+        setCandidates(candidates, currentPage, learned)
+    }
+
     fun setCandidates(candidates: List<String>, initialPage: Int = 0, learned: Set<String> = emptySet()) {
         allCandidates = candidates
         learnedCandidates = learned.toSet()

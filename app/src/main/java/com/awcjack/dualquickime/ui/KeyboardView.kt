@@ -21,6 +21,9 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.LinearLayoutManager
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -35,6 +38,7 @@ import com.awcjack.dualquickime.data.CursorMotion
 import com.awcjack.dualquickime.data.EnglishSuggestions
 import com.awcjack.dualquickime.data.LatinSentenceCase
 import com.awcjack.dualquickime.data.SwipeTypingDecoder
+import com.awcjack.dualquickime.data.BoundedSwipeTrace
 import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.theme.KeyboardColors
 import com.awcjack.dualquickime.theme.ThemeManager
@@ -85,7 +89,7 @@ class KeyboardView @JvmOverloads constructor(
         val initialLetter: Char?,
         val centers: Map<Char, SwipeTypingDecoder.Point>,
         val keyWidth: Float,
-        val points: MutableList<SwipeTypingDecoder.Point>,
+        val points: BoundedSwipeTrace,
         var active: Boolean = false,
         var deleting: Boolean = false
     )
@@ -146,6 +150,7 @@ class KeyboardView @JvmOverloads constructor(
 
     // Current theme colors
     private lateinit var colors: KeyboardColors
+    private var lastAppearance: List<Any>? = null
 
     // Settings
     private var showComposition = false
@@ -160,8 +165,8 @@ class KeyboardView @JvmOverloads constructor(
     // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null
     private var compositionText: TextView? = null
-    private var candidateRow: LinearLayout? = null
-    private var candidateScroll: HorizontalScrollView? = null
+    private var candidateList: RecyclerView? = null
+    private var candidateAdapter: CandidateAdapter? = null
     private var displayedCandidates: List<String> = emptyList()
     private var learnedCandidateTexts = emptySet<String>()
     private var hideKeyboardKey: TextView? = null
@@ -256,8 +261,14 @@ class KeyboardView @JvmOverloads constructor(
      * Refresh the keyboard when theme changes.
      */
     fun refreshTheme() {
-        safeRebuild("refreshTheme")
+        loadTheme()
+        if (lastAppearance != appearance()) safeRebuild("refreshTheme")
     }
+
+    private fun appearance(): List<Any> = listOf(colors, showComposition, candidatesPerPage,
+        candidatePillPaddingDp, keyHeightDp, candidateTextSizeSp, showKeyRadicals,
+        gestureDeleteEnabled, swipeTypingEnabled, keyPreviewEnabled, reflectLatinCase,
+        isSensitiveField, ThemeManager.getChineseConvertEnabled(context), ThemeManager.getDefaultSkinTone(context))
 
     // If loadTheme or buildKeyboard throws, removeAllViews() has already run and the
     // keyboard window would otherwise render empty. Reset to a known-good letter state
@@ -283,6 +294,10 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun buildKeyboard() {
+        lastAppearance = appearance()
+        cancelSpaceToggleArm()
+        cancelSpaceCursorArm()
+        cancelSpaceCursorRepeat()
         keyPreviewLabel = null
         removeAllViews()
         letterKeyViews.clear()
@@ -506,8 +521,8 @@ class KeyboardView @JvmOverloads constructor(
     private fun clearCandidateViewReferences() {
         candidateContainer = null
         compositionText = null
-        candidateRow = null
-        candidateScroll = null
+        candidateList = null
+        candidateAdapter = null
         displayedCandidates = emptyList()
         pageIndicator = null
         englishPill = null
@@ -860,6 +875,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun createCandidateBar(): FrameLayout {
+        displayedCandidates = emptyList()
         candidateSlots.clear()
         numberSlots.clear()
         englishPill = null
@@ -913,21 +929,19 @@ class KeyboardView @JvmOverloads constructor(
         englishPill = createEnglishPillSlot()
         candidateContainer?.addView(englishPill)
 
-        // The strip holds every choice in order. HorizontalScrollView handles
-        // pixel-by-pixel dragging/flinging instead of translating swipes to pages.
-        candidateRow = LinearLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, barHeight)
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        candidateScroll = HorizontalScrollView(context).apply {
+        candidateAdapter = CandidateAdapter()
+        candidateList = RecyclerView(context).apply {
             layoutParams = LayoutParams(0, barHeight, 1f)
+            layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)
+            adapter = candidateAdapter
+            itemAnimator = null
             isHorizontalScrollBarEnabled = false
-            isFillViewport = false
-            addView(candidateRow)
-            setOnScrollChangeListener { _, _, _, _, _ -> updateCandidatePosition() }
+            setItemViewCacheSize(2)
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) { updateCandidatePosition() }
+            })
         }
-        candidateContainer?.addView(candidateScroll)
+        candidateContainer?.addView(candidateList)
 
         // Page indicator (clickable to view all candidates)
         pageIndicator = TextView(context).apply {
@@ -1047,19 +1061,14 @@ class KeyboardView @JvmOverloads constructor(
     fun setCandidates(candidates: List<String>, learned: Set<String> = emptySet()) {
         val allCandidates = sanitizeCandidates(candidates)
         val candidatesChanged = learnedExpansionCandidates != allCandidates
-        if (candidatesChanged || learnedCandidateTexts != learned) {
+        if (learnedCandidateTexts != learned || candidatesChanged && learned.isEmpty()) {
             learnedSuggestionsExpanded = false
         }
         learnedExpansionCandidates = allCandidates
+        if (isCandidateGridMode) candidateGridView?.updateCandidatesKeepingPage(allCandidates, learned)
         val allLearned = allCandidates.filter { it in learned }
         val previewLearned = if (learnedSuggestionsExpanded) allLearned else allLearned.take(5)
         val visibleCandidates = previewLearned + allCandidates.filter { it !in learned }
-        // Learned candidates use exactly the same content-sized pills as dictionary candidates.
-        candidateScroll?.isFillViewport = false
-        candidateRow?.layoutParams?.let { params ->
-            params.width = LayoutParams.WRAP_CONTENT
-            candidateRow?.layoutParams = params
-        }
         if (isSymbolMode && symbolCandidateBar != null) {
             symbolUtilBar?.visibility = View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
@@ -1068,30 +1077,19 @@ class KeyboardView @JvmOverloads constructor(
         if (candidatesChanged || displayedCandidates != visibleCandidates || learnedCandidateTexts != learned) {
             learnedCandidateTexts = learned.toSet()
             displayedCandidates = visibleCandidates
-            candidateRow?.removeAllViews()
             candidateSlots.clear()
+            val items = mutableListOf<CandidateItem>()
             visibleCandidates.forEachIndexed { index, candidate ->
                 if (index == previewLearned.size && allLearned.size > 5) {
-                    candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+                    items.add(CandidateItem(if (learnedSuggestionsExpanded) "‹" else "›", 1))
                 }
-                val slot = createCandidatePillSlot().apply {
-                    text = candidate
-                    setTextColor(if (candidate in learned) colors.learnedCandidateText else colors.candidateText)
-                    contentDescription = if (candidate in learned)
-                        context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
-                    visibility = View.VISIBLE
-                    setOnClickListener {
-                        performKeyHaptic(this)
-                        onCandidateSelected?.invoke(candidate)
-                    }
-                }
-                candidateSlots.add(slot)
-                candidateRow?.addView(slot)
+                items.add(CandidateItem(candidate))
             }
             if (visibleCandidates.size == previewLearned.size && allLearned.size > 5) {
-                candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+                items.add(CandidateItem(if (learnedSuggestionsExpanded) "‹" else "›", 1))
             }
-            candidateScroll?.scrollTo(0, 0)
+            candidateAdapter?.submit(items)
+            candidateList?.scrollToPosition(0)
         }
         pageIndicator?.visibility = if (allCandidates.size > 1) View.VISIBLE else View.GONE
         updateCandidatePosition()
@@ -1123,7 +1121,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun updateLearnedExpansionWidths(hideKeyWidth: Int): Boolean {
-        val row = candidateRow ?: return false
+        val row = candidateList ?: return false
         var changed = false
         val targetWidth = maxOf(dpToPx(20), hideKeyWidth)
         for (index in 0 until row.childCount) {
@@ -1142,8 +1140,8 @@ class KeyboardView @JvmOverloads constructor(
             contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
         }
         if (displayedCandidates.size <= 1) return
-        val scrollX = candidateScroll?.scrollX ?: 0
-        val firstVisible = candidateSlots.indexOfFirst { it.right > scrollX }.coerceAtLeast(0)
+        val firstItem = (candidateList?.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()?.coerceAtLeast(0) ?: 0
+        val firstVisible = candidateAdapter?.items?.take(firstItem)?.count { it.kind == 0 } ?: 0
         val pageSize = candidatesPerPage.coerceAtLeast(1)
         val current = firstVisible / pageSize + 1
         val total = (displayedCandidates.size + pageSize - 1) / pageSize
@@ -1158,9 +1156,9 @@ class KeyboardView @JvmOverloads constructor(
         learnedExpansionCandidates = emptyList()
         learnedCandidateTexts = emptySet()
         displayedCandidates = emptyList()
-        candidateRow?.removeAllViews()
         candidateSlots.clear()
-        candidateScroll?.scrollTo(0, 0)
+        candidateAdapter?.submit(emptyList())
+        candidateList?.scrollToPosition(0)
         pageIndicator?.visibility = View.GONE
     }
 
@@ -1169,13 +1167,64 @@ class KeyboardView @JvmOverloads constructor(
         hideNumberRow()
 
         clearCandidateStrip()
-        createCandidatePillSlot().let { slot ->
-            slot.text = "無此字"
-            slot.visibility = View.VISIBLE
-            slot.setTextColor(colors.noMatchText)
-            candidateSlots.add(slot)
-            candidateRow?.addView(slot)
+        candidateAdapter?.submit(listOf(CandidateItem("無此字", 2)))
+    }
+
+    private data class CandidateItem(val text: String, val kind: Int = 0)
+
+    private class CandidateHolder(val label: TextView) : RecyclerView.ViewHolder(label)
+
+    /** Only visible pills and a small recycling cache have views; all choices stay in the model. */
+    private inner class CandidateAdapter : RecyclerView.Adapter<CandidateHolder>() {
+        var items: List<CandidateItem> = emptyList()
+            private set
+        private var revision = 0L
+        fun submit(value: List<CandidateItem>) {
+            revision++
+            items = value
+            notifyDataSetChanged()
         }
+        override fun getItemCount(): Int = items.size
+        override fun getItemViewType(position: Int): Int = items[position].kind
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CandidateHolder {
+            val label = if (viewType == 1) createLearnedExpansionButton(learnedExpansionCandidates, learnedCandidateTexts)
+                else createCandidatePillSlot()
+            val previous = label.layoutParams as ViewGroup.MarginLayoutParams
+            label.layoutParams = RecyclerView.LayoutParams(previous.width, previous.height).apply {
+                setMargins(previous.leftMargin, previous.topMargin, previous.rightMargin, previous.bottomMargin)
+            }
+            return CandidateHolder(label)
+        }
+        override fun onBindViewHolder(holder: CandidateHolder, position: Int) {
+            val boundRevision = revision
+            val item = items[position]
+            val label = holder.label
+            label.text = item.text
+            label.visibility = View.VISIBLE
+            label.tag = if (item.kind == 1) "learned-expansion" else null
+            label.setTextColor(when {
+                item.kind == 2 -> colors.noMatchText
+                item.kind == 1 || item.text in learnedCandidateTexts -> colors.learnedCandidateText
+                else -> colors.candidateText
+            })
+            label.contentDescription = when {
+                item.kind == 1 -> context.getString(if (learnedSuggestionsExpanded) R.string.show_fewer_learned_suggestions else R.string.show_more_learned_suggestions)
+                item.text in learnedCandidateTexts -> context.getString(R.string.learned_candidate_accessibility, item.text)
+                else -> item.text
+            }
+            if (item.kind == 1) {
+                label.layoutParams.width = maxOf(dpToPx(20), hideKeyboardKey?.measuredWidth ?: 0)
+            } else if (!candidateSlots.contains(label)) candidateSlots.add(label)
+            label.setOnClickListener(if (item.kind == 2) null else OnClickListener {
+                if (boundRevision != revision) return@OnClickListener
+                performKeyHaptic(label)
+                if (item.kind == 1) {
+                    learnedSuggestionsExpanded = !learnedSuggestionsExpanded
+                    setCandidates(learnedExpansionCandidates, learnedCandidateTexts)
+                } else onCandidateSelected?.invoke(item.text)
+            })
+        }
+        override fun onViewRecycled(holder: CandidateHolder) { candidateSlots.remove(holder.label) }
     }
 
     fun clearCandidates() {
@@ -2355,7 +2404,7 @@ class KeyboardView @JvmOverloads constructor(
                 kotlin.math.abs(position.y - point.y) <= keyHeightDp.let(::dpToPx) * 0.5f
         }?.key
         if ((!fromSpace || !gestureDeleteEnabled) && letter == null) return null
-        return SwipeTouch(fromSpace, letter, centers, keyWidth, mutableListOf(position))
+        return SwipeTouch(fromSpace, letter, centers, keyWidth, BoundedSwipeTrace(listOf(position)))
     }
 
     private fun shouldActivateSwipe(touch: SwipeTouch): Boolean {
@@ -2380,6 +2429,7 @@ class KeyboardView @JvmOverloads constructor(
         swipeTouch = null
         keyPreviewLabel = null
         hideSwipeTrail()
+        cancelSpaceToggleArm()
         cancelSpaceCursorArm()
         cancelSpaceCursorRepeat()
         onKeyPress?.invoke(KeyEvent.EndCursorDrag)
@@ -2393,6 +2443,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     fun setNumberPadMode(spec: NumericPadSpec) {
+        if (isNumberPadMode && !calculatorMode && numericPadSpec == spec) return
         numericPadSpec = spec
         isNumberPadMode = true
         isSymbolMode = false

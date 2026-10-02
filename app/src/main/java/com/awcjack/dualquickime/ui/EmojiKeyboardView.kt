@@ -69,6 +69,25 @@ class EmojiKeyboardView @JvmOverloads constructor(
         buildView()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val available = (View.MeasureSpec.getSize(widthMeasureSpec) - paddingLeft - paddingRight - dpToPx(8)).coerceAtLeast(0)
+        val columns = (available / dpToPx(46).coerceAtLeast(1)).coerceAtLeast(1)
+        emojiGrid?.let { grid ->
+            if (grid.columnCount != columns) {
+                // GridLayout resolves automatic specs during layout; discard the old
+                // resolved column positions before shrinking the column count.
+                for (index in 0 until grid.childCount) {
+                    grid.getChildAt(index).layoutParams = GridLayout.LayoutParams().apply {
+                        width = dpToPx(42); height = dpToPx(42)
+                        setMargins(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+                    }
+                }
+                grid.columnCount = columns
+            }
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
     private fun buildView() {
         removeAllViews()
 
