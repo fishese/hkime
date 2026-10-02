@@ -48,4 +48,4 @@ Manual acceptance on a phone:
 4. Disable and re-enable: learned suggestions disappear and return. Clear and restart: they stay cleared.
 5. Type in password, username and private fields: no learned suggestions or saved associations. Switch back to an ordinary note and verify it learns again.
 
-Automated validation: `testDebugUnitTest assembleDebug --offline` passed with 212 tests and zero failures. Phone acceptance for this new feature remains to be performed.
+Automated validation: `testDebugUnitTest assembleDebug --offline` passed with 212 tests and zero failures. Signed release packaging and release lint passed. Version 0.3.52 (code 58) was installed over 0.3.51 on the Samsung test phone; package metadata was verified. The phone currently selects Mixed Chinese Keyboard, so switch to HK IME before testing this build. Interactive phrase-learning acceptance remains for the user to test.
