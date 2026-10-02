@@ -2,6 +2,8 @@
 
 ## 0.3.58 — test build
 
+- Enable Chinese combination learning by default when no preference has been saved, preserving an explicit off setting.
+
 - Keep clipboard capture disabled when an existing encrypted opt-out cannot yet be read; recover saved settings on retry without overriding a new explicit choice.
 - Capture the first eligible copy after clipboard settings finish migrating, while respecting sensitive clips and disabled history.
 - Preserve swipe candidate selection when another key arrives before background lookup finishes.

@@ -4,7 +4,7 @@ Developed on `feature/learned-phrase-suggestions` from `fd83fca` (the accepted t
 
 ## User behavior
 
-The option starts disabled. Enable **Other → History → Learn Chinese combinations** to learn from successful Chinese candidate selections. Both typed-code candidates and tapped associated continuations contribute. Accepting a pending Chinese swipe choice contributes when it is committed. Selecting a whole Chinese phrase also teaches its internal character transitions.
+The option starts enabled when no preference has been saved; an existing explicit off setting is preserved. Use **Other → History → Learn Chinese combinations** to change it. Learning uses successful Chinese candidate selections. Both typed-code candidates and tapped associated continuations contribute. Accepting a pending Chinese swipe choice contributes when it is committed. Selecting a whole Chinese phrase also teaches its internal character transitions.
 
 After selecting `落樓話我知`, a fresh `落` suggests `樓`; selecting that can suggest `話`, then `我`, then `知`. The next-character text alone is inserted: the preceding context is never repeated. Learned continuations precede bundled associations, with duplicates removed. A bundled candidate that is also learned has the learned color.
 

@@ -58,9 +58,12 @@ class LearnedPhraseManagerTest {
         assertEquals(listOf("樓"), LearnedPhraseManager.suggestions(context, "落", 0))
     }
 
-    @Test fun defaultIsOffAndMalformedStorageIsIgnored() {
+    @Test fun defaultIsOnExplicitOptOutIsPreservedAndMalformedStorageIsIgnored() {
         context.getSharedPreferences("dualquick_prefs", Context.MODE_PRIVATE).edit()
             .remove("learned_phrases_enabled").apply()
+        assertTrue(ThemeManager.getLearnedPhrasesEnabled(context))
+        ThemeManager.setLearnedPhrasesEnabled(context, false)
+        ThemeManager.invalidateCache()
         assertFalse(ThemeManager.getLearnedPhrasesEnabled(context))
         ThemeManager.setLearnedPhrasesEnabled(context, true)
         context.getSharedPreferences("learned_phrase_prefs", Context.MODE_PRIVATE).edit()

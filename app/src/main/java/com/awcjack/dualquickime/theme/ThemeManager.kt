@@ -39,7 +39,7 @@ object ThemeManager {
     private const val KEY_LATIN_SENTENCE_CASE = "latin_sentence_case"
 
     fun getLearnedPhrasesEnabled(context: Context): Boolean =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean("learned_phrases_enabled", false)
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean("learned_phrases_enabled", true)
 
     fun setLearnedPhrasesEnabled(context: Context, enabled: Boolean) {
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()

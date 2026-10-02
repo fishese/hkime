@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings_learned_phrases">Learn Chinese combinations</string>
-    <string name="settings_learned_phrases_desc">Suggest next characters from selected combinations, ranked by frequency and recency. Teal suggestions, stored locally. Off by default; excludes passwords, IDs and private fields. Switching off keeps entries.</string>
+    <string name="settings_learned_phrases_desc">Suggest next characters from selected combinations, ranked by frequency and recency. Teal suggestions, stored locally. On by default; excludes passwords, IDs and private fields. Switching off keeps entries.</string>
     <string name="settings_learned_phrases_clear">Clear learned combinations</string>
     <string name="settings_learned_phrases_clear_message">Delete all learned combinations? Other dictionaries and recent candidate history will be kept.</string>
     <string name="settings_learned_phrases_cleared">Learned combinations cleared</string>
