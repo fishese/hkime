@@ -8,6 +8,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Looper
 import android.os.PersistableBundle
+import com.awcjack.dualquickime.HkInputMethodService
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -19,6 +20,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import org.robolectric.Robolectric
+import org.robolectric.util.ReflectionHelpers
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -47,11 +52,93 @@ class ClipboardStorageRegressionTest {
         assertNull(ClipboardCapture.text(ClipData.newPlainText("large", "a".repeat(5001))))
         assertEquals("ordinary text", ClipboardCapture.text(ClipData.newPlainText("plain", "ordinary text")))
     }
+    @Test fun unreadableEncryptedOptOutStaysOffThroughRecovery() {
+        secure.edit().putBoolean("clipboard_enabled", false).commit()
+        ClipboardHistoryManager.resetForTests { throw IllegalStateException("synthetic secure-store failure") }
+        ClipboardHistoryManager.getHistory(context); settle()
+        assertFalse(ClipboardHistoryManager.isEnabled(context))
+        assertFalse(prefs("clipboard_history_settings").contains("clipboard_enabled"))
+        ClipboardHistoryManager.storageFactory = { secure }
+        ClipboardHistoryManager.retryStorage(context); settle()
+        assertFalse(ClipboardHistoryManager.isEnabled(context))
+        assertFalse(prefs("clipboard_history_settings").getBoolean("clipboard_enabled", true))
+    }
+    @Test fun explicitEnableDuringMigrationWinsOverRecoveredOldOptOut() {
+        secure.edit().putBoolean("clipboard_enabled", false).commit()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        ClipboardHistoryManager.resetForTests { entered.countDown(); release.await(10, TimeUnit.SECONDS); secure }
+        try {
+            ClipboardHistoryManager.getHistory(context)
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            ClipboardHistoryManager.setEnabled(context, true)
+        } finally { release.countDown() }
+        settle()
+        assertTrue(ClipboardHistoryManager.isEnabled(context))
+    }
+    @Test fun firstPlainTextCopyDuringMigrationIsCapturedWhenEnabled() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        ClipboardHistoryManager.resetForTests { entered.countDown(); release.await(10, TimeUnit.SECONDS); secure }
+        val service = Robolectric.buildService(HkInputMethodService::class.java).create().get()
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            val clipboard = service.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.removePrimaryClipChangedListener(ReflectionHelpers.getField(service, "clipboardListener"))
+            clipboard.setPrimaryClip(ClipData.newPlainText("fixture", "first copy fixture"))
+            HkInputMethodService::class.java.getDeclaredMethod("handleSystemClipboardChange")
+                .apply { isAccessible = true }.invoke(service)
+            assertTrue(ClipboardHistoryManager.getHistory(context).isEmpty())
+        } finally { release.countDown() }
+        settle()
+        assertEquals(listOf("first copy fixture"), ClipboardHistoryManager.getHistory(context).map { it.text })
+        service.onDestroy()
+    }
+    @Test fun pendingFirstCopyIsDiscardedWhenRecoveredHistoryWasDisabled() {
+        secure.edit().putBoolean("clipboard_enabled", false).commit()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        ClipboardHistoryManager.resetForTests { entered.countDown(); release.await(10, TimeUnit.SECONDS); secure }
+        val service = Robolectric.buildService(HkInputMethodService::class.java).create().get()
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            val clipboard = service.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.removePrimaryClipChangedListener(ReflectionHelpers.getField(service, "clipboardListener"))
+            clipboard.setPrimaryClip(ClipData.newPlainText("fixture", "must not capture"))
+            HkInputMethodService::class.java.getDeclaredMethod("handleSystemClipboardChange")
+                .apply { isAccessible = true }.invoke(service)
+        } finally { release.countDown() }
+        settle()
+        assertFalse(ClipboardHistoryManager.isEnabled(context))
+        assertTrue(ClipboardHistoryManager.getHistory(context).isEmpty())
+        service.onDestroy()
+    }
+    @Test fun sensitiveFirstCopyIsNeverDeferredAcrossMigration() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        ClipboardHistoryManager.resetForTests { entered.countDown(); release.await(10, TimeUnit.SECONDS); secure }
+        val service = Robolectric.buildService(HkInputMethodService::class.java).create().get()
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            val clipboard = service.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.removePrimaryClipChangedListener(ReflectionHelpers.getField(service, "clipboardListener"))
+            val clip = ClipData.newPlainText("fixture", "synthetic sensitive copy")
+            clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+            clipboard.setPrimaryClip(clip)
+            HkInputMethodService::class.java.getDeclaredMethod("handleSystemClipboardChange")
+                .apply { isAccessible = true }.invoke(service)
+        } finally { release.countDown() }
+        settle()
+        assertTrue(ClipboardHistoryManager.getHistory(context).isEmpty())
+        service.onDestroy()
+    }
     @Test fun encryptionFailureUsesMemoryWithoutRepeatedInitializationOrPlaintextWrites() {
         var attempts = 0
         ClipboardHistoryManager.resetForTests { attempts++; throw IllegalStateException("synthetic failure") }
         ClipboardHistoryManager.getHistory(context); settle()
         repeat(10) { ClipboardHistoryManager.getHistory(context) }
+        assertFalse(ClipboardHistoryManager.isEnabled(context))
+        ClipboardHistoryManager.setEnabled(context, true) // An explicit choice permits session-only capture.
         ClipboardHistoryManager.addItem(context, "memory-only fixture"); settle()
         assertEquals(1, attempts)
         assertEquals(ClipboardHistoryManager.StorageState.MEMORY_ONLY, ClipboardHistoryManager.storageState)
@@ -87,6 +174,7 @@ class ClipboardStorageRegressionTest {
         seed(secure, "unreadable old fixture", true)
         ClipboardHistoryManager.resetForTests { throw IllegalStateException("synthetic failure") }
         ClipboardHistoryManager.getHistory(context); settle()
+        ClipboardHistoryManager.setEnabled(context, true)
         ClipboardHistoryManager.addItem(context, "discard this fixture")
         ClipboardHistoryManager.clearHistory(context, true)
         ClipboardHistoryManager.addItem(context, "keep this fixture")

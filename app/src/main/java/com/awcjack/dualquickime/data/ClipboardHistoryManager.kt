@@ -50,10 +50,13 @@ object ClipboardHistoryManager {
     private fun notifyChanged() { listeners.toList().forEach { it() } }
     private fun settings(context: Context) = context.applicationContext.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE)
 
+    /** A missing setting is unknown until migration has read the encrypted store. */
+    fun hasResolvedEnabledSetting(context: Context): Boolean = settings(context).contains(KEY_ENABLED)
+
     fun isEnabled(context: Context): Boolean {
         initialize(context)
         // Unknown encrypted settings must be recovered before capturing a clip.
-        return settings(context).getBoolean(KEY_ENABLED, storageState != StorageState.LOADING)
+        return settings(context).getBoolean(KEY_ENABLED, false)
     }
     fun setEnabled(context: Context, enabled: Boolean) {
         settings(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
@@ -160,16 +163,31 @@ object ClipboardHistoryManager {
                 sources.forEach { check(it.edit().remove(KEY_HISTORY).commit()) }
                 prefs to merged
             }
-            val enabled = runCatching { configuration?.getBoolean(KEY_ENABLED, true) ?: true }.getOrDefault(false)
-            val skip = runCatching { configuration?.getBoolean(KEY_SKIP_PASSWORD_FIELDS, true) ?: true }.getOrDefault(true)
-            val ttl = runCatching { configuration?.getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS) ?: DEFAULT_TTL_HOURS }.getOrDefault(DEFAULT_TTL_HOURS)
+            // A failed encrypted read is not evidence that an absent old setting
+            // had its default value. Do not persist guessed privacy preferences.
+            val recovered = configuration
+            val enabled = runCatching {
+                if (!result.isSuccess) null
+                else if (recovered?.contains(KEY_ENABLED) == true) recovered.getBoolean(KEY_ENABLED, false)
+                else true
+            }.getOrNull()
+            val skip = runCatching {
+                if (!result.isSuccess) null
+                else if (recovered?.contains(KEY_SKIP_PASSWORD_FIELDS) == true) recovered.getBoolean(KEY_SKIP_PASSWORD_FIELDS, true)
+                else true
+            }.getOrNull()
+            val ttl = runCatching {
+                if (!result.isSuccess) null
+                else if (recovered?.contains(KEY_TTL_HOURS) == true) recovered.getInt(KEY_TTL_HOURS, DEFAULT_TTL_HOURS)
+                else DEFAULT_TTL_HOURS
+            }.getOrNull()
             main.post {
                 if (token != initialization) return@post
                 val config = settings(app)
                 config.edit().apply {
-                    if (!config.contains(KEY_ENABLED)) putBoolean(KEY_ENABLED, enabled)
-                    if (!config.contains(KEY_SKIP_PASSWORD_FIELDS)) putBoolean(KEY_SKIP_PASSWORD_FIELDS, skip)
-                    if (!config.contains(KEY_TTL_HOURS)) putInt(KEY_TTL_HOURS, ttl)
+                    if (enabled != null && !config.contains(KEY_ENABLED)) putBoolean(KEY_ENABLED, enabled)
+                    if (skip != null && !config.contains(KEY_SKIP_PASSWORD_FIELDS)) putBoolean(KEY_SKIP_PASSWORD_FIELDS, skip)
+                    if (ttl != null && !config.contains(KEY_TTL_HOURS)) putInt(KEY_TTL_HOURS, ttl)
                     apply()
                 }
                 backend = result.getOrNull()?.first

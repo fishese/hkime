@@ -86,10 +86,100 @@ class InputSessionRegressionTest {
     @After fun tearDown() { service.onDestroy() }
 
     private fun key(event: KeyboardView.KeyEvent) {
+        keyWithoutSettling(event)
+        settleServiceWork(service)
+    }
+
+    private fun keyWithoutSettling(event: KeyboardView.KeyEvent) {
         val method = HkInputMethodService::class.java.getDeclaredMethod("handleKeyEvent", KeyboardView.KeyEvent::class.java)
         method.isAccessible = true
         method.invoke(service, event)
+    }
+
+    private fun withBlockedCandidateWorker(action: () -> Unit) {
         settleServiceWork(service)
+        val worker = ReflectionHelpers.getField<Any>(service, "candidateWorker")
+        val executor = ReflectionHelpers.getField<java.util.concurrent.ExecutorService>(worker, "executor")
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        executor.execute { entered.countDown(); release.await(10, java.util.concurrent.TimeUnit.SECONDS) }
+        assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+        try { action() } finally { release.countDown() }
+        settleServiceWork(service)
+    }
+
+    @Test fun followingLetterWaitsForSwipeChoiceInsteadOfCommittingRawCode() {
+        ordinaryTextField()
+        ThemeManager.setMethodEnglish(service, false)
+        ThemeManager.setMethodCangjie(service, false)
+        ThemeManager.setMethodQuick(service, false)
+        withBlockedCandidateWorker {
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.Letter('a'))
+            assertEquals("ngo", connection.text)
+        }
+        assertEquals("我a", connection.text)
+    }
+
+    @Test fun pendingSwipeAndBackspaceMatchSettledInputOrder() {
+        ordinaryTextField()
+        ThemeManager.setMethodEnglish(service, false)
+        ThemeManager.setMethodCangjie(service, false)
+        ThemeManager.setMethodQuick(service, false)
+        key(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+        key(KeyboardView.KeyEvent.Backspace)
+        val expected = connection.text
+        call("clearComposition")
+        connection.reset("")
+        withBlockedCandidateWorker {
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.Backspace)
+        }
+        assertEquals(expected, connection.text)
+    }
+
+    @Test fun twoPendingSwipesAndNextLetterKeepTheirOrder() {
+        ordinaryTextField()
+        ThemeManager.setMethodEnglish(service, false)
+        ThemeManager.setMethodCangjie(service, false)
+        ThemeManager.setMethodQuick(service, false)
+        withBlockedCandidateWorker {
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.Letter('a'))
+        }
+        assertEquals("我我a", connection.text)
+    }
+
+    @Test fun spaceAfterPendingSwipeMatchesSettledSwipe() {
+        ordinaryTextField()
+        ThemeManager.setMethodEnglish(service, false)
+        ThemeManager.setMethodCangjie(service, false)
+        ThemeManager.setMethodQuick(service, false)
+        key(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+        key(KeyboardView.KeyEvent.Space)
+        val expected = connection.text
+        call("clearComposition")
+        connection.reset("")
+        withBlockedCandidateWorker {
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.Space)
+        }
+        assertEquals(expected, connection.text)
+    }
+
+    @Test fun fieldSwitchDropsFollowingKeysQueuedBehindSwipe() {
+        ordinaryTextField()
+        ThemeManager.setMethodEnglish(service, false)
+        withBlockedCandidateWorker {
+            keyWithoutSettling(KeyboardView.KeyEvent.SwipeCode("ngo", emptyList(), emptyList()))
+            keyWithoutSettling(KeyboardView.KeyEvent.Letter('a'))
+            val newConnection = ExcerptConnection(View(service)).apply { reset("") }
+            ReflectionHelpers.setField(service, "mStartedInputConnection", newConnection)
+            service.onStartInput(EditorInfo().apply { inputType = InputType.TYPE_TEXT_VARIATION_PASSWORD or InputType.TYPE_CLASS_TEXT }, false)
+            assertEquals("", newConnection.text)
+        }
+        assertEquals("ngo", connection.text)
     }
 
     private fun call(name: String) {

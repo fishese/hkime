@@ -78,6 +78,14 @@ class HkInputMethodService : InputMethodService() {
     private var resourcesReady = false
     private var destroyed = false
     private var lookupPending = false
+    private val deferredSwipeEvents = java.util.ArrayDeque<KeyboardView.KeyEvent>()
+    private var pendingClipboardEvent = false
+    private val clipboardStorageListener: () -> Unit = {
+        if (pendingClipboardEvent && ClipboardHistoryManager.hasResolvedEnabledSetting(this)) {
+            pendingClipboardEvent = false
+            handleSystemClipboardChange()
+        }
+    }
     private var associatedAnchor: EditorAnchor? = null
     private var simplexTable = SimplexTable(emptyList())
     private lateinit var mixedDictionary: MixedDictionary
@@ -176,6 +184,8 @@ class HkInputMethodService : InputMethodService() {
         // Register clipboard listener to capture system clipboard changes
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipboardListener)
+        ClipboardHistoryManager.addListener(clipboardStorageListener)
+        ClipboardHistoryManager.isEnabled(this) // Start settings migration before the first copy when possible.
     }
 
     /**
@@ -237,7 +247,16 @@ class HkInputMethodService : InputMethodService() {
      * Handle system clipboard changes (text copied from other apps).
      */
     private fun handleSystemClipboardChange() {
-        if (!ClipboardHistoryManager.isEnabled(this)) return
+        if (!ClipboardHistoryManager.isEnabled(this)) {
+            val unknown = !ClipboardHistoryManager.hasResolvedEnabledSetting(this)
+            val sensitive = clipboardManager?.primaryClipDescription?.extras
+                ?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true
+            pendingClipboardEvent = unknown && !sensitive &&
+                !(ClipboardHistoryManager.isSkipPasswordFieldsEnabled(this) &&
+                    ClipboardHistoryManager.isPasswordField(currentInputEditorInfo))
+            return
+        }
+        pendingClipboardEvent = false
 
         runCatching {
             val clip = clipboardManager?.primaryClip ?: return
@@ -307,6 +326,8 @@ class HkInputMethodService : InputMethodService() {
 
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
         invalidateCandidateWork()
+        deferredSwipeEvents.clear()
+        pendingClipboardEvent = false
         super.onStartInput(info, restarting)
         isPasswordField = isPasswordInputField(info)
         isEmailField = isTextVariation(info, InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS)
@@ -324,6 +345,7 @@ class HkInputMethodService : InputMethodService() {
 
     override fun onFinishInput() {
         invalidateCandidateWork()
+        deferredSwipeEvents.clear()
         LearnedPhraseManager.flush()
         resetLearnedPhraseContext()
         clearAssociatedPhrases()
@@ -332,6 +354,7 @@ class HkInputMethodService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         invalidateCandidateWork()
+        deferredSwipeEvents.clear()
         super.onStartInputView(info, restarting)
         resetLearnedPhraseContext()
         // Invalidate caches to pick up any settings changes
@@ -418,6 +441,13 @@ class HkInputMethodService : InputMethodService() {
         isPasswordField || isEmailField || isUsernameField
 
     private fun handleKeyEvent(event: KeyboardView.KeyEvent) {
+        // A following key must act on the resolved swipe choice, independent of
+        // whether dictionary work happened to finish before that key arrived.
+        if (pendingSwipeChoice && lookupPending && event !is KeyboardView.KeyEvent.MoveCursor &&
+            event !is KeyboardView.KeyEvent.StartCursorDrag && event !is KeyboardView.KeyEvent.EndCursorDrag) {
+            deferredSwipeEvents.addLast(event)
+            return
+        }
         if (event is KeyboardView.KeyEvent.MoveCursor) {
             val connection = spaceCursorInputConnection ?: return
             if (currentInputConnection !== connection) return
@@ -623,6 +653,7 @@ class HkInputMethodService : InputMethodService() {
     ) {
         if (delta == 0) return
         if (currentInputConnection !== connection) return
+        deferredSwipeEvents.clear()
         resetLearnedPhraseContext()
         pendingSwipeChoice = false
         suppressedPunctuationSpaceAnchor = null
@@ -794,6 +825,7 @@ class HkInputMethodService : InputMethodService() {
         }
         if (composition.rawKeys.isNotEmpty() && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            deferredSwipeEvents.clear()
             resetLearnedPhraseContext()
             // Finish in place; navigation must not insert a held space or move the caret back.
             spaceDeferredUntilNextLatin = false
@@ -1175,7 +1207,8 @@ class HkInputMethodService : InputMethodService() {
 
     private fun confirmPendingSwipeChoice() {
         if (!pendingSwipeChoice) return
-        val choice = composition.candidates.firstOrNull()
+        // An unresolved or unmatched code remains a literal Latin fallback.
+        val choice = composition.candidates.firstOrNull() ?: composition.rawKeys.takeIf { it.isNotEmpty() }
         if (choice != null) commitCandidate(choice) else pendingSwipeChoice = false
     }
 
@@ -1612,6 +1645,7 @@ class HkInputMethodService : InputMethodService() {
                     currentInputEditorInfo !== info || composition.rawKeys != rawKeys) return@post
                 val before = editor?.getTextBeforeCursor(128, 0)?.toString()
                 if (before != null && !before.endsWith(typed.takeLast(128))) {
+                    deferredSwipeEvents.clear()
                     clearComposition()
                     return@post
                 }
@@ -1623,6 +1657,9 @@ class HkInputMethodService : InputMethodService() {
                     editor?.setComposingText((if (LatinSpaceCommit.keptAsLatin(choice)) deferredLatinPrefix() else "") + choice, 1)
                 }
                 updateUI()
+                while (!lookupPending && deferredSwipeEvents.isNotEmpty()) {
+                    handleKeyEvent(deferredSwipeEvents.removeFirst())
+                }
             }
         }
     }
@@ -1714,6 +1751,9 @@ class HkInputMethodService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        deferredSwipeEvents.clear()
+        pendingClipboardEvent = false
+        ClipboardHistoryManager.removeListener(clipboardStorageListener)
         destroyed = true
         invalidateCandidateWork()
         candidateWorker.close()

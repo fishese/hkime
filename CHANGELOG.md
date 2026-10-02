@@ -1,5 +1,11 @@
 # HK IME changelog
 
+## 0.3.58 — test build
+
+- Keep clipboard capture disabled when an existing encrypted opt-out cannot yet be read; recover saved settings on retry without overriding a new explicit choice.
+- Capture the first eligible copy after clipboard settings finish migrating, while respecting sensitive clips and disabled history.
+- Preserve swipe candidate selection when another key arrives before background lookup finishes.
+
 ## 0.3.57 — 2026-10-03
 
 - Recycle candidate views while preserving every result, learned expansion, colors and configured sizes.
