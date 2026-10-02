@@ -108,9 +108,9 @@
     <string name="settings_space_after_english_candidate">選擇英文字後加入空格</string>
     <string name="settings_space_after_english_candidate_desc">點選英文字後加一個空格</string>
     <string name="settings_ignore_space_after_latin">空格鍵確認拉丁字母時不加空格</string>
-    <string name="settings_ignore_space_after_latin_desc">只確認拉丁字母。再按一次才輸入空格。按住可開關。</string>
+    <string name="settings_ignore_space_after_latin_desc">確認拉丁字母。開啟補回空格時會先顯示暫時空格，否則再按一次才加空格。按住可開關。</string>
     <string name="settings_restore_space_between_latin">拉丁字母之間補回空格</string>
-    <string name="settings_restore_space_between_latin_desc">在後續拉丁字母或數字前補回空格，中文不加</string>
+    <string name="settings_restore_space_between_latin_desc">先顯示空格，拉丁字母、數字及開引號或括號前保留；選擇中文時移除。</string>
 
     <!-- Character Set -->
     <string name="settings_character_set">字元集</string>

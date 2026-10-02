@@ -1,5 +1,23 @@
 # HK IME changelog
 
+## 0.3.51
+
+- Offer enabled, manually selectable English and Chinese typo corrections in ordinary text fields that set NO_SUGGESTIONS, including Google Keep.
+- Keep literal Space commits and sensitive-field/URI exclusions; add regression coverage for the phone's exact EditorInfo flags.
+
+## 0.3.50
+
+- Suggest full-dictionary nearby English corrections such as sanf → sang and stah → stay, retaining ambiguous alternatives.
+- Correct supported English words through 32 letters, including one extra typed character, without increasing edit budgets.
+- Blend bounded leading English/Chinese corrections while retaining later choices and protecting exact matches.
+- Preserve all verified one-neighbour Chinese code alternatives instead of cutting equally strong matches alphabetically.
+
+## 0.3.49
+
+- Show provisional spaces immediately during Latin typing and remove them for Chinese selections.
+- Preserve sensible spacing around Latin quotes and brackets.
+- Keep Cantonese typo recovery visible when Cangjie is also enabled.
+
 ## Unreleased
 
 - Expand offline English suggestions to bounded nearby-key, missing/extra-letter and transposition matching, including typo-tolerant unfinished words.

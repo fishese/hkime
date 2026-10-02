@@ -13,7 +13,7 @@ HK IME is an offline Android keyboard built for natural Hong Kong Chinese–Engl
 Latin text appears directly in the app as you type, while matching Chinese candidates remain available in the candidate bar. Tap a Chinese candidate to replace the composing code, or simply continue typing to keep the English text.
 
 - Cantonese romanization, Cangjie, Quick and English suggestions share one input buffer.
-- English autocomplete and typo suggestions work offline, including two nearby-key slips such as `oftrm → often`. Text changes only when you tap a suggestion.
+- English autocomplete and typo suggestions work offline, including short nearby-key mistakes (`sanf → sang`, `stah → stay`), longer words, and two nearby-key slips such as `oftrm → often`. Text changes only when you tap a suggestion.
 - Cantonese and Cangjie can suggest valid nearby codes. Exact single-character matches stay first; recovered characters can appear before phrase shorthand (`nfo → 我` via `ngo`). Each has its own switch under Chinese typo suggestions. Quick typo recovery is not enabled.
 - Moving the cursor away from an unfinished English composition commits it in place, making typo corrections natural.
 - Frequently selected candidates can be learned and promoted for the same input code.
@@ -64,6 +64,7 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 - Dedicated hide-keyboard key.
 - Long-press `123` to open Settings.
 - Enter respects the receiving app's Done, Go, Next, Previous, Search and Send actions, while multiline fields get a normal line break.
+- With Latin space restoration enabled, spaces appear immediately while typing English and are removed when you select Chinese. Opening quotes/brackets preserve a separator; closing Latin quotes/brackets can offer the following space.
 - Optional haptic feedback.
 
 ## Cangjie key mapping
@@ -94,6 +95,8 @@ The exact Android Settings path varies by device. It is usually under **Settings
 HK IME processes input locally. The release APK does **not request Internet permission** and contains no analytics or advertising SDK.
 
 Settings, custom dictionary entries, phrase shortcuts, learned candidate rankings and clipboard history are stored on the device. Clipboard history may contain sensitive copied text, so it can be disabled or cleared at any time.
+
+Enabled, manually selected typo corrections also work in ordinary text editors that request no automatic suggestions (including Google Keep). Typed text stays literal until a candidate is selected.
 
 Password fields receive additional protections: candidate learning is disabled, suggestions are restricted, and utilities such as the calculator are hidden.
 

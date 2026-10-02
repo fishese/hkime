@@ -37,6 +37,7 @@ import com.awcjack.dualquickime.data.sanitizeCandidates
 import com.awcjack.dualquickime.data.prioritizeCustomCandidates
 import com.awcjack.dualquickime.data.promoteReviewedCharacter
 import com.awcjack.dualquickime.data.mergeTypoCandidates
+import com.awcjack.dualquickime.data.typedCandidates
 import com.awcjack.dualquickime.data.promoteEverydayCantonese
 import com.awcjack.dualquickime.data.MixedDictionary
 import com.awcjack.dualquickime.data.NumericPadSpec
@@ -75,12 +76,14 @@ class HkInputMethodService : InputMethodService() {
     private var swipeChineseCodes: List<String> = emptyList()
     private var pendingSwipeChoice = false
     private var deferredSpaceAnchor: EditorAnchor? = null
+    private var pendingLatinSpace = false
     private var pendingPunctuationSpace = false
     private var pendingPunctuationSpaceAnchor: EditorAnchor? = null
     private var suppressedPunctuationSpaceAnchor: EditorAnchor? = null
     private var spaceDeferredUntilNextLatin = false
         set(value) {
             field = value
+            if (!value) pendingLatinSpace = false
             deferredSpaceAnchor = if (value) captureEditorAnchor() else null
         }
     private var lastSelectedText = ""
@@ -521,7 +524,8 @@ class HkInputMethodService : InputMethodService() {
 
         // Keep the Latin text visible in the app while Chinese options are open.
         letterCases.add(isUpperCase)
-        currentInputConnection?.setComposingText(getDisplayKeys(newRawKeys), 1)
+        pendingLatinSpace = false
+        currentInputConnection?.setComposingText(deferredLatinPrefix() + getDisplayKeys(newRawKeys), 1)
         updateComposition(newRawKeys)
     }
 
@@ -530,7 +534,7 @@ class HkInputMethodService : InputMethodService() {
         confirmPendingSwipeChoice()
         if (isEmailSuggestionsMode) clearEmailSuggestions()
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
-        finishEnglishComposition()
+        if (!pendingLatinSpace) finishEnglishComposition()
         insertSpaceAfterHalfPunctuation(event.code)
         swipeEnglishWords = event.englishWords.filterNot { it == event.code }
         swipeChineseCodes = event.chineseCodes.filterNot { it == event.code }
@@ -538,7 +542,10 @@ class HkInputMethodService : InputMethodService() {
         repeat(event.code.length) { letterCases.add(false) }
         updateComposition(event.code)
         val assumed = composition.candidates.firstOrNull()
-        currentInputConnection?.setComposingText(assumed ?: event.code, 1)
+        val display = assumed ?: event.code
+        pendingLatinSpace = false
+        currentInputConnection?.setComposingText(
+            (if (LatinSpaceCommit.keptAsLatin(display)) deferredLatinPrefix() else "") + display, 1)
         pendingSwipeChoice = assumed != null
     }
 
@@ -681,6 +688,10 @@ class HkInputMethodService : InputMethodService() {
             return
         }
         finishPendingPunctuationSpace()
+        if (pendingLatinSpace) {
+            resolvePendingLatinSpace(keep = true)
+            spaceDeferredUntilNextLatin = false
+        }
         val committingRawLatin = composition.rawKeys.isNotEmpty()
         finishEnglishComposition()
         // A held space returns once before the number. Later digits stay attached,
@@ -750,7 +761,10 @@ class HkInputMethodService : InputMethodService() {
             finishPendingPunctuationSpace()
         }
         if (composition.rawKeys.isEmpty() && spaceDeferredUntilNextLatin &&
-            !anchorMatches(deferredSpaceAnchor)) spaceDeferredUntilNextLatin = false
+            !anchorMatches(deferredSpaceAnchor)) {
+            resolvePendingLatinSpace(keep = true)
+            spaceDeferredUntilNextLatin = false
+        }
         if (suppressedPunctuationSpaceAnchor != null &&
             !suppressedPunctuationSpaceStillApplies(suppressedPunctuationSpaceAnchor)) {
             suppressedPunctuationSpaceAnchor = null
@@ -777,6 +791,7 @@ class HkInputMethodService : InputMethodService() {
         }
         if (isAssociatedPhrasesMode) clearAssociatedPhrases()
         pendingSymbol = null
+        val separatingLatin = spaceDeferredUntilNextLatin && restoresSpaceBetweenLatin()
         finishLatinOrDropDeferredSpace()
         val beforeCursor = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString().orEmpty()
         val choice = ContextualPunctuation.choose(event.char, beforeCursor, event.forceLiteral)
@@ -790,6 +805,8 @@ class HkInputMethodService : InputMethodService() {
                 // though the key has already committed it.
                 if (catalogue.firstOrNull() == inserted) listOf(inserted) + rest else rest
             }
+        if (separatingLatin && LatinSpaceCommit.isOpeningPunctuation(beforeCursor, inserted)) commitText(" ")
+        else insertSpaceAfterHalfPunctuation(inserted)
         commitText(inserted)
         if (event.char == '@' && !isPasswordField &&
             EmailDomains.shouldOffer(isEmailField, beforeCursor)) {
@@ -852,6 +869,11 @@ class HkInputMethodService : InputMethodService() {
             spaceDeferredUntilNextLatin = false
             return
         }
+        if (pendingLatinSpace) {
+            resolvePendingLatinSpace(keep = true)
+            spaceDeferredUntilNextLatin = false
+            return
+        }
         val ignoreCommitSpace = ThemeManager.getIgnoreSpaceAfterLatin(this)
         val rawLatin = composition.rawKeys.isNotEmpty() && !pendingSwipeChoice
         val hadComposition = composition.rawKeys.isNotEmpty()
@@ -860,6 +882,7 @@ class HkInputMethodService : InputMethodService() {
         finishEnglishComposition()
         if (LatinSpaceCommit.deferCommitSpace(
                 ignoreCommitSpace, ThemeManager.getRestoreSpaceBetweenLatin(this), rawLatin)) {
+            pendingLatinSpace = currentInputConnection?.setComposingText(" ", 1) == true
             spaceDeferredUntilNextLatin = true
         } else if (LatinSpaceCommit.insertsSpace(ignoreCommitSpace, hadComposition,
                 candidateInsertedSpace)) {
@@ -871,6 +894,11 @@ class HkInputMethodService : InputMethodService() {
     }
 
     private fun handleBackspace() {
+        if (pendingLatinSpace) {
+            resolvePendingLatinSpace(keep = false)
+            spaceDeferredUntilNextLatin = false
+            return
+        }
         swipeEnglishWords = emptyList()
         swipeChineseCodes = emptyList()
         lastSelectedText = ""
@@ -910,11 +938,16 @@ class HkInputMethodService : InputMethodService() {
                 letterCases.removeAt(letterCases.lastIndex)
             }
             if (newKeys.isEmpty()) {
-                currentInputConnection?.setComposingText("", 1)
-                currentInputConnection?.finishComposingText()
+                val prefix = deferredLatinPrefix()
+                currentInputConnection?.setComposingText(prefix, 1)
+                if (prefix.isEmpty()) currentInputConnection?.finishComposingText()
+                else {
+                    pendingLatinSpace = true
+                    deferredSpaceAnchor = captureEditorAnchor()
+                }
                 clearComposition()
             } else {
-                currentInputConnection?.setComposingText(getDisplayKeys(newKeys), 1)
+                currentInputConnection?.setComposingText(deferredLatinPrefix() + getDisplayKeys(newKeys), 1)
                 updateComposition(newKeys)
             }
         } else {
@@ -1068,14 +1101,20 @@ class HkInputMethodService : InputMethodService() {
     /**
      * Commits visible Latin letters in place. Returns true when that raw string
      * was committed, including an unrecognized string left as typed letters.
-     * A held space is written in front of that string.
+     * The provisional separator stays in front of that string.
      */
     private fun finishEnglishComposition(): Boolean {
         if (pendingSwipeChoice) {
             confirmPendingSwipeChoice()
             return false
         }
-        if (composition.rawKeys.isEmpty()) return false
+        if (composition.rawKeys.isEmpty()) {
+            if (pendingLatinSpace) {
+                resolvePendingLatinSpace(keep = true)
+                spaceDeferredUntilNextLatin = false
+            }
+            return false
+        }
         if (LatinSpaceCommit.restoreDeferredSpace(
                 restoresSpaceBetweenLatin(), spaceDeferredUntilNextLatin, true)) {
             spaceDeferredUntilNextLatin = false
@@ -1093,8 +1132,20 @@ class HkInputMethodService : InputMethodService() {
             ThemeManager.getRestoreSpaceBetweenLatin(this)
     }
 
-    /** Finish raw Latin if any; otherwise the held space no longer has a Latin word to join. */
+    /** Keep the separator inside the next composition so Chinese selection can remove it. */
+    private fun deferredLatinPrefix(): String =
+        if (spaceDeferredUntilNextLatin && restoresSpaceBetweenLatin()) " " else ""
+
+    private fun resolvePendingLatinSpace(keep: Boolean) {
+        if (!pendingLatinSpace) return
+        if (!keep && anchorMatches(deferredSpaceAnchor)) currentInputConnection?.setComposingText("", 1)
+        currentInputConnection?.finishComposingText()
+        pendingLatinSpace = false
+    }
+
+    /** Finish raw Latin if any; otherwise drop its provisional trailing separator. */
     private fun finishLatinOrDropDeferredSpace() {
+        resolvePendingLatinSpace(keep = false)
         cancelPendingPunctuationSpace()
         if (!finishEnglishComposition()) spaceDeferredUntilNextLatin = false
     }
@@ -1331,9 +1382,11 @@ class HkInputMethodService : InputMethodService() {
         if (isPasswordField || isEmailField || isUsernameField || pendingSwipeChoice ||
             swipeEnglishWords.isNotEmpty() || swipeChineseCodes.isNotEmpty()) return false
         val type = currentInputEditorInfo?.inputType ?: return true
+        // Ordinary editors (including Google Keep) may request NO_SUGGESTIONS.
+        // Our opt-in candidates require explicit selection and never auto-replace;
+        // honor the keyboard's recovery toggles, as with existing exact candidates.
         return (type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
-            (type and InputType.TYPE_MASK_VARIATION) != InputType.TYPE_TEXT_VARIATION_URI &&
-            (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) == 0
+            (type and InputType.TYPE_MASK_VARIATION) != InputType.TYPE_TEXT_VARIATION_URI
     }
 
     private fun updateComposition(rawKeys: String) {
@@ -1388,15 +1441,15 @@ class HkInputMethodService : InputMethodService() {
         // before exact phrase shorthand (nfo -> ngo/我 before nfo/年貨).
         if (canSuggestTypos()) {
             val englishFixes = if (MethodMembership.Method.ENGLISH in enabledMethods &&
-                ThemeManager.getEnglishSpellCheck(this)) englishTypoMatcher.suggestions(getDisplayKeys(rawKeys))
+                ThemeManager.getEnglishSpellCheck(this)) englishTypoMatcher.candidates(getDisplayKeys(rawKeys))
                 else emptyList()
             val recoveryMethods = enabledMethods.filterTo(mutableSetOf()) {
                 (it == MethodMembership.Method.CANTONESE && ThemeManager.getCantoneseTypoRecovery(this)) ||
                     (it == MethodMembership.Method.CANGJIE && ThemeManager.getCangjieTypoRecovery(this))
             }
             val chineseFixes = methodMembership.recoverCodes(lookupKeys, recoveryMethods)
-                .flatMap { it.candidates }
-            candidates = mergeTypoCandidates(getDisplayKeys(rawKeys), candidates, englishFixes, chineseFixes) {
+                .flatMap { it.typedCandidates() }
+            candidates = mergeTypoCandidates(getDisplayKeys(rawKeys), candidates, englishFixes + chineseFixes) {
                 if (ThemeManager.getRecentCandidatesEnabled(this))
                     RecentCandidateManager.reorderCandidates(this, lookupKeys, it) else it
             }

@@ -11,7 +11,7 @@ The approved scope now includes English, Cantonese and Cangjie. Quick recovery r
 - EnglishTypoMatcher uses a weighted-edit trie over the bundled English lexicon plus the existing common-word set. Nearby substitutions/transpositions cost 2; distant substitutions and insertion/deletion cost 3. The budget is 2 for 3–4 letters and 4 for 5–20 letters: two nearby slips fit, two arbitrary spelling changes do not. Short words must be common. Results are capped at two/four, and searches at 12,000 visited nodes and a six-character completion suffix.
 - One-edit fuzzy prefixes can produce unfinished-word completions. Whole-word results rank ahead of fuzzy completions, then edit cost/common-word membership/length/alphabetical order. These are heuristics, not learned probabilities. Already valid words and mixed-case identifiers are not English-corrected.
 - Added sound/sounds coverage to the asset, common set and asset generator. The old matcher already allowed oftrm's two substitutions in principle; this example is now an explicit end-to-end regression requirement rather than an assumed old failure cause.
-- Chinese recovery generates one-edit code variants and reads only verified membership/override entries directly. It performs no repeated MCK shard searches. Cantonese allows nearby substitution/transposition; Cangjie also allows missing/extra keys. Input must be at least three letters; Cangjie recovered codes are at most five. At most three corrected code/method pairs contribute, without truncating a code's character choices. This does not attempt to recover every uncertain/unindexed MCK phrase.
+- Chinese recovery generates one-edit code variants and reads only verified membership/override entries directly. It performs no repeated MCK shard searches. Cantonese allows nearby substitution/transposition; Cangjie also allows missing/extra keys. Input must be at least three letters; Cangjie recovered codes are at most five. At most three corrected codes per enabled method contribute (six with both Cantonese and Cangjie enabled), without truncating a code's character choices. This does not attempt to recover every uncertain/unindexed MCK phrase.
 - Cantonese/Cangjie have independent, default-on settings on the Input tab. English retains its existing spelling-suggestions toggle. Disabled input methods contribute no recovered codes.
 - **Updated priority requested by the user:** exact single characters and exact full English words first; English fixes/recovered single characters next; exact phrase shorthand and English prefix completions next; recovered phrases last. Thus nfo's 年貨 shorthand does not block ngo's 我. Learning ranks groups independently; it cannot push a phrase above protected characters. With no inferred results, existing order is unchanged.
 - Raw composition, space/enter/caret commits, case and candidate-tap behaviour are unchanged. No automatic correction, network lookup, touch recording or new learning store was added.
@@ -146,3 +146,23 @@ Synchronise observations on backspace, cursor movement, composition reset and me
 Implement Phase 1 behind the existing English spellcheck option on this branch, plus candidate-provenance/ranking regression tests. Do not change Chinese recovery, add a large language model/cloud dependency, alter dictionary licences, sign APKs, or merge into main as part of that first change set.
 
 This review is static source inspection. No build, unit-test run or on-device benchmark was performed in this turn.
+
+
+## Follow-up branch review (2026-10-02)
+
+- Fixed mixed-method starvation: the shared three-alternative cap let Cangjie crowd out Cantonese recovery, including `nfo → ngo → 我` with both methods enabled. Recovery now permits three code alternatives per method, preserving the bound and all verified characters for each code.
+- When both Latin space options are enabled, Space now displays a provisional separator immediately. The following Latin composition includes that separator; Chinese candidate selection replaces the whole composition without it. Numbers retain it once. Backspace cancels it, a second Space confirms it, and caret movement finishes it in place.
+- Explicit separators survive opening Latin quotes/brackets. Completed Latin quotations and bracketed phrases offer a following space; opening quotes, contractions, repeated punctuation, and Chinese-only quoted text do not acquire an unwanted separator.
+- Regression coverage includes mixed-method recovery, visible typing, Chinese tap/swipe selection, quotes/brackets, numbers, backspace, and caret movement. The complete debug unit suite passes.
+
+Remaining improvements worth evaluating on devices: measure matcher latency and allocation on older phones with the bundled lexicon; consider frequency-based tie-breaking for recovered codes instead of alphabetical order. The bounded matcher is deterministic today, but the code ordering does not estimate the user's intended word. Physical touch-coordinate weighting remains future work.
+
+
+## Second follow-up — 0.3.50
+
+Implemented Phase 1 of TYPO_RECOGNITION_IMPROVEMENT_PLAN.md: full-vocabulary four-letter corrections and longer-word coverage, separate complete/fuzzy retention, preserved cost/code metadata, bounded leading correction blending, and retention of equally strong Chinese code alternatives. Both sanf → sang/生 and stah → stay now have explicit ordinary-text service regressions. The full suite passes 189 tests. See the handoff's implementation results for synthetic before/after recall, host-only latency and the still-unreproduced original phone-field discrepancy.
+
+
+## Live-phone follow-up — 0.3.51
+
+ADB isolated the missing corrections to Google Keep inputType 0xac001, which sets NO_SUGGESTIONS. The shared recovery gate rejected that ordinary text field. An exact-flags regression reproduced the failure. Enabled, explicitly selectable recovery now follows keyboard preferences in such fields; password/email/username/URI and swipe exclusions remain. The full suite passes 190 tests. No note content was recorded.

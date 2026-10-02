@@ -13,13 +13,29 @@ object PunctuationSpacing {
     )
 
     fun needsSpaceBefore(beforeCursor: String, nextText: String): Boolean {
-        if (!startsWithWord(nextText)) return false
+        if (!startsWithWord(nextText) && !LatinSpaceCommit.isOpeningPunctuation(beforeCursor, nextText)) return false
         return shouldOfferSpaceAfter(beforeCursor)
     }
 
     /** Whether a provisional space should be shown immediately after this text. */
     fun shouldOfferSpaceAfter(textBeforeCursor: String): Boolean {
         if (textBeforeCursor.isEmpty() || textBeforeCursor.last().isWhitespace()) return false
+        // A completed Latin quotation/bracketed phrase also ends a word. Do not
+        // treat an opening quote or an apostrophe inside a contraction as a closer.
+        val closer = textBeforeCursor.last()
+        val opener = when (closer) {
+            '"' -> if (textBeforeCursor.count { it == '"' } % 2 == 0) '"' else null
+            '\u201d' -> '\u201c'
+            ')' -> '('
+            ']' -> '['
+            '}' -> '{'
+            else -> null
+        }
+        if (opener != null) {
+            val start = textBeforeCursor.lastIndexOf(opener, textBeforeCursor.lastIndex - 1)
+            if (start >= 0 && LatinSpaceCommit.keptAsLatin(
+                    textBeforeCursor.substring(start + 1, textBeforeCursor.lastIndex))) return true
+        }
         var end = textBeforeCursor
         while (end.isNotEmpty() && end.last() in closers) end = end.dropLast(1)
         return end.isNotEmpty() && end.last() in triggers

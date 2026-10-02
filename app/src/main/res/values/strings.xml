@@ -58,9 +58,9 @@
     <string name="settings_space_after_english_candidate">Add space after English candidate</string>
     <string name="settings_space_after_english_candidate_desc">Adds a space after a chosen Latin word</string>
     <string name="settings_ignore_space_after_latin">Space bar commits Latin without adding a space</string>
-    <string name="settings_ignore_space_after_latin_desc">Confirms Latin without a space. Press again to type one. Hold to toggle.</string>
+    <string name="settings_ignore_space_after_latin_desc">Confirms Latin. With space restoration enabled, shows a temporary space; otherwise press again to add one. Hold to toggle.</string>
     <string name="settings_restore_space_between_latin">Add space back between Latin texts</string>
-    <string name="settings_restore_space_between_latin_desc">Puts that space back before more Latin or a number, not before Chinese.</string>
+    <string name="settings_restore_space_between_latin_desc">Shows the space immediately. Keeps it for Latin, numbers and opening quotes or brackets; removes it when Chinese is selected.</string>
     <string name="settings_preview">Preview</string>
     <string name="settings_about">About</string>
 

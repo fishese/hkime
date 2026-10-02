@@ -1,9 +1,9 @@
 package com.awcjack.dualquickime.data
 
 /**
- * Space can finish uncommitted Latin letters without being inserted yet.
- * That held space is written back when the next commit stays Latin, or before a
- * number. Further digits in that number stay together. Chinese drops it.
+ * Space finishes Latin letters and can show a provisional separator immediately.
+ * The separator stays with Latin text, numbers, or opening Latin punctuation.
+ * Further digits stay together. Selecting Chinese removes the separator.
  * An explicit later space, once nothing is left to commit, still inserts one.
  */
 object LatinSpaceCommit {
@@ -46,6 +46,13 @@ object LatinSpaceCommit {
             index += Character.charCount(codePoint)
         }
         return hasLatinLetter
+    }
+
+    /** Keep an explicit word separator before opening Latin punctuation. */
+    fun isOpeningPunctuation(before: String, next: String): Boolean = when (next) {
+        "(", "[", "{", "\u201c" -> true
+        "\"" -> before.count { it == '"' } % 2 == 0
+        else -> false // Apostrophes can be contractions or possessives.
     }
 
     private val CJK_UNIFIED = 0x4E00..0x9FFF

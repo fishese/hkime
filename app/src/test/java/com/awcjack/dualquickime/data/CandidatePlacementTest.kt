@@ -4,6 +4,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class CandidatePlacementTest {
+    private fun mergeTypoCandidates(typed: String, exact: List<String>, english: List<String>,
+            chinese: List<String>, rank: (List<String>) -> List<String> = { it }): List<String> =
+        com.awcjack.dualquickime.data.mergeTypoCandidates(typed, exact,
+            english.mapIndexed { i, text -> TypoCandidate(text, text.lowercase(),
+                MethodMembership.Method.ENGLISH, 2, sourceOrder = i) } +
+            chinese.mapIndexed { i, text -> TypoCandidate(text, "ngo",
+                MethodMembership.Method.CANTONESE, 2, sourceOrder = i) }, rank)
+
     @Test fun exactCharactersBeatRecoveryButExactPhraseShorthandDoesNot() {
         assertEquals(listOf("甲", "我", "餓", "年貨", "我哋"), mergeTypoCandidates(
             "nfo", listOf("年貨", "甲"), emptyList(), listOf("我", "餓", "我哋")))

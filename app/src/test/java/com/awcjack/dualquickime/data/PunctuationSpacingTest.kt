@@ -27,6 +27,15 @@ class PunctuationSpacingTest {
         assertFalse(PunctuationSpacing.needsSpaceBefore("", "hello"))
     }
 
+    @Test fun latinQuotesAndBracketsSeparateWordsWithoutBreakingContractions() {
+        assertTrue(PunctuationSpacing.needsSpaceBefore("say \"hello\"", "world"))
+        assertTrue(PunctuationSpacing.needsSpaceBefore("say (hello)", "world"))
+        assertTrue(PunctuationSpacing.needsSpaceBefore("hello.", "\""))
+        assertFalse(PunctuationSpacing.shouldOfferSpaceAfter("say \""))
+        assertFalse(PunctuationSpacing.shouldOfferSpaceAfter("don't"))
+        assertFalse(PunctuationSpacing.shouldOfferSpaceAfter("\"你好\""))
+    }
+
     @Test fun spacesBeforeEmojiFromEachSupportedUnicodeRange() {
         listOf("☀", "✈", "🇭🇰", "🗺", "😀", "🚀", "🦄").forEach { emoji ->
             assertTrue(emoji, PunctuationSpacing.needsSpaceBefore("Done.", emoji))

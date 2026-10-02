@@ -4,6 +4,14 @@ import java.util.Locale
 
 /** Bounded, offline weighted-edit trie. Two nearby slips are cheaper than two arbitrary edits. */
 internal class EnglishTypoMatcher(words: Collection<String>, private val common: Set<String>) {
+    companion object {
+        const val MAX_WORD_LENGTH = 32
+        const val MAX_TYPED_LENGTH = MAX_WORD_LENGTH + 1
+        const val MAX_VISITED_NODES = 12_000
+        const val MAX_COMPLETE_RESULTS = 8
+        const val MAX_FUZZY_RESULTS = 4
+    }
+
     private class Node {
         val children = sortedMapOf<Char, Node>()
         var word: String? = null
@@ -11,7 +19,7 @@ internal class EnglishTypoMatcher(words: Collection<String>, private val common:
     internal data class Match(val word: String, val cost: Int, val completion: Boolean)
     private val root = Node()
     private val vocabulary = (words + common).filter {
-        it.length in 2..32 && it.all { char -> char in 'a'..'z' }
+        it.length in 2..MAX_WORD_LENGTH && it.all { char -> char in 'a'..'z' }
     }.toSet()
 
     init {
@@ -22,16 +30,20 @@ internal class EnglishTypoMatcher(words: Collection<String>, private val common:
         }
     }
 
-    fun suggestions(typed: String): List<String> = matches(typed).map { match ->
-        when {
+    fun suggestions(typed: String): List<String> = candidates(typed).map { it.text }
+
+    internal fun candidates(typed: String): List<TypoCandidate> = matches(typed).mapIndexed { index, match ->
+        val display = when {
             typed.all(Char::isUpperCase) -> match.word.uppercase(Locale.ROOT)
             typed.first().isUpperCase() -> match.word.replaceFirstChar { it.uppercaseChar() }
             else -> match.word
         }
+        TypoCandidate(display, match.word, MethodMembership.Method.ENGLISH, match.cost,
+            match.completion, index, match.word in common)
     }
 
     internal fun matches(typed: String): List<Match> {
-        if (typed.length !in 3..20 || !EnglishSuggestions.isLatinWord(typed)) return emptyList()
+        if (typed.length !in 3..MAX_TYPED_LENGTH || !EnglishSuggestions.isLatinWord(typed)) return emptyList()
         // Deliberately mixed case often means identifiers, not misspelled ordinary words.
         if (!(typed.all(Char::isLowerCase) || typed.all(Char::isUpperCase) ||
                 (typed.first().isUpperCase() && typed.drop(1).all(Char::isLowerCase)))) return emptyList()
@@ -45,7 +57,7 @@ internal class EnglishTypoMatcher(words: Collection<String>, private val common:
         fun visit(node: Node, letter: Char, depth: Int, previous: IntArray,
                   beforePrevious: IntArray?, previousLetter: Char?, prefixCost: Int, prefixDepth: Int) {
             // Deterministic caps keep worst-case searches from stalling the tap pipeline.
-            if (++visited > 12_000 || depth > minOf(32, input.length + 6)) return
+            if (++visited > MAX_VISITED_NODES || depth > minOf(MAX_WORD_LENGTH, input.length + 6)) return
             val row = IntArray(input.length + 1)
             row[0] = depth * 3
             for (i in 1..input.length) {
@@ -71,12 +83,11 @@ internal class EnglishTypoMatcher(words: Collection<String>, private val common:
                 bestPrefixDepth = depth
             }
             node.word?.let { word ->
-                if (input.length >= 5 || word in common) {
-                    if (cost in 1..budget) results.add(Match(word, cost, false))
-                    else if (bestPrefixCost <= 3 && depth > bestPrefixDepth &&
-                        depth - bestPrefixDepth <= 6 && !word.startsWith(input)) {
-                        results.add(Match(word, bestPrefixCost, true))
-                    }
+                if (cost in 1..budget && (input.length >= 4 || word in common)) {
+                    results.add(Match(word, cost, false))
+                } else if ((input.length >= 5 || word in common) && bestPrefixCost <= 3 &&
+                    depth > bestPrefixDepth && depth - bestPrefixDepth <= 6 && !word.startsWith(input)) {
+                    results.add(Match(word, bestPrefixCost, true))
                 }
             }
             // A transposition can skip over an expensive intermediate row (teh -> the).
@@ -88,9 +99,12 @@ internal class EnglishTypoMatcher(words: Collection<String>, private val common:
         for ((letter, child) in root.children) {
             visit(child, letter, 1, initial, null, null, Int.MAX_VALUE, 0)
         }
-        return results.sortedWith(compareBy<Match> { it.completion }
+        val ranked = results.sortedWith(compareBy<Match> { it.completion }
             .thenBy { it.cost }.thenBy { it.word !in common }
-            .thenBy { it.word.length }.thenBy { it.word })
-            .distinctBy { it.word }.take(if (input.length < 5) 2 else 4)
+            .thenBy { it.word.length }.thenBy { it.word }).distinctBy { it.word }
+        val completeLimit = if (input.length == 3) 2 else MAX_COMPLETE_RESULTS
+        val fuzzyLimit = if (input.length == 4) 2 else MAX_FUZZY_RESULTS
+        return ranked.filterNot { it.completion }.take(completeLimit) +
+            ranked.filter { it.completion }.take(fuzzyLimit)
     }
 }

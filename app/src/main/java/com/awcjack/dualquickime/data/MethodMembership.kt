@@ -96,9 +96,10 @@ class MethodMembership(lines: Sequence<String>, phraseOverrides: Sequence<String
                 if (candidates.isNotEmpty()) result.add(Recovery(alternative, method, cost, candidates))
             }
         }
-        // Bound CODE alternatives, not characters: ngo should expose all its real choices.
-        return result.sortedWith(compareBy<Recovery> { it.cost }.thenBy { it.code }
-            .thenBy { it.method.ordinal }).distinctBy { it.code to it.method }.take(3)
+        // Generation is one edit only and bounded by input length. Keep equally
+        // strong codes; presentation and weaker-group limits belong in the merger.
+        return result.sortedWith(compareBy<Recovery> { it.cost }.thenBy { it.method.ordinal }
+            .thenBy { it.code }).distinctBy { it.code to it.method }
     }
 
     /** Keep MCK order and retain any unassigned candidates by default. */

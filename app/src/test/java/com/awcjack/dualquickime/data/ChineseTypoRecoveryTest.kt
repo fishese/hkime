@@ -24,6 +24,25 @@ class ChineseTypoRecoveryTest {
         assertTrue("餓" in ngo.candidates)
     }
 
+    @Test fun enabledCangjieDoesNotCrowdOutCantoneseRecovery() {
+        val membership = File("src/main/assets/method-membership.tsv").bufferedReader().use {
+            MethodMembership(it.lineSequence())
+        }
+        val recovered = membership.recoverCodes("nfo", cantonese + cangjie)
+        assertTrue(recovered.any { it.code == "ngo" && "我" in it.candidates })
+        assertTrue(recovered.groupBy { it.method }.values.all { it.size <= 6 * "nfo".length + "nfo".length - 1 + 26 * ("nfo".length + 1) + "nfo".length })
+    }
+
+    @Test fun sanfRetainsSangWithBothMethodsEnabled() {
+        val membership = File("src/main/assets/method-membership.tsv").bufferedReader().use {
+            MethodMembership(it.lineSequence())
+        }
+        for (methods in listOf(cantonese, cantonese + cangjie)) {
+            val sang = membership.recoverCodes("sanf", methods).single { it.code == "sang" }
+            assertTrue(sang.candidates.containsAll(listOf("生", "省")))
+        }
+    }
+
     @Test fun recoveryPreservesVerifiedCharactersAndOverrides() {
         val recovery = fixture().recoverCodes("nfo", cantonese).single()
         assertEquals("ngo", recovery.code)
@@ -48,13 +67,13 @@ class ChineseTypoRecoveryTest {
         assertTrue(fixture().recoverCodes("nfoo", cantonese).isEmpty())
     }
 
-    @Test fun capsCorrectedCodesButDoesNotTruncateTheirCharacterChoices() {
+    @Test fun retainsMoreThanThreeEquallyStrongCodesAndAllTheirCharacterChoices() {
         val membership = MethodMembership(sequenceOf(
             "ngo\tcantonese\t我餓鵝臥俄傲哦娥",
             "nro\tcantonese\t甲", "nto\tcantonese\t乙", "nco\tcantonese\t丙"
         ))
         val results = membership.recoverCodes("nfo", cantonese)
-        assertEquals(3, results.size)
+        assertEquals(4, results.size)
         assertEquals(8, results.single { it.code == "ngo" }.candidates.size)
     }
 }
