@@ -1,5 +1,10 @@
 # HK IME changelog
 
+## 0.3.55
+
+- Keep learned-candidate pill sizes identical to ordinary candidates and respect configured text size and padding.
+- Limit only learned continuations to five in the strip; expand them inline with › before regular suggestions, and collapse with ‹. Preserve all bundled and typed suggestions and the full candidate grid.
+
 ## 0.3.54
 
 - Show up to five suggestions when learned continuations are available, with a › button to open all candidates. Preserve the full ranked list and learned colors in the expanded grid.

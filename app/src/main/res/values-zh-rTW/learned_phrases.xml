@@ -7,4 +7,6 @@
     <string name="settings_learned_phrases_cleared">已清除學習組合</string>
     <string name="learned_candidate_accessibility">%1$s，已學習組合</string>
     <string name="show_more_suggestions">顯示更多候選字</string>
+    <string name="show_more_learned_suggestions">顯示更多已學習候選字</string>
+    <string name="show_fewer_learned_suggestions">收起已學習候選字</string>
 </resources>

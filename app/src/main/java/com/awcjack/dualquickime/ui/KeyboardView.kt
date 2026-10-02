@@ -164,8 +164,8 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
     private var learnedCandidateTexts = emptySet<String>()
-    private var compactLearnedSuggestions = false
-    private var hasMoreSuggestions = false
+    private var learnedSuggestionsExpanded = false
+    private var learnedExpansionCandidates = emptyList<String>()
     private var symbolUtilBar: View? = null
     private var symbolCandidateBar: View? = null
     private var pageIndicator: TextView? = null
@@ -1045,12 +1045,18 @@ class KeyboardView @JvmOverloads constructor(
     /** Show all choices in a continuously scrollable strip. */
     fun setCandidates(candidates: List<String>, learned: Set<String> = emptySet()) {
         val allCandidates = sanitizeCandidates(candidates)
-        compactLearnedSuggestions = learned.isNotEmpty()
-        val visibleCandidates = if (compactLearnedSuggestions) allCandidates.take(5) else allCandidates
-        hasMoreSuggestions = allCandidates.size > visibleCandidates.size
-        candidateScroll?.isFillViewport = compactLearnedSuggestions
+        val candidatesChanged = learnedExpansionCandidates != allCandidates
+        if (candidatesChanged || learnedCandidateTexts != learned) {
+            learnedSuggestionsExpanded = false
+        }
+        learnedExpansionCandidates = allCandidates
+        val allLearned = allCandidates.filter { it in learned }
+        val previewLearned = if (learnedSuggestionsExpanded) allLearned else allLearned.take(5)
+        val visibleCandidates = previewLearned + allCandidates.filter { it !in learned }
+        // Learned candidates use exactly the same content-sized pills as dictionary candidates.
+        candidateScroll?.isFillViewport = false
         candidateRow?.layoutParams?.let { params ->
-            params.width = if (compactLearnedSuggestions) LayoutParams.MATCH_PARENT else LayoutParams.WRAP_CONTENT
+            params.width = LayoutParams.WRAP_CONTENT
             candidateRow?.layoutParams = params
         }
         if (isSymbolMode && symbolCandidateBar != null) {
@@ -1058,20 +1064,17 @@ class KeyboardView @JvmOverloads constructor(
             symbolCandidateBar?.visibility = View.VISIBLE
         }
         hideNumberRow()
-        if (displayedCandidates != visibleCandidates || learnedCandidateTexts != learned) {
+        if (candidatesChanged || displayedCandidates != visibleCandidates || learnedCandidateTexts != learned) {
             learnedCandidateTexts = learned.toSet()
             displayedCandidates = visibleCandidates
             candidateRow?.removeAllViews()
             candidateSlots.clear()
-            visibleCandidates.forEach { candidate ->
+            visibleCandidates.forEachIndexed { index, candidate ->
+                if (index == previewLearned.size && allLearned.size > 5) {
+                    candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+                }
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
-                    if (compactLearnedSuggestions) {
-                        layoutParams = LayoutParams(0, candidateBarHeightPx() - dpToPx(4), 1f).apply {
-                            setMargins(dpToPx(1), 0, dpToPx(1), 0)
-                        }
-                        setPadding(dpToPx(4), 0, dpToPx(4), 0)
-                    }
                     setTextColor(if (candidate in learned) colors.learnedCandidateText else colors.candidateText)
                     contentDescription = if (candidate in learned)
                         context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
@@ -1084,23 +1087,33 @@ class KeyboardView @JvmOverloads constructor(
                 candidateSlots.add(slot)
                 candidateRow?.addView(slot)
             }
+            if (visibleCandidates.size == previewLearned.size && allLearned.size > 5) {
+                candidateRow?.addView(createLearnedExpansionButton(allCandidates, learned))
+            }
             candidateScroll?.scrollTo(0, 0)
         }
-        pageIndicator?.visibility = if (if (compactLearnedSuggestions) hasMoreSuggestions
-            else visibleCandidates.size > 1) View.VISIBLE else View.GONE
+        pageIndicator?.visibility = if (allCandidates.size > 1) View.VISIBLE else View.GONE
         updateCandidatePosition()
     }
 
-    private fun updateCandidatePosition() {
-        if (compactLearnedSuggestions) {
-            pageIndicator?.apply {
-                text = "›"
-                textSize = 24f
-                minWidth = dpToPx(40)
-                contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
-            }
-            return
+    private fun createLearnedExpansionButton(allCandidates: List<String>, learned: Set<String>): TextView = TextView(context).apply {
+        layoutParams = LayoutParams(dpToPx(40), candidateBarHeightPx() - dpToPx(4))
+        gravity = Gravity.CENTER
+        text = if (learnedSuggestionsExpanded) "‹" else "›"
+        textSize = 24f
+        setTextColor(colors.learnedCandidateText)
+        contentDescription = context.getString(if (learnedSuggestionsExpanded)
+            com.awcjack.dualquickime.R.string.show_fewer_learned_suggestions else
+            com.awcjack.dualquickime.R.string.show_more_learned_suggestions)
+        background = createPillBackground(colors.candidateBarBackground, colors.candidatePillBackgroundPressed)
+        setOnClickListener {
+            performKeyHaptic(this)
+            learnedSuggestionsExpanded = !learnedSuggestionsExpanded
+            setCandidates(allCandidates, learned)
         }
+    }
+
+    private fun updateCandidatePosition() {
         pageIndicator?.apply {
             textSize = 11f
             contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
@@ -1118,8 +1131,8 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun clearCandidateStrip() {
-        compactLearnedSuggestions = false
-        hasMoreSuggestions = false
+        learnedSuggestionsExpanded = false
+        learnedExpansionCandidates = emptyList()
         learnedCandidateTexts = emptySet()
         displayedCandidates = emptyList()
         candidateRow?.removeAllViews()

@@ -208,22 +208,33 @@ class LearnedPhraseIntegrationTest {
         assertEquals(colors.candidateText, texts(strip).first { it.text == "樓" }.currentTextColor)
     }
 
-    @Test fun fiveSuggestionStripExpandsToAllChoicesWithoutLosingLearnedColors() {
+    @Test fun fiveSuggestionStripExpandsInlineWithoutLosingLearnedColors() {
         val view = KeyboardView(service)
         val all = listOf("樓", "雨", "街", "車", "山", "海", "地", "雪")
         view.setCandidates(all, all.toSet())
         val slots = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots")
         assertEquals(all.take(5), slots.map { it.text.toString() })
-        val arrow = ReflectionHelpers.getField<TextView>(view, "pageIndicator")
+        var arrow = texts(view).first { it.text == "›" }
         assertEquals("›", arrow.text.toString())
         assertEquals(View.VISIBLE, arrow.visibility)
-        assertEquals(service.getString(R.string.show_more_suggestions), arrow.contentDescription)
+        assertEquals(service.getString(R.string.show_more_learned_suggestions), arrow.contentDescription)
         view.measure(View.MeasureSpec.makeMeasureSpec(540, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.AT_MOST))
         view.layout(0, 0, view.measuredWidth, view.measuredHeight)
         assertTrue(slots.all { it.width > 0 })
-        assertTrue(slots.map { it.width }.max() - slots.map { it.width }.min() <= 1)
-        view.setOnPageIndicatorClickedListener { view.showCandidateGrid(all) }
+        val learnedWidth = slots.first().width
+        val learnedHeight = slots.first().height
+        val learnedSize = slots.first().textSize
+        view.setCandidates(listOf("樓"))
+        view.measure(View.MeasureSpec.makeMeasureSpec(540, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.AT_MOST))
+        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+        val normal = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").first()
+        assertEquals(learnedWidth, normal.width)
+        assertEquals(learnedHeight, normal.height)
+        assertEquals(learnedSize, normal.textSize, 0.0f)
+        view.setCandidates(all, all.toSet())
+        arrow = texts(view).first { it.text == "›" }
         var selected = ""
         view.setOnCandidateSelectedListener { selected = it }
         arrow.performClick()
@@ -231,21 +242,63 @@ class LearnedPhraseIntegrationTest {
         assertEquals(ThemeManager.getColors(service).learnedCandidateText, sixth.currentTextColor)
         sixth.performClick()
         assertEquals("海", selected)
-        view.closeCandidateGrid()
         view.setCandidates(all)
         assertEquals(all, ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
         assertFalse(ReflectionHelpers.getField<TextView>(view, "pageIndicator").text == "›")
     }
 
-    @Test fun compactStripFillsWithBundledSuggestionsAndHidesArrowWhenThereAreNoMore() {
+    @Test fun learnedLimitDoesNotHideBundledOrTypedSuggestionsOrStretchSinglePill() {
         val view = KeyboardView(service)
-        view.setCandidates(listOf("樓", "雨", "街"), setOf("樓"))
-        assertEquals(listOf("樓", "雨", "街"),
+        val learned = listOf("樓", "雨", "街", "車", "山", "海")
+        val bundled = listOf("人", "會", "用", "的", "話", "知", "我")
+        view.setCandidates(learned + bundled, learned.toSet())
+        assertEquals(learned.take(5) + bundled,
             ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+        val row = ReflectionHelpers.getField<android.widget.LinearLayout>(view, "candidateRow")
+        assertEquals(learned.take(5) + listOf("›") + bundled,
+            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+        texts(view).first { it.text == "›" }.performClick()
+        assertEquals(learned + listOf("‹") + bundled,
+            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+        texts(view).first { it.text == "‹" }.performClick()
+        assertEquals(learned.take(5) + listOf("›") + bundled,
+            (0 until row.childCount).map { (row.getChildAt(it) as TextView).text.toString() })
+        view.setCandidates(learned + bundled)
+        assertEquals(learned + bundled,
+            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+        view.setCandidates(listOf("樓"), setOf("樓"))
+        val slot = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").first()
+        assertEquals(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, slot.layoutParams.width)
+        assertEquals(0.0f, (slot.layoutParams as android.widget.LinearLayout.LayoutParams).weight, 0.0f)
         assertEquals(View.GONE, ReflectionHelpers.getField<TextView>(view, "pageIndicator").visibility)
-        view.setCandidates(listOf("樓", "雨", "街", "車", "山", "海"), setOf("樓"))
-        assertEquals(5, ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").size)
-        assertEquals(View.VISIBLE, ReflectionHelpers.getField<TextView>(view, "pageIndicator").visibility)
+    }
+
+    @Test fun fullCandidateGridIncludesHiddenLearnedChoicesInBothStripStates() {
+        val learned = listOf("樓", "雨", "街", "車", "山", "海", "地", "雪")
+        val bundled = listOf("人", "會", "用")
+        val all = learned + bundled
+        for (expanded in listOf(false, true)) {
+            val view = KeyboardView(service)
+            view.setCandidates(all, learned.toSet())
+            if (expanded) texts(view).first { it.text == "›" }.performClick()
+            view.setOnPageIndicatorClickedListener { view.showCandidateGrid(all) }
+            ReflectionHelpers.getField<TextView>(view, "pageIndicator").performClick()
+            val displayed = texts(view)
+            assertTrue(all.all { candidate -> displayed.any { it.text == candidate } })
+            assertTrue(learned.all { candidate -> displayed.first { it.text == candidate }.currentTextColor ==
+                ThemeManager.getColors(service).learnedCandidateText })
+        }
+    }
+
+    @Test fun changedHiddenRankingIsUsedWhenExpandingAnUnchangedPreview() {
+        val view = KeyboardView(service)
+        val first = listOf("樓", "雨", "街", "車", "山", "海", "地")
+        val second = first.take(5) + first.drop(5).reversed()
+        view.setCandidates(first, first.toSet())
+        view.setCandidates(second, second.toSet())
+        texts(view).first { it.text == "›" }.performClick()
+        assertEquals(second,
+            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
     }
 
     @Test fun settingsCanToggleAndClearOnlyLearnedEntries() {

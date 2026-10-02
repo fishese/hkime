@@ -9,4 +9,6 @@
     <item name="switchLearnedPhrases" type="id" />
     <item name="btnClearLearnedPhrases" type="id" />
     <string name="show_more_suggestions">Show more suggestions</string>
+    <string name="show_more_learned_suggestions">Show more learned suggestions</string>
+    <string name="show_fewer_learned_suggestions">Show fewer learned suggestions</string>
 </resources>
