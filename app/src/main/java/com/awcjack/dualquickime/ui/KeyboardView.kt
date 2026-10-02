@@ -164,6 +164,8 @@ class KeyboardView @JvmOverloads constructor(
     private var candidateScroll: HorizontalScrollView? = null
     private var displayedCandidates: List<String> = emptyList()
     private var learnedCandidateTexts = emptySet<String>()
+    private var compactLearnedSuggestions = false
+    private var hasMoreSuggestions = false
     private var symbolUtilBar: View? = null
     private var symbolCandidateBar: View? = null
     private var pageIndicator: TextView? = null
@@ -1042,7 +1044,15 @@ class KeyboardView @JvmOverloads constructor(
 
     /** Show all choices in a continuously scrollable strip. */
     fun setCandidates(candidates: List<String>, learned: Set<String> = emptySet()) {
-        val visibleCandidates = sanitizeCandidates(candidates)
+        val allCandidates = sanitizeCandidates(candidates)
+        compactLearnedSuggestions = learned.isNotEmpty()
+        val visibleCandidates = if (compactLearnedSuggestions) allCandidates.take(5) else allCandidates
+        hasMoreSuggestions = allCandidates.size > visibleCandidates.size
+        candidateScroll?.isFillViewport = compactLearnedSuggestions
+        candidateRow?.layoutParams?.let { params ->
+            params.width = if (compactLearnedSuggestions) LayoutParams.MATCH_PARENT else LayoutParams.WRAP_CONTENT
+            candidateRow?.layoutParams = params
+        }
         if (isSymbolMode && symbolCandidateBar != null) {
             symbolUtilBar?.visibility = View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
@@ -1056,6 +1066,12 @@ class KeyboardView @JvmOverloads constructor(
             visibleCandidates.forEach { candidate ->
                 val slot = createCandidatePillSlot().apply {
                     text = candidate
+                    if (compactLearnedSuggestions) {
+                        layoutParams = LayoutParams(0, candidateBarHeightPx() - dpToPx(4), 1f).apply {
+                            setMargins(dpToPx(1), 0, dpToPx(1), 0)
+                        }
+                        setPadding(dpToPx(4), 0, dpToPx(4), 0)
+                    }
                     setTextColor(if (candidate in learned) colors.learnedCandidateText else colors.candidateText)
                     contentDescription = if (candidate in learned)
                         context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
@@ -1070,11 +1086,25 @@ class KeyboardView @JvmOverloads constructor(
             }
             candidateScroll?.scrollTo(0, 0)
         }
-        pageIndicator?.visibility = if (visibleCandidates.size > 1) View.VISIBLE else View.GONE
+        pageIndicator?.visibility = if (if (compactLearnedSuggestions) hasMoreSuggestions
+            else visibleCandidates.size > 1) View.VISIBLE else View.GONE
         updateCandidatePosition()
     }
 
     private fun updateCandidatePosition() {
+        if (compactLearnedSuggestions) {
+            pageIndicator?.apply {
+                text = "›"
+                textSize = 24f
+                minWidth = dpToPx(40)
+                contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
+            }
+            return
+        }
+        pageIndicator?.apply {
+            textSize = 11f
+            contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
+        }
         if (displayedCandidates.size <= 1) return
         val scrollX = candidateScroll?.scrollX ?: 0
         val firstVisible = candidateSlots.indexOfFirst { it.right > scrollX }.coerceAtLeast(0)
@@ -1088,6 +1118,8 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun clearCandidateStrip() {
+        compactLearnedSuggestions = false
+        hasMoreSuggestions = false
         learnedCandidateTexts = emptySet()
         displayedCandidates = emptyList()
         candidateRow?.removeAllViews()

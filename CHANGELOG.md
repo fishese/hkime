@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## 0.3.54
+
+- Show up to five suggestions when learned continuations are available, with a › button to open all candidates. Preserve the full ranked list and learned colors in the expanded grid.
+
 ## 0.3.53
 
 - Use the same filled button style for clearing recent candidates, clipboard history and learned combinations.

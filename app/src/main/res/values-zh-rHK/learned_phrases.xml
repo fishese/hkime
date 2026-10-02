@@ -6,4 +6,5 @@
     <string name="settings_learned_phrases_clear_message">刪除所有已學習組合？其他字典及最近候選字紀錄將會保留。</string>
     <string name="settings_learned_phrases_cleared">已清除學習組合</string>
     <string name="learned_candidate_accessibility">%1$s，已學習組合</string>
+    <string name="show_more_suggestions">顯示更多候選字</string>
 </resources>

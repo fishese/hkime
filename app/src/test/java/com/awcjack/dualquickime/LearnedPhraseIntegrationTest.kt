@@ -208,6 +208,46 @@ class LearnedPhraseIntegrationTest {
         assertEquals(colors.candidateText, texts(strip).first { it.text == "樓" }.currentTextColor)
     }
 
+    @Test fun fiveSuggestionStripExpandsToAllChoicesWithoutLosingLearnedColors() {
+        val view = KeyboardView(service)
+        val all = listOf("樓", "雨", "街", "車", "山", "海", "地", "雪")
+        view.setCandidates(all, all.toSet())
+        val slots = ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots")
+        assertEquals(all.take(5), slots.map { it.text.toString() })
+        val arrow = ReflectionHelpers.getField<TextView>(view, "pageIndicator")
+        assertEquals("›", arrow.text.toString())
+        assertEquals(View.VISIBLE, arrow.visibility)
+        assertEquals(service.getString(R.string.show_more_suggestions), arrow.contentDescription)
+        view.measure(View.MeasureSpec.makeMeasureSpec(540, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.AT_MOST))
+        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+        assertTrue(slots.all { it.width > 0 })
+        assertTrue(slots.map { it.width }.max() - slots.map { it.width }.min() <= 1)
+        view.setOnPageIndicatorClickedListener { view.showCandidateGrid(all) }
+        var selected = ""
+        view.setOnCandidateSelectedListener { selected = it }
+        arrow.performClick()
+        val sixth = texts(view).first { it.text == "海" }
+        assertEquals(ThemeManager.getColors(service).learnedCandidateText, sixth.currentTextColor)
+        sixth.performClick()
+        assertEquals("海", selected)
+        view.closeCandidateGrid()
+        view.setCandidates(all)
+        assertEquals(all, ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+        assertFalse(ReflectionHelpers.getField<TextView>(view, "pageIndicator").text == "›")
+    }
+
+    @Test fun compactStripFillsWithBundledSuggestionsAndHidesArrowWhenThereAreNoMore() {
+        val view = KeyboardView(service)
+        view.setCandidates(listOf("樓", "雨", "街"), setOf("樓"))
+        assertEquals(listOf("樓", "雨", "街"),
+            ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").map { it.text.toString() })
+        assertEquals(View.GONE, ReflectionHelpers.getField<TextView>(view, "pageIndicator").visibility)
+        view.setCandidates(listOf("樓", "雨", "街", "車", "山", "海"), setOf("樓"))
+        assertEquals(5, ReflectionHelpers.getField<List<TextView>>(view, "candidateSlots").size)
+        assertEquals(View.VISIBLE, ReflectionHelpers.getField<TextView>(view, "pageIndicator").visibility)
+    }
+
     @Test fun settingsCanToggleAndClearOnlyLearnedEntries() {
         select("落樓")
         val activity = Robolectric.buildActivity(SettingsActivity::class.java).setup().get()
