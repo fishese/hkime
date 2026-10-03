@@ -36,7 +36,7 @@ class CandidateGridView @JvmOverloads constructor(
     private var currentPage: Int = 0
 
     // Grid layout constants
-    private val gridColumns = 7
+    private var gridColumns = 7
     private val gridRows = 5
     private val candidatesPerPage: Int get() = gridColumns * gridRows
 
@@ -52,6 +52,8 @@ class CandidateGridView @JvmOverloads constructor(
 
     private fun loadTheme() {
         colors = ThemeManager.getColors(context)
+        gridColumns = ThemeManager.getCandidatesPerPage(context) / gridRows
+        currentPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1))
         setBackgroundColor(colors.keyboardBackground)
         setPadding(dpToPx(3), dpToPx(6), dpToPx(3), dpToPx(8))
     }
@@ -73,6 +75,7 @@ class CandidateGridView @JvmOverloads constructor(
     }
 
     fun setCandidates(candidates: List<String>, initialPage: Int = 0, learned: Set<String> = emptySet()) {
+        gridColumns = ThemeManager.getCandidatesPerPage(context) / gridRows
         allCandidates = candidates
         learnedCandidates = learned.toSet()
         currentPage = initialPage.coerceIn(0, maxOf(0, totalPages - 1))

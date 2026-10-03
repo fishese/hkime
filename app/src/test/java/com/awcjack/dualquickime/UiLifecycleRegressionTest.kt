@@ -26,6 +26,51 @@ import android.text.InputType
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w360dp-h640dp-mdpi")
 class UiLifecycleRegressionTest {
+    @Test fun stripCounterUsesFirstCandidatePositionAndCapsTotalWithSmallPlus() {
+        val view = KeyboardView(RuntimeEnvironment.getApplication())
+        view.setCandidates((0 until 1425).map { "候選$it" })
+        layout(view)
+        val list = ReflectionHelpers.getField<RecyclerView>(view, "candidateList")
+        (list.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(10, 0)
+        layout(view)
+        KeyboardView::class.java.getDeclaredMethod("updateCandidatePosition").apply { isAccessible = true }.invoke(view)
+        val indicator = ReflectionHelpers.getField<TextView>(view, "pageIndicator")
+        assertEquals("11/99+", indicator.text.toString())
+        val spans = (indicator.text as android.text.Spanned).getSpans(0, indicator.text.length,
+            android.text.style.RelativeSizeSpan::class.java)
+        assertEquals(1, spans.size)
+        assertEquals(0.7f, spans.single().sizeChange, 0.001f)
+    }
+    @Test fun collapsedLearnedCandidatesKeepFullListPositionsInCounter() {
+        val view = KeyboardView(RuntimeEnvironment.getApplication())
+        val all = (0 until 27).map { "候選$it" }
+        view.setCandidates(all, all.take(7).toSet())
+        layout(view)
+        val list = ReflectionHelpers.getField<RecyclerView>(view, "candidateList")
+        (list.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(6, 0)
+        layout(view)
+        KeyboardView::class.java.getDeclaredMethod("updateCandidatePosition").apply { isAccessible = true }.invoke(view)
+        assertEquals("8/27", ReflectionHelpers.getField<TextView>(view, "pageIndicator").text.toString())
+    }
+    @Test fun fullGridDensityControlsActualPageContents() {
+        val context = RuntimeEnvironment.getApplication()
+        val all = (0 until 80).map { "候選$it" }
+        fun labels(view: View): List<String> = when (view) {
+            is TextView -> listOf(view.text.toString()).filter { it.startsWith("候選") }
+            is android.view.ViewGroup -> (0 until view.childCount).flatMap { labels(view.getChildAt(it)) }
+            else -> emptyList()
+        }
+        try {
+            for (count in listOf(25, 30, 35)) {
+                ThemeManager.setCandidatesPerPage(context, count)
+                val grid = com.awcjack.dualquickime.ui.CandidateGridView(context)
+                grid.setCandidates(all)
+                assertEquals(all.take(count), labels(grid))
+                ReflectionHelpers.getField<TextView>(grid, "nextPageButton").performClick()
+                assertEquals(all.drop(count).take(count), labels(grid))
+            }
+        } finally { ThemeManager.setCandidatesPerPage(context, 35) }
+    }
     private fun layout(view: View) {
         view.measure(View.MeasureSpec.makeMeasureSpec(360, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST))

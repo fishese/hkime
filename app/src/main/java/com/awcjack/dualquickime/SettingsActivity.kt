@@ -842,13 +842,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupCandidatesSeekBar() {
         // Set current value
         val currentValue = ThemeManager.getCandidatesPerPage(this)
-        seekBarCandidates.progress = currentValue
+        seekBarCandidates.max = ThemeManager.GRID_PAGE_SIZES.lastIndex
+        seekBarCandidates.progress = ThemeManager.GRID_PAGE_SIZES.indexOf(currentValue)
         textCandidatesValue.text = currentValue.toString()
 
         // Listen for changes
         seekBarCandidates.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val value = progress.coerceIn(ThemeManager.CANDIDATES_MIN, ThemeManager.CANDIDATES_MAX)
+                val value = ThemeManager.GRID_PAGE_SIZES[progress.coerceIn(0, ThemeManager.GRID_PAGE_SIZES.lastIndex)]
                 textCandidatesValue.text = value.toString()
                 if (fromUser) {
                     ThemeManager.setCandidatesPerPage(this@SettingsActivity, value)

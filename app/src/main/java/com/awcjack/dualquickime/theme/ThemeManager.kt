@@ -12,7 +12,7 @@ object ThemeManager {
     private const val PREFS_NAME = "dualquick_prefs"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_SHOW_COMPOSITION = "show_composition"
-    private const val KEY_CANDIDATES_PER_PAGE = "candidates_per_page"
+    private const val KEY_CANDIDATES_PER_PAGE = "grid_candidates_per_page"
     private const val KEY_USE_EXTENDED_CHARSET = "use_extended_charset"
     private const val KEY_RECENT_CANDIDATES_ENABLED = "recent_candidates_enabled"
     private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
@@ -50,10 +50,9 @@ object ThemeManager {
     const val THEME_DARK = 1
     const val THEME_AUTO = 2
 
-    // Default candidates per page (affects pill sizing)
-    const val CANDIDATES_MIN = 4
-    const val CANDIDATES_MAX = 10
-    const val CANDIDATES_DEFAULT = 6
+    // Full grid: five rows, with five, six or seven columns.
+    val GRID_PAGE_SIZES = listOf(25, 30, 35)
+    const val CANDIDATES_DEFAULT = 35
 
     // Horizontal padding inside each candidate pill, in dp. Smaller = more candidates fit per row.
     const val CANDIDATE_PADDING_MIN = 5
@@ -143,13 +142,14 @@ object ThemeManager {
     // Candidates per page settings
     fun getCandidatesPerPage(context: Context): Int {
         if (cachedCandidatesPerPage == -1) {
-            cachedCandidatesPerPage = getPrefs(context).getInt(KEY_CANDIDATES_PER_PAGE, CANDIDATES_DEFAULT)
+            val saved = getPrefs(context).getInt(KEY_CANDIDATES_PER_PAGE, CANDIDATES_DEFAULT)
+            cachedCandidatesPerPage = saved.takeIf { it in GRID_PAGE_SIZES } ?: CANDIDATES_DEFAULT
         }
         return cachedCandidatesPerPage
     }
 
     fun setCandidatesPerPage(context: Context, count: Int) {
-        cachedCandidatesPerPage = count.coerceIn(CANDIDATES_MIN, CANDIDATES_MAX)
+        cachedCandidatesPerPage = count.takeIf { it in GRID_PAGE_SIZES } ?: CANDIDATES_DEFAULT
         getPrefs(context).edit().putInt(KEY_CANDIDATES_PER_PAGE, cachedCandidatesPerPage).apply()
     }
 

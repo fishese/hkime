@@ -29,6 +29,7 @@ For example, typing `nei` leaves **nei** visible in the text field while offerin
 - Optional standard 13,193-character set.
 - Associated-phrase suggestions after Chinese input.
 - Horizontally scrollable candidates and a full candidate grid for longer lists.
+- The bar counter shows the first visible candidate’s position and the total, with totals above 99 shown as 99+. The full grid can show 25, 30 or 35 candidates per page; bar sizes and spacing have separate controls.
 
 Cantonese, Cangjie, Quick and English suggestions can each be enabled or disabled in Settings. Latin typing and custom dictionary entries remain available independently.
 

@@ -2,6 +2,9 @@
 
 ## 0.3.58 — test build
 
+- Replace the obsolete bar page-size setting with 25, 30 or 35 candidates per full grid page.
+- Show the first visible candidate position over the total in the bar, capping totals above 99 as 99+ with a smaller plus sign. Scroll updates use direct position lookup.
+
 - Enable Chinese combination learning by default when no preference has been saved, preserving an explicit off setting.
 
 - Keep clipboard capture disabled when an existing encrypted opt-out cannot yet be read; recover saved settings on retry without overriding a new explicit choice.

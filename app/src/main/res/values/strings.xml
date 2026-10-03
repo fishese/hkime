@@ -19,8 +19,8 @@
     <string name="settings_candidate_bar">Candidate Bar</string>
     <string name="settings_show_composition">Show Cangjie radical preview</string>
     <string name="settings_show_composition_desc">Shows the radicals typed so far</string>
-    <string name="settings_candidates_per_page">Candidates per page</string>
-    <string name="settings_candidates_per_page_desc">Fewer candidates, larger text</string>
+    <string name="settings_candidates_per_page">Full grid candidates per page</string>
+    <string name="settings_candidates_per_page_desc">25, 30 or 35 results. Fewer results give each candidate more room.</string>
     <string name="settings_candidate_padding">Candidate spacing</string>
     <string name="settings_candidate_padding_desc">Less padding fits more on a row</string>
     <string name="settings_recent_candidates">Learn from selected candidates</string>

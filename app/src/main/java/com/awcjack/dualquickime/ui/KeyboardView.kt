@@ -154,7 +154,6 @@ class KeyboardView @JvmOverloads constructor(
 
     // Settings
     private var showComposition = false
-    private var candidatesPerPage = 6
     private var candidatePillPaddingDp = 8  // Horizontal padding inside each candidate pill (dp)
     private var keyHeightDp = ThemeManager.KEY_HEIGHT_DEFAULT
     private var candidateTextSizeSp = ThemeManager.CANDIDATE_TEXT_DEFAULT
@@ -237,7 +236,6 @@ class KeyboardView @JvmOverloads constructor(
     private fun loadTheme() {
         colors = ThemeManager.getColors(context)
         showComposition = ThemeManager.getShowComposition(context)
-        candidatesPerPage = ThemeManager.getCandidatesPerPage(context)
         candidatePillPaddingDp = ThemeManager.getCandidatePillPadding(context)
         keyHeightDp = ThemeManager.getKeyHeight(context)
         candidateTextSizeSp = ThemeManager.getCandidateTextSize(context)
@@ -265,7 +263,7 @@ class KeyboardView @JvmOverloads constructor(
         if (lastAppearance != appearance()) safeRebuild("refreshTheme")
     }
 
-    private fun appearance(): List<Any> = listOf(colors, showComposition, candidatesPerPage,
+    private fun appearance(): List<Any> = listOf(colors, showComposition,
         candidatePillPaddingDp, keyHeightDp, candidateTextSizeSp, showKeyRadicals,
         gestureDeleteEnabled, swipeTypingEnabled, keyPreviewEnabled, reflectLatinCase,
         isSensitiveField, ThemeManager.getChineseConvertEnabled(context), ThemeManager.getDefaultSkinTone(context))
@@ -1083,7 +1081,9 @@ class KeyboardView @JvmOverloads constructor(
                 if (index == previewLearned.size && allLearned.size > 5) {
                     items.add(CandidateItem(if (learnedSuggestionsExpanded) "‹" else "›", 1))
                 }
-                items.add(CandidateItem(candidate))
+                val position = if (index < previewLearned.size) index + 1
+                    else allLearned.size + index - previewLearned.size + 1
+                items.add(CandidateItem(candidate, position = position))
             }
             if (visibleCandidates.size == previewLearned.size && allLearned.size > 5) {
                 items.add(CandidateItem(if (learnedSuggestionsExpanded) "‹" else "›", 1))
@@ -1139,15 +1139,24 @@ class KeyboardView @JvmOverloads constructor(
             textSize = 11f
             contentDescription = context.getString(com.awcjack.dualquickime.R.string.show_more_suggestions)
         }
-        if (displayedCandidates.size <= 1) return
+        if (learnedExpansionCandidates.size <= 1) return
         val firstItem = (candidateList?.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()?.coerceAtLeast(0) ?: 0
-        val firstVisible = candidateAdapter?.items?.take(firstItem)?.count { it.kind == 0 } ?: 0
-        val pageSize = candidatesPerPage.coerceAtLeast(1)
-        val current = firstVisible / pageSize + 1
-        val total = (displayedCandidates.size + pageSize - 1) / pageSize
+        val items = candidateAdapter?.items.orEmpty()
+        // The only non-candidate item is the expansion control. Read its next
+        // neighbour (or previous at the end), without scanning the list.
+        val current = items.getOrNull(firstItem)?.position?.takeIf { it > 0 }
+            ?: items.getOrNull(firstItem + 1)?.position?.takeIf { it > 0 }
+            ?: items.getOrNull(firstItem - 1)?.position?.takeIf { it > 0 }
+            ?: 1
+        val total = learnedExpansionCandidates.size.let { if (it > 99) "99+" else it.toString() }
         pageIndicator?.apply {
-            minWidth = (paint.measureText("$total/$total") + paddingLeft + paddingRight).toInt()
-            text = "$current/$total"
+            val label = "$current/$total"
+            if (text.toString() != label) {
+                text = if (label.endsWith('+')) android.text.SpannableString(label).apply {
+                    setSpan(android.text.style.RelativeSizeSpan(0.7f), length - 1, length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                } else label
+            }
         }
     }
 
@@ -1170,7 +1179,7 @@ class KeyboardView @JvmOverloads constructor(
         candidateAdapter?.submit(listOf(CandidateItem("無此字", 2)))
     }
 
-    private data class CandidateItem(val text: String, val kind: Int = 0)
+    private data class CandidateItem(val text: String, val kind: Int = 0, val position: Int = 0)
 
     private class CandidateHolder(val label: TextView) : RecyclerView.ViewHolder(label)
 
