@@ -66,4 +66,4 @@ Run only these named audit probes for this baseline. Other files under `docs/aud
 
 Recommended order: R1 with R2 (shared font sizing), then R3. No release, APK rebuild or installation is needed for this review alone.
 
-Device acceptance: the signed 0.3.61 APK was installed on the Samsung SM-S9280 and its installed version/code verified as 0.3.61/67. The user confirmed it works well and authorized merging and publishing it on 2026-10-03. The release uses that exact tested APK.
+Device acceptance: the signed 0.3.61 APK was installed on the Samsung SM-S9280 and its installed version/code verified as 0.3.61/67. The user confirmed it works well and authorized merging and publishing it on 2026-10-03. The original release used that exact tested APK. Its local copy is retained as `build/HK-IME-0.3.61-code67-universal-release.apk`; the release was subsequently refreshed with the candidate-bar inset fix and code 68 at the user's request, as recorded in the changelog.

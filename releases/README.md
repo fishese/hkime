@@ -6,6 +6,7 @@ Signed HK IME APKs are attached to [GitHub Releases](https://github.com/fishese/
 
 - `app/build.gradle.kts` is the source of truth for Android's `versionName` and `versionCode`.
 - Every distributed APK, including test builds sent to users, gets a new, higher `versionCode`. Also advance `versionName` so two different APKs are never presented with the same visible version.
+- Exception requested by the user: the v0.3.61 release was refreshed for a small candidate-bar spacing fix. Its replacement APK keeps version name 0.3.61 and advances version code from 67 to 68; its tag points to the updated source.
 - Add the matching `0.x.y` entry to `CHANGELOG.md`. The Git tag and GitHub Release title use `v0.x.y`, matching that `versionName` exactly.
 - Tag the commit whose app and build inputs produced the tested APK, and attach that exact signed file to the matching GitHub Release. If a fresh build from the tag has a different whole-file hash, compare its APK entry contents with the tested file before publishing. Do not label an APK with a version from a different source state.
 

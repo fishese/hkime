@@ -22,7 +22,7 @@ android {
         applicationId = "cc.fishese.hkime"
         minSdk = 24
         targetSdk = 34
-        versionCode = 67
+        versionCode = 68
         versionName = "0.3.61"
     }
 

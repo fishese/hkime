@@ -1,8 +1,9 @@
 # HK IME changelog
 
-## Unreleased
+## 0.3.61 — refreshed release, 2026-10-03 (code 68)
 
 - Add small vertical insets around horizontal candidate buttons and learned expansion controls, restoring top breathing room after candidate recycling and keeping the gap above QWERTY slightly larger than key-row gaps.
+- Refresh the existing GitHub release at the user's request, keeping version name 0.3.61 and advancing Android's version code from 67 to 68.
 
 ## 0.3.61 — 2026-10-03
 
