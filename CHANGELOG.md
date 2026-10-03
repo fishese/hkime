@@ -1,8 +1,13 @@
 # HK IME changelog
 
-## 0.3.60 — test build
+## 0.3.60 — 2026-10-03
 
 - Add a 20-candidate full grid with four taller rows and 25% larger text, preserving the overall grid height and existing 25/30/35 font sizes. The selected setting explains the increased text size.
+- Replace the obsolete bar page-size setting with full-grid choices of 20, 25, 30 and 35 candidates.
+- Show the first visible candidate position in the bar counter, with totals above 99 displayed as 99+ and a smaller plus sign.
+- Enable Chinese combination learning by default for users without a saved preference, preserving explicit opt-outs.
+- Preserve clipboard opt-outs during encrypted-storage recovery and capture the first eligible copy after settings migration.
+- Preserve swipe candidate selection when another key arrives before lookup finishes.
 
 ## 0.3.59 — test build
 
