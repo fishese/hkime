@@ -49,7 +49,8 @@
     <string name="settings_show_composition">顯示倉頡字根預覽</string>
     <string name="settings_show_composition_desc">顯示已輸入按鍵的字根</string>
     <string name="settings_candidates_per_page">完整候選字頁面每頁數量</string>
-    <string name="settings_candidates_per_page_desc">每頁 25、30 或 35 個；數量越少，每個候選字的空間越大。</string>
+    <string name="settings_candidates_per_page_desc">每頁 20 個會放大字體；25、30 或 35 個使用標準字體。</string>
+    <string name="settings_candidates_enlarged_value">20（字體放大 25%）</string>
     <string name="settings_candidate_padding">候選字間距</string>
     <string name="settings_candidate_padding_desc">間距越小，每行越多</string>
     <string name="settings_keyboard_layout">鍵盤版面</string>

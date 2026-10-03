@@ -839,18 +839,21 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun gridPageSizeLabel(count: Int): String =
+        if (count == 20) getString(R.string.settings_candidates_enlarged_value) else count.toString()
+
     private fun setupCandidatesSeekBar() {
         // Set current value
         val currentValue = ThemeManager.getCandidatesPerPage(this)
         seekBarCandidates.max = ThemeManager.GRID_PAGE_SIZES.lastIndex
         seekBarCandidates.progress = ThemeManager.GRID_PAGE_SIZES.indexOf(currentValue)
-        textCandidatesValue.text = currentValue.toString()
+        textCandidatesValue.text = gridPageSizeLabel(currentValue)
 
         // Listen for changes
         seekBarCandidates.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val value = ThemeManager.GRID_PAGE_SIZES[progress.coerceIn(0, ThemeManager.GRID_PAGE_SIZES.lastIndex)]
-                textCandidatesValue.text = value.toString()
+                textCandidatesValue.text = gridPageSizeLabel(value)
                 if (fromUser) {
                     ThemeManager.setCandidatesPerPage(this@SettingsActivity, value)
                 }

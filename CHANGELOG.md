@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## Unreleased
+
+- Add a 20-candidate full grid with four taller rows and 25% larger text, preserving the overall grid height and existing 25/30/35 font sizes. The selected setting explains the increased text size.
+
 ## 0.3.59 — test build
 
 - Replace the obsolete bar page-size setting with 25, 30 or 35 candidates per full grid page.

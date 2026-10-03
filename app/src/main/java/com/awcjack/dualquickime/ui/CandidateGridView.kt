@@ -35,9 +35,10 @@ class CandidateGridView @JvmOverloads constructor(
     private var learnedCandidates = emptySet<String>()
     private var currentPage: Int = 0
 
-    // Grid layout constants
+    // Keep the same grid height while giving enlarged text taller cells.
     private var gridColumns = 7
-    private val gridRows = 5
+    private var gridRows = 5
+    private var candidateFontScale = 1f
     private val candidatesPerPage: Int get() = gridColumns * gridRows
 
     private var gridContainer: LinearLayout? = null
@@ -52,10 +53,17 @@ class CandidateGridView @JvmOverloads constructor(
 
     private fun loadTheme() {
         colors = ThemeManager.getColors(context)
-        gridColumns = ThemeManager.getCandidatesPerPage(context) / gridRows
+        loadGridLayout()
         currentPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1))
         setBackgroundColor(colors.keyboardBackground)
         setPadding(dpToPx(3), dpToPx(6), dpToPx(3), dpToPx(8))
+    }
+
+    private fun loadGridLayout() {
+        val pageSize = ThemeManager.getCandidatesPerPage(context)
+        gridRows = if (pageSize == 20) 4 else 5
+        gridColumns = pageSize / gridRows
+        candidateFontScale = if (pageSize == 20) 1.25f else 1f
     }
 
     fun refreshTheme() {
@@ -75,7 +83,7 @@ class CandidateGridView @JvmOverloads constructor(
     }
 
     fun setCandidates(candidates: List<String>, initialPage: Int = 0, learned: Set<String> = emptySet()) {
-        gridColumns = ThemeManager.getCandidatesPerPage(context) / gridRows
+        loadGridLayout()
         allCandidates = candidates
         learnedCandidates = learned.toSet()
         currentPage = initialPage.coerceIn(0, maxOf(0, totalPages - 1))
@@ -118,7 +126,7 @@ class CandidateGridView @JvmOverloads constructor(
 
         for (row in 0 until gridRows) {
             val rowLayout = LinearLayout(context).apply {
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(44))
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(if (gridRows == 4) 55 else 44))
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER
             }
@@ -149,7 +157,7 @@ class CandidateGridView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             text = candidate
             // Adjust text size based on phrase length to fit in fixed cell
-            textSize = when {
+            textSize = candidateFontScale * when {
                 charCount <= 1 -> 20f
                 charCount <= 2 -> 18f
                 charCount <= 4 -> 15f

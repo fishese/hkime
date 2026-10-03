@@ -278,7 +278,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="25"
+                        android:text="20"
                         android:textSize="12sp"
                         android:textColor="?android:textColorSecondary" />
 
@@ -288,8 +288,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:min="0"
-                        android:max="2"
-                        android:progress="2"
+                        android:max="3"
+                        android:progress="3"
                         android:layout_marginStart="8dp"
                         android:layout_marginEnd="8dp" />
 

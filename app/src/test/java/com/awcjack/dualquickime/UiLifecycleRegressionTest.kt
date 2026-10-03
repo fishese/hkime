@@ -61,7 +61,7 @@ class UiLifecycleRegressionTest {
             else -> emptyList()
         }
         try {
-            for (count in listOf(25, 30, 35)) {
+            for (count in listOf(20, 25, 30, 35)) {
                 ThemeManager.setCandidatesPerPage(context, count)
                 val grid = com.awcjack.dualquickime.ui.CandidateGridView(context)
                 grid.setCandidates(all)
@@ -71,6 +71,32 @@ class UiLifecycleRegressionTest {
             }
         } finally { ThemeManager.setCandidatesPerPage(context, 35) }
     }
+    @Test fun enlargedGridIncreasesFontsWithoutChangingOverallHeight() {
+        val context = RuntimeEnvironment.getApplication()
+        val candidates = listOf("字", "落樓", "落樓話我", "落樓話我知")
+        val expectedSizes = listOf(20f, 18f, 15f, 12f)
+        val grid = com.awcjack.dualquickime.ui.CandidateGridView(context)
+        var standardHeight = 0
+        try {
+            // Reuse the view to verify that switching back restores the normal layout.
+            for (count in listOf(25, 20, 30, 35, 20, 25)) {
+                ThemeManager.setCandidatesPerPage(context, count)
+                grid.setCandidates(candidates)
+                layout(grid)
+                val container = grid.getChildAt(0) as android.view.ViewGroup
+                assertEquals(if (count == 20) 4 else 5, container.childCount)
+                val row = container.getChildAt(0) as android.view.ViewGroup
+                assertEquals(if (count == 20) 5 else count / 5, row.childCount)
+                for (index in candidates.indices) {
+                    val cell = row.getChildAt(index) as TextView
+                    assertEquals(expectedSizes[index] * (if (count == 20) 1.25f else 1f), cell.textSize, 0.01f)
+                }
+                if (standardHeight == 0) standardHeight = grid.measuredHeight
+                assertEquals(standardHeight, grid.measuredHeight)
+            }
+        } finally { ThemeManager.setCandidatesPerPage(context, 35) }
+    }
+
     private fun layout(view: View) {
         view.measure(View.MeasureSpec.makeMeasureSpec(360, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST))

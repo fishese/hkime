@@ -50,8 +50,8 @@ object ThemeManager {
     const val THEME_DARK = 1
     const val THEME_AUTO = 2
 
-    // Full grid: five rows, with five, six or seven columns.
-    val GRID_PAGE_SIZES = listOf(25, 30, 35)
+    // 20 uses four enlarged rows; the other sizes use five standard rows.
+    val GRID_PAGE_SIZES = listOf(20, 25, 30, 35)
     const val CANDIDATES_DEFAULT = 35
 
     // Horizontal padding inside each candidate pill, in dp. Smaller = more candidates fit per row.
