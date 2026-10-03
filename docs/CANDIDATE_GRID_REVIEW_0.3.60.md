@@ -65,3 +65,5 @@ Once the grid has been used, it retains its previous candidate list. Reopening c
 Run only these named audit probes for this baseline. Other files under `docs/audit` reproduce older, already-fixed defects and are not release acceptance tests. Convert the relevant observations into desired-behavior tests when implementing fixes.
 
 Recommended order: R1 with R2 (shared font sizing), then R3. No release, APK rebuild or installation is needed for this review alone.
+
+Device acceptance: the signed 0.3.61 APK was installed on the Samsung SM-S9280 and its installed version/code verified as 0.3.61/67. The user confirmed it works well and authorized merging and publishing it on 2026-10-03. The release uses that exact tested APK.

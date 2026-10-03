@@ -1,6 +1,6 @@
 # HK IME changelog
 
-## 0.3.61 — test build
+## 0.3.61 — 2026-10-03
 
 - Fit candidate-grid text to each cell's width and height, keeping the 20-candidate option's 25% larger starting sizes and shrinking longer text as needed.
 - Count supplementary Chinese characters correctly when choosing the starting font size.
