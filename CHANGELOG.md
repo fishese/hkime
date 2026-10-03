@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## Unreleased
+
+- Add small vertical insets around horizontal candidate buttons and learned expansion controls, restoring top breathing room after candidate recycling and keeping the gap above QWERTY slightly larger than key-row gaps.
+
 ## 0.3.61 — 2026-10-03
 
 - Fit candidate-grid text to each cell's width and height, keeping the 20-candidate option's 25% larger starting sizes and shrinking longer text as needed.

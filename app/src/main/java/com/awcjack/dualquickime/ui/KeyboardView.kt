@@ -974,8 +974,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createCandidatePillSlot(): TextView {
         return TextView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, candidateBarHeightPx() - dpToPx(4)).apply {
-                setMargins(dpToPx(1), 0, dpToPx(1), 0)
+            // RecyclerView positions items at the top; reserve explicit vertical insets.
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, candidateBarHeightPx() - 2 * dpToPx(3)).apply {
+                setMargins(dpToPx(1), dpToPx(3), dpToPx(1), dpToPx(3))
             }
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -1097,7 +1098,9 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun createLearnedExpansionButton(allCandidates: List<String>, learned: Set<String>): TextView = TextView(context).apply {
         tag = "learned-expansion"
-        layoutParams = LayoutParams(maxOf(dpToPx(20), hideKeyboardKey?.width ?: 0), candidateBarHeightPx() - dpToPx(4))
+        layoutParams = LayoutParams(maxOf(dpToPx(20), hideKeyboardKey?.width ?: 0), candidateBarHeightPx() - 2 * dpToPx(3)).apply {
+            setMargins(0, dpToPx(3), 0, dpToPx(3))
+        }
         gravity = Gravity.CENTER
         text = if (learnedSuggestionsExpanded) "‹" else "›"
         textSize = 24f
