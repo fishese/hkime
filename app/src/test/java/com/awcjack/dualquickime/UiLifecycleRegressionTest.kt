@@ -89,7 +89,10 @@ class UiLifecycleRegressionTest {
                 assertEquals(if (count == 20) 5 else count / 5, row.childCount)
                 for (index in candidates.indices) {
                     val cell = row.getChildAt(index) as TextView
-                    assertEquals(expectedSizes[index] * (if (count == 20) 1.25f else 1f), cell.textSize, 0.01f)
+                    // Longer phrases may shrink to fit; starting sizes remain the ceiling.
+                    val startingSize = expectedSizes[index] * (if (count == 20) 1.25f else 1f)
+                    assertTrue(cell.textSize > 0f)
+                    assertTrue(cell.textSize <= startingSize + 0.01f)
                 }
                 if (standardHeight == 0) standardHeight = grid.measuredHeight
                 assertEquals(standardHeight, grid.measuredHeight)

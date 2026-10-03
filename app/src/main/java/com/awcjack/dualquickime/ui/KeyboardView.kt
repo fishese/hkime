@@ -291,7 +291,7 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun buildKeyboard() {
+    private fun buildKeyboard(refreshCandidateGrid: Boolean = true) {
         lastAppearance = appearance()
         cancelSpaceToggleArm()
         cancelSpaceCursorArm()
@@ -320,7 +320,7 @@ class KeyboardView @JvmOverloads constructor(
                     }
                 }
             }
-            candidateGridView?.refreshTheme()
+            if (refreshCandidateGrid) candidateGridView?.refreshTheme()
             addView(candidateGridView)
             return
         }
@@ -2175,7 +2175,8 @@ class KeyboardView @JvmOverloads constructor(
     fun showCandidateGrid(allCandidates: List<String>, initialPage: Int = 0) {
         val learned = learnedCandidateTexts
         isCandidateGridMode = true
-        buildKeyboard()
+        // setCandidates applies the theme and new data together in a single render.
+        buildKeyboard(refreshCandidateGrid = false)
         candidateGridView?.setCandidates(allCandidates, initialPage, learned)
     }
 

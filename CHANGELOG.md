@@ -1,5 +1,11 @@
 # HK IME changelog
 
+## 0.3.61 — test build
+
+- Fit candidate-grid text to each cell's width and height, keeping the 20-candidate option's 25% larger starting sizes and shrinking longer text as needed.
+- Count supplementary Chinese characters correctly when choosing the starting font size.
+- Render new grid data and theme together, and reuse unchanged pages to avoid duplicate view construction when reopening.
+
 ## 0.3.60 — 2026-10-03
 
 - Add a 20-candidate full grid with four taller rows and 25% larger text, preserving the overall grid height and existing 25/30/35 font sizes. The selected setting explains the increased text size.

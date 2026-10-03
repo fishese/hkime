@@ -2,6 +2,7 @@ package com.awcjack.dualquickime.ui
 
 import android.content.Context
 import android.graphics.Typeface
+import android.text.TextPaint
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.util.AttributeSet
@@ -10,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import com.awcjack.dualquickime.theme.KeyboardColors
 import com.awcjack.dualquickime.theme.ThemeManager
 
@@ -51,12 +53,16 @@ class CandidateGridView @JvmOverloads constructor(
         loadTheme()
     }
 
-    private fun loadTheme() {
-        colors = ThemeManager.getColors(context)
+    private fun loadTheme(): Boolean {
+        val nextColors = ThemeManager.getColors(context)
+        val changedColors = !::colors.isInitialized || colors != nextColors
+        val previousSize = candidatesPerPage
+        colors = nextColors
         loadGridLayout()
         currentPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1))
         setBackgroundColor(colors.keyboardBackground)
         setPadding(dpToPx(3), dpToPx(6), dpToPx(3), dpToPx(8))
+        return changedColors || previousSize != candidatesPerPage
     }
 
     private fun loadGridLayout() {
@@ -67,8 +73,8 @@ class CandidateGridView @JvmOverloads constructor(
     }
 
     fun refreshTheme() {
-        loadTheme()
-        if (allCandidates.isNotEmpty()) {
+        val changed = loadTheme()
+        if (changed && childCount > 0) {
             buildView()
         }
     }
@@ -83,11 +89,13 @@ class CandidateGridView @JvmOverloads constructor(
     }
 
     fun setCandidates(candidates: List<String>, initialPage: Int = 0, learned: Set<String> = emptySet()) {
-        loadGridLayout()
+        val changedTheme = loadTheme()
+        val changedCandidates = allCandidates != candidates || learnedCandidates != learned
+        val previousPage = currentPage
         allCandidates = candidates
-        learnedCandidates = learned.toSet()
+        if (learnedCandidates != learned) learnedCandidates = learned.toSet()
         currentPage = initialPage.coerceIn(0, maxOf(0, totalPages - 1))
-        buildView()
+        if (changedTheme || changedCandidates || previousPage != currentPage || childCount == 0) buildView()
     }
 
     private val totalPages: Int
@@ -149,31 +157,64 @@ class CandidateGridView @JvmOverloads constructor(
     }
 
     private fun createCandidateCell(candidate: String): TextView {
-        return TextView(context).apply {
-            val charCount = candidate.length
+        val charCount = candidate.codePointCount(0, candidate.length)
+        val startingSize = candidateFontScale * when {
+            charCount <= 1 -> 20f
+            charCount <= 2 -> 18f
+            charCount <= 4 -> 15f
+            else -> 12f
+        }
+        return FittingCandidateTextView(context, startingSize).apply {
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
                 setMargins(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
             }
             gravity = Gravity.CENTER
             text = candidate
-            // Adjust text size based on phrase length to fit in fixed cell
-            textSize = candidateFontScale * when {
-                charCount <= 1 -> 20f
-                charCount <= 2 -> 18f
-                charCount <= 4 -> 15f
-                else -> 12f
-            }
             setTextColor(if (candidate in learnedCandidates) colors.learnedCandidateText else colors.candidateText)
             contentDescription = if (candidate in learnedCandidates)
                 context.getString(com.awcjack.dualquickime.R.string.learned_candidate_accessibility, candidate) else candidate
             background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
             elevation = dpToPx(1).toFloat()
-            // Single line, scale text to fit
+            // Keep the full candidate on one line; fitting uses this cell's measured size.
             maxLines = 1
+            setHorizontallyScrolling(true)
             setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
 
             setOnClickListener {
                 onCandidateSelected?.invoke(candidate)
+            }
+        }
+    }
+
+    /** Measures only visible cells, starting from their preferred size on every resize. */
+    private class FittingCandidateTextView(context: Context, startingSizeSp: Float) : AppCompatTextView(context) {
+        private val maximumSizePx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP, startingSizeSp, resources.displayMetrics)
+        private val measuringPaint = TextPaint()
+        private var previousWidth = -1
+        private var previousHeight = -1
+
+        init { setTextSize(TypedValue.COMPLEX_UNIT_PX, maximumSizePx) }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            val availableWidth = measuredWidth - compoundPaddingLeft - compoundPaddingRight
+            val availableHeight = measuredHeight - compoundPaddingTop - compoundPaddingBottom
+            if (availableWidth <= 0 || availableHeight <= 0 ||
+                availableWidth == previousWidth && availableHeight == previousHeight) return
+            previousWidth = availableWidth
+            previousHeight = availableHeight
+            measuringPaint.set(paint)
+            measuringPaint.textSize = maximumSizePx
+            val requiredWidth = measuringPaint.measureText(text.toString()).coerceAtLeast(1f)
+            val metrics = measuringPaint.fontMetrics
+            val requiredHeight = (if (includeFontPadding) metrics.bottom - metrics.top
+                else metrics.descent - metrics.ascent).coerceAtLeast(1f)
+            val fittedSize = maximumSizePx * minOf(1f,
+                availableWidth / requiredWidth, availableHeight / requiredHeight)
+            if (kotlin.math.abs(textSize - fittedSize) > 0.01f) {
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, fittedSize)
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec)
             }
         }
     }
