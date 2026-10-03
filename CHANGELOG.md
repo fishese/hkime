@@ -1,6 +1,6 @@
 # HK IME changelog
 
-## Unreleased
+## 0.3.60 — test build
 
 - Add a 20-candidate full grid with four taller rows and 25% larger text, preserving the overall grid height and existing 25/30/35 font sizes. The selected setting explains the increased text size.
 
