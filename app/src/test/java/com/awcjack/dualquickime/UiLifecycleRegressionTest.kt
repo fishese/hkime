@@ -4,6 +4,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.widget.GridLayout
+import android.widget.LinearLayout
 import com.awcjack.dualquickime.ui.EmojiKeyboardView
 import com.awcjack.dualquickime.ui.KeyboardView
 import com.awcjack.dualquickime.theme.ThemeManager
@@ -26,6 +27,172 @@ import android.text.InputType
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w360dp-h640dp-mdpi")
 class UiLifecycleRegressionTest {
+    @Test fun remainingSymbolPagesKeepNumbersBelowTheSharedToolsAndCandidateBar() {
+        val context = RuntimeEnvironment.getApplication()
+        try {
+            for (expanded in listOf(false, true)) {
+                ThemeManager.setExpandedNumberRow(context, expanded)
+                val view = KeyboardView(context)
+                layout(view)
+                val letterHeight = view.height
+                view.setSymbolMode()
+                view.setCandidates(listOf("①", "一"))
+
+                for (page in 2..5) {
+                    // Switch with candidates still showing, as on a real symbol page.
+                    val pageButton = (view.getChildAt(3) as LinearLayout).getChildAt(0) as TextView
+                    assertEquals("${page - 1}/5", pageButton.text.toString())
+                    pageButton.performClick()
+                    layout(view)
+                    val tools = ReflectionHelpers.getField<View>(view, "symbolUtilBar")
+                    val candidates = ReflectionHelpers.getField<View>(view, "symbolCandidateBar")
+                    val numberRow = ReflectionHelpers.getField<LinearLayout>(view, "numberRow")
+                    val strip = ReflectionHelpers.getField<View>(view, "candidateContainer")
+                    assertEquals(letterHeight, view.height)
+                    assertEquals(View.VISIBLE, tools.visibility)
+                    assertEquals(if (expanded) View.VISIBLE else View.GONE, candidates.visibility)
+                    assertEquals(View.GONE, strip.visibility)
+                    if (expanded) {
+                        assertEquals(View.VISIBLE, numberRow.visibility)
+                        assertTrue(numberRow.top >= tools.bottom)
+                        assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
+                            (0 until numberRow.childCount).map { (numberRow.getChildAt(it) as TextView).text.toString() })
+                    }
+
+                    view.setCandidates(listOf("②", "二"))
+                    layout(view)
+                    assertEquals(letterHeight, view.height)
+                    assertEquals(View.GONE, tools.visibility)
+                    assertEquals(View.VISIBLE, strip.visibility)
+                    assertEquals(if (expanded) View.VISIBLE else View.GONE, numberRow.visibility)
+                    if (expanded) assertTrue(numberRow.top >= strip.bottom)
+
+                    view.clearCandidates()
+                    layout(view)
+                    assertEquals(letterHeight, view.height)
+                    assertEquals(View.VISIBLE, tools.visibility)
+                    assertEquals(View.GONE, strip.visibility)
+                    if (expanded) assertEquals(View.VISIBLE, numberRow.visibility)
+                    view.setCandidates(listOf("②", "二"))
+                }
+                // Wrap around to page 1 and verify its tools occupy the extra row.
+                ((view.getChildAt(3) as LinearLayout).getChildAt(0) as TextView).performClick()
+                view.clearCandidates()
+                layout(view)
+                assertEquals(letterHeight, view.height)
+                if (expanded) {
+                    val tools = ReflectionHelpers.getField<View>(view, "symbolUtilBar")
+                    val strip = ReflectionHelpers.getField<View>(view, "candidateContainer")
+                    assertTrue(tools.top >= strip.bottom)
+                    assertEquals(View.GONE, ReflectionHelpers.getField<View>(view, "numberRow").visibility)
+                }
+            }
+        } finally {
+            ThemeManager.setExpandedNumberRow(context, false)
+        }
+    }
+
+    @Test fun firstSymbolPageKeepsExpandedHeightAndToolsWhileCandidatesChange() {
+        val context = RuntimeEnvironment.getApplication()
+        try {
+            for (expanded in listOf(false, true)) {
+                ThemeManager.setExpandedNumberRow(context, expanded)
+                val view = KeyboardView(context)
+                view.clearCandidates()
+                layout(view)
+                val letterHeight = view.height
+
+                view.setSymbolMode()
+                view.clearCandidates()
+                layout(view)
+                val tools = ReflectionHelpers.getField<View>(view, "symbolUtilBar")
+                val candidates = ReflectionHelpers.getField<View>(view, "symbolCandidateBar")
+                assertEquals(letterHeight, view.height)
+                assertEquals(View.VISIBLE, tools.visibility)
+                assertEquals(if (expanded) View.VISIBLE else View.GONE, candidates.visibility)
+
+                view.setCandidates(listOf("①", "一"))
+                layout(view)
+                assertEquals(letterHeight, view.height)
+                assertEquals(View.VISIBLE, candidates.visibility)
+                assertEquals(if (expanded) View.VISIBLE else View.GONE, tools.visibility)
+                assertEquals(View.GONE, ReflectionHelpers.getField<View>(view, "numberRow").visibility)
+                if (expanded) assertTrue(tools.top >= candidates.bottom)
+
+                view.clearCandidates()
+                layout(view)
+                assertEquals(letterHeight, view.height)
+                assertEquals(View.VISIBLE, tools.visibility)
+                assertEquals(if (expanded) View.VISIBLE else View.GONE, candidates.visibility)
+                if (expanded) {
+                    assertEquals(View.GONE, ReflectionHelpers.getField<View>(view, "numberRow").visibility)
+                    assertEquals(View.VISIBLE, ReflectionHelpers.getField<View>(view, "candidateContainer").visibility)
+                }
+            }
+        } finally {
+            ThemeManager.setExpandedNumberRow(context, false)
+        }
+    }
+
+    @Test fun numberRowSettingRebuildsTheExistingKeyboardOnRefresh() {
+        val context = RuntimeEnvironment.getApplication()
+        ThemeManager.setExpandedNumberRow(context, false)
+        val view = KeyboardView(context)
+        view.setCandidates(listOf("字"))
+        layout(view)
+        val compactHeight = view.height
+        try {
+            ThemeManager.setExpandedNumberRow(context, true)
+            view.refreshTheme()
+            view.setCandidates(listOf("字"))
+            layout(view)
+            assertTrue(view.height > compactHeight)
+            assertEquals(View.VISIBLE, ReflectionHelpers.getField<View>(view, "numberRow").visibility)
+            ThemeManager.setExpandedNumberRow(context, false)
+            view.refreshTheme()
+            view.setCandidates(listOf("字"))
+            layout(view)
+            assertEquals(compactHeight, view.height)
+            assertEquals(View.GONE, ReflectionHelpers.getField<View>(view, "numberRow").visibility)
+        } finally {
+            ThemeManager.setExpandedNumberRow(context, false)
+        }
+    }
+
+    @Test fun expandedNumberRowStaysBesideCandidatesAndOffersNumberAlternatives() {
+        val context = RuntimeEnvironment.getApplication()
+        ThemeManager.setExpandedNumberRow(context, true)
+        try {
+            val view = KeyboardView(context)
+            var pressed: KeyboardView.KeyEvent? = null
+            view.setOnKeyPressListener { pressed = it }
+            view.setCandidates(listOf("一", "壹"))
+            layout(view)
+
+            val candidateContainer = ReflectionHelpers.getField<View>(view, "candidateContainer")
+            val numberRow = ReflectionHelpers.getField<LinearLayout>(view, "numberRow")
+            assertEquals(View.VISIBLE, candidateContainer.visibility)
+            assertEquals(View.VISIBLE, numberRow.visibility)
+            assertTrue(numberRow.top >= candidateContainer.bottom)
+            assertEquals(listOf("一", "壹"), ReflectionHelpers.getField<List<String>>(view, "displayedCandidates"))
+
+            val numberKey = numberRow.getChildAt(0)
+            val now = android.os.SystemClock.uptimeMillis()
+            val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 10f, 10f, 0)
+            val up = MotionEvent.obtain(now, now + 1, MotionEvent.ACTION_UP, 10f, 10f, 0)
+            try {
+                numberKey.dispatchTouchEvent(down)
+                numberKey.dispatchTouchEvent(up)
+            } finally {
+                down.recycle()
+                up.recycle()
+            }
+            assertEquals(KeyboardView.KeyEvent.Number(1, offerSymbolCandidates = true), pressed)
+        } finally {
+            ThemeManager.setExpandedNumberRow(context, false)
+        }
+    }
+
     @Test fun stripCounterUsesFirstCandidatePositionAndCapsTotalWithSmallPlus() {
         val view = KeyboardView(RuntimeEnvironment.getApplication())
         view.setCandidates((0 until 1425).map { "候選$it" })

@@ -1,5 +1,25 @@
 # HK IME changelog
 
+## 0.3.64 — 2026-10-04 (code 71)
+
+- Add the optional Expanded keyboard setting under Other → Keyboard, keeping candidates above permanent numbers on QWERTY and above permanent tools on symbol page 1.
+- Keep symbol pages 2–5 expanded, with permanent number keys beneath the shared tools/candidate bar.
+- Keep the expanded height consistent across QWERTY and all five symbol pages, including when candidates appear or clear.
+- Reuse symbol-page numeral alternatives and existing long-press phrase shortcuts for the expanded number keys; apply setting changes without restarting the keyboard.
+- Rename the setting to Expanded keyboard to reflect both the number and tools rows.
+- Validate with 261 passing tests and user acceptance of the signed 0.3.64 / code 71 APK on the Samsung phone.
+
+## 0.3.63 — test build, 2026-10-04 (code 70)
+
+- Keep the first symbol page at the expanded letter keyboard's height when the number-row option is enabled.
+- Retain a separate tools row for emoji, clipboard, calculator and Chinese conversion below the candidate bar, including while numeral or symbol candidates are displayed.
+
+## 0.3.62 — test build, 2026-10-04 (code 69)
+
+- Add an optional expanded keyboard with a permanent 1–0 row above the letter keys and a separate candidate bar.
+- Offer the symbol page's numeral alternatives when tapping the expanded number row, preserving number shortcut long presses.
+- Apply the number-row setting when returning to the keyboard without requiring a restart.
+
 ## 0.3.61 — refreshed release, 2026-10-03 (code 68)
 
 - Add small vertical insets around horizontal candidate buttons and learned expansion controls, restoring top breathing room after candidate recycling and keeping the gap above QWERTY slightly larger than key-row gaps.

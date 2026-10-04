@@ -56,6 +56,8 @@
     <string name="settings_latin_sentence_case_desc">After a new line, or sentence punctuation and a space. Keys show that case.</string>
     <string name="settings_key_preview">Key preview</string>
     <string name="settings_key_preview_desc">Larger letter while held. Slide off to cancel.</string>
+    <string name="settings_expanded_number_row">Expanded keyboard</string>
+    <string name="settings_expanded_number_row_desc">Keep an extra row for numbers or tools, with candidates above.</string>
     <string name="settings_space_after_english_candidate">Add space after English candidate</string>
     <string name="settings_space_after_english_candidate_desc">Adds a space after a chosen Latin word</string>
     <string name="settings_ignore_space_after_latin">Space bar commits Latin without adding a space</string>

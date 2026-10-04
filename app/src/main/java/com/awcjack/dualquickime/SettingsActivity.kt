@@ -178,6 +178,8 @@ class SettingsActivity : AppCompatActivity() {
             ThemeManager.getSwipeTyping(this)) { ThemeManager.setSwipeTyping(this, it) }
         addBehaviorSwitch(R.string.settings_key_preview, R.string.settings_key_preview_desc,
             ThemeManager.getKeyPreviewEnabled(this)) { ThemeManager.setKeyPreviewEnabled(this, it) }
+        addBehaviorSwitch(R.string.settings_expanded_number_row, R.string.settings_expanded_number_row_desc,
+            ThemeManager.getExpandedNumberRow(this)) { ThemeManager.setExpandedNumberRow(this, it) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

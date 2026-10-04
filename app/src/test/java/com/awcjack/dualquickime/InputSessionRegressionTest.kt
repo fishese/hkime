@@ -83,7 +83,10 @@ class InputSessionRegressionTest {
         ReflectionHelpers.setField(service, "mStartedInputConnection", connection)
     }
 
-    @After fun tearDown() { service.onDestroy() }
+    @After fun tearDown() {
+        ThemeManager.setExpandedNumberRow(service, false)
+        service.onDestroy()
+    }
 
     private fun key(event: KeyboardView.KeyEvent) {
         keyWithoutSettling(event)
@@ -586,6 +589,24 @@ class InputSessionRegressionTest {
         key(KeyboardView.KeyEvent.Number(2))
         key(KeyboardView.KeyEvent.Number(0))
         assertEquals("hello world 20", connection.text)
+    }
+
+    @Test fun expandedNumberKeyShowsTheSameNumeralAlternativesAsTheSymbolPage() {
+        ordinaryTextField()
+        ThemeManager.setExpandedNumberRow(service, true)
+        val view = service.onCreateInputView() as KeyboardView
+
+        key(KeyboardView.KeyEvent.Number(1, offerSymbolCandidates = true))
+
+        val alternatives = com.awcjack.dualquickime.data.SymbolCatalogue.candidatesForSymbol("1")
+        assertEquals("1", connection.text)
+        assertEquals(alternatives, ReflectionHelpers.getField<List<String>>(view, "displayedCandidates"))
+        assertNotNull(ReflectionHelpers.getField<Any?>(service, "pendingSymbol"))
+
+        val selected = alternatives.first()
+        HkInputMethodService::class.java.getDeclaredMethod("handleSymbolCandidateSelected", String::class.java)
+            .apply { isAccessible = true }.invoke(service, selected)
+        assertEquals(selected, connection.text)
     }
 
     @Test fun movingTheCaretCancelsDeferredSpaceBeforeTypingElsewhere() {

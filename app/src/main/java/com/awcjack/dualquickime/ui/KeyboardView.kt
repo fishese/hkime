@@ -160,6 +160,7 @@ class KeyboardView @JvmOverloads constructor(
     private var showKeyRadicals = true
     private var gestureDeleteEnabled = false
     private var swipeTypingEnabled = false
+    private var expandedNumberRowEnabled = false
 
     // Candidate bar components (embedded, Gboard-style)
     private var candidateContainer: LinearLayout? = null
@@ -242,6 +243,7 @@ class KeyboardView @JvmOverloads constructor(
         showKeyRadicals = ThemeManager.getShowKeyRadicals(context)
         gestureDeleteEnabled = ThemeManager.getGestureDelete(context)
         swipeTypingEnabled = ThemeManager.getSwipeTyping(context)
+        expandedNumberRowEnabled = ThemeManager.getExpandedNumberRow(context)
         keyPreviewEnabled = ThemeManager.getKeyPreviewEnabled(context)
         reflectLatinCase = ThemeManager.getLatinSentenceCase(context)
         keyPreviewFill.color = colors.keyBackgroundPressed
@@ -265,7 +267,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun appearance(): List<Any> = listOf(colors, showComposition,
         candidatePillPaddingDp, keyHeightDp, candidateTextSizeSp, showKeyRadicals,
-        gestureDeleteEnabled, swipeTypingEnabled, keyPreviewEnabled, reflectLatinCase,
+        gestureDeleteEnabled, swipeTypingEnabled, keyPreviewEnabled, reflectLatinCase, expandedNumberRowEnabled,
         isSensitiveField, ThemeManager.getChineseConvertEnabled(context), ThemeManager.getDefaultSkinTone(context))
 
     // If loadTheme or buildKeyboard throws, removeAllViews() has already run and the
@@ -407,22 +409,25 @@ class KeyboardView @JvmOverloads constructor(
             return
         }
 
-        // Top bar: candidate bar in letter mode (composition + candidates), or
-        // a util-button bar in symbol mode (since composition isn't possible
-        // there, the area is otherwise unused).
+        // Expanded symbol pages keep two bars: candidates above tools on page 1,
+        // or a shared tools/candidate bar above numbers on pages 2–5.
         if (isSymbolMode) {
+            val barHeight = candidateBarHeightPx()
+            val separateToolsRow = hasSeparateSymbolToolsRow()
             val topBar = FrameLayout(context).apply {
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, candidateBarHeightPx())
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, barHeight * if (expandedNumberRowEnabled) 2 else 1)
             }
             symbolUtilBar = createSymbolUtilBar().apply {
                 layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    FrameLayout.LayoutParams.MATCH_PARENT, barHeight).apply {
+                    if (separateToolsRow) topMargin = barHeight
+                }
             }
             topBar.addView(symbolUtilBar)
             symbolCandidateBar = createCandidateBar().apply {
                 layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                visibility = View.GONE
+                    FrameLayout.LayoutParams.MATCH_PARENT, barHeight * if (hasSeparateNumberRow()) 2 else 1)
+                visibility = if (expandedNumberRowEnabled) View.VISIBLE else View.GONE
             }
             topBar.addView(symbolCandidateBar)
             addView(topBar)
@@ -465,11 +470,16 @@ class KeyboardView @JvmOverloads constructor(
 
     // ==================== CANDIDATE BAR ====================
 
+    private fun hasSeparateSymbolToolsRow(): Boolean =
+        expandedNumberRowEnabled && isSymbolMode && symbolPage == 0
+
+    private fun hasSeparateNumberRow(): Boolean =
+        expandedNumberRowEnabled && (!isSymbolMode || symbolPage in 1..4)
+
     /**
-     * Top bar shown in full symbol mode. The candidate bar is unused there
-     * (no Cangjie composition can happen on a digit/symbol keyboard), so we
-     * reuse the space for utility buttons that would otherwise crowd the
-     * bottom row: emoji, clipboard, Chinese conversion.
+     * Tools shown above symbol keys: emoji, clipboard, calculator and conversion.
+     * Compact symbol pages share this space with candidates; the first expanded
+     * page keeps these tools in a separate row below the candidate bar.
      *
      * Candidate-bar field references are nulled out so any stray ?.-guarded
      * call (e.g. clearCandidates) doesn't touch detached views from the
@@ -879,10 +889,11 @@ class KeyboardView @JvmOverloads constructor(
         englishPill = null
         maskToggle = null
 
-        // Both overlays have the same fixed height, so composing never moves the editor.
+        // Candidate and number bars overlay when compact; expanded mode stacks them.
         val barHeight = candidateBarHeightPx()
+        val separateNumberRow = hasSeparateNumberRow()
         val wrapper = FrameLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, barHeight * if (separateNumberRow) 2 else 1)
         }
 
         candidateContainer = LinearLayout(context).apply {
@@ -961,12 +972,14 @@ class KeyboardView @JvmOverloads constructor(
         wrapper.addView(candidateContainer)
 
         // Number row overlay (10 number keys with equal width)
-        numberRow = createNumberRowOverlay(barHeight)
+        numberRow = createNumberRowOverlay(barHeight, separateNumberRow)
         wrapper.addView(numberRow)
 
-        // Show number row by default when keyboard starts
-        if (isNumberRowVisible) {
+        // Symbol pages start idle until candidates are refreshed after the rebuild.
+        if (isNumberRowVisible || isSymbolMode) {
             showNumberRow()
+        } else {
+            hideNumberRow()
         }
 
         return wrapper
@@ -1069,7 +1082,7 @@ class KeyboardView @JvmOverloads constructor(
         val previewLearned = if (learnedSuggestionsExpanded) allLearned else allLearned.take(5)
         val visibleCandidates = previewLearned + allCandidates.filter { it !in learned }
         if (isSymbolMode && symbolCandidateBar != null) {
-            symbolUtilBar?.visibility = View.GONE
+            symbolUtilBar?.visibility = if (hasSeparateSymbolToolsRow()) View.VISIBLE else View.GONE
             symbolCandidateBar?.visibility = View.VISIBLE
         }
         hideNumberRow()
@@ -1262,7 +1275,7 @@ class KeyboardView @JvmOverloads constructor(
         showNumberRow()
 
         if (isSymbolMode) {
-            symbolCandidateBar?.visibility = View.GONE
+            symbolCandidateBar?.visibility = if (expandedNumberRowEnabled) View.VISIBLE else View.GONE
             symbolUtilBar?.visibility = View.VISIBLE
         }
 
@@ -1272,11 +1285,13 @@ class KeyboardView @JvmOverloads constructor(
     /**
      * Create the number row overlay with 10 number keys (1-0) evenly distributed.
      */
-    private fun createNumberRowOverlay(barHeight: Int): LinearLayout {
+    private fun createNumberRowOverlay(barHeight: Int, separateRow: Boolean): LinearLayout {
         val numbers = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
 
         return LinearLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, barHeight)
+            layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, barHeight).apply {
+                if (separateRow) topMargin = barHeight
+            }
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(colors.candidateBarBackground)
@@ -1295,7 +1310,7 @@ class KeyboardView @JvmOverloads constructor(
                     background = createPillBackground(colors.candidatePillBackground, colors.candidatePillBackgroundPressed)
                     elevation = dpToPx(1).toFloat()
                     text = digit.toString()
-                    setupNumberKey(this, digit.digitToInt())
+                    setupNumberKey(this, digit.digitToInt(), offerSymbolCandidates = separateRow)
                 }
                 numberSlots.add(slot)
                 addView(slot)
@@ -1304,13 +1319,14 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     /**
-     * Display number keys (1-0) in the candidate bar when no candidates are shown.
-     * This allows quick number input without switching to symbol keyboard.
+     * Display number keys (1-0), replacing the candidate bar in compact mode.
+     * Expanded mode keeps both rows visible.
      */
     fun showNumberRow() {
         isNumberRowVisible = true
-        candidateContainer?.visibility = View.GONE
-        numberRow?.visibility = View.VISIBLE
+        candidateContainer?.visibility = if (expandedNumberRowEnabled && !isSymbolMode || hasSeparateSymbolToolsRow())
+            View.VISIBLE else View.GONE
+        numberRow?.visibility = if (hasSeparateSymbolToolsRow()) View.GONE else View.VISIBLE
     }
 
     /**
@@ -1318,7 +1334,7 @@ class KeyboardView @JvmOverloads constructor(
      */
     fun hideNumberRow() {
         isNumberRowVisible = false
-        numberRow?.visibility = View.GONE
+        numberRow?.visibility = if (hasSeparateNumberRow()) View.VISIBLE else View.GONE
         candidateContainer?.visibility = View.VISIBLE
     }
 
@@ -1919,7 +1935,7 @@ class KeyboardView @JvmOverloads constructor(
 
     /** Tap types the number; long-press expands its user-configured phrase. */
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupNumberKey(view: View, digit: Int) {
+    private fun setupNumberKey(view: View, digit: Int, offerSymbolCandidates: Boolean = false) {
         view.setOnTouchListener { touched, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -1940,7 +1956,7 @@ class KeyboardView @JvmOverloads constructor(
                     longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
                     if (!longPressTriggered) {
                         performKeyHaptic(touched)
-                        onKeyPress?.invoke(KeyEvent.Number(digit))
+                        onKeyPress?.invoke(KeyEvent.Number(digit, offerSymbolCandidates))
                     }
                     longPressRunnable = null
                     true
@@ -2495,7 +2511,7 @@ class KeyboardView @JvmOverloads constructor(
         data class SwipeCode(val code: String, val englishWords: List<String>,
             val chineseCodes: List<String>) : KeyEvent()
         object SwipeDelete : KeyEvent()
-        data class Number(val digit: Int) : KeyEvent()
+        data class Number(val digit: Int, val offerSymbolCandidates: Boolean = false) : KeyEvent()
         data class ShortcutPhrase(val digit: Int) : KeyEvent()
         data class Symbol(val char: Char, val forceLiteral: Boolean = false) : KeyEvent()
         data class Emoji(val emoji: String) : KeyEvent()

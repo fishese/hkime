@@ -106,6 +106,8 @@
     <string name="settings_latin_sentence_case_desc">換行後，或句末標點加空格後大寫。按鍵顯示該大小寫。</string>
     <string name="settings_key_preview">按鍵預覽</string>
     <string name="settings_key_preview_desc">按住時放大字母，滑出即取消</string>
+    <string name="settings_expanded_number_row">展開鍵盤</string>
+    <string name="settings_expanded_number_row_desc">固定顯示額外一列數字或工具，候選字列在上方。</string>
     <string name="settings_space_after_english_candidate">選擇英文字後加入空格</string>
     <string name="settings_space_after_english_candidate_desc">點選英文字後加一個空格</string>
     <string name="settings_ignore_space_after_latin">空格鍵確認拉丁字母時不加空格</string>

@@ -37,6 +37,8 @@ Cantonese, Cangjie, Quick and English suggestions can each be enabled or disable
 
 HK IME automatically shows a large keypad for number, decimal, phone, date and time fields, with quick access back to the full keyboard. The normal keyboard also keeps a number row in the candidate area when no suggestions are being shown.
 
+Enable **Other → Keyboard → Expanded keyboard** for an extra row and consistent height across QWERTY and all five symbol pages. QWERTY keeps numbers below the candidate bar. Symbol page 1 keeps emoji, clipboard, calculator and conversion tools below candidates because its main keys already include numbers. Pages 2–5 keep numbers below the shared tools/candidate bar. The option is off by default and applies when returning to the keyboard. Expanded number keys offer the same numeral alternatives as symbol-page numbers; long presses still insert saved phrase shortcuts.
+
 The symbol keyboard has five pages covering punctuation, brackets, currencies, maths, arrows, shapes and other common symbols. Many keys offer related characters and Unicode variants through the candidate bar.
 
 A built-in calculator handles basic **+ − × ÷** arithmetic. Results can be inserted immediately or kept in the utility bar for later insertion. The calculator is not shown in password fields.

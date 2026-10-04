@@ -475,7 +475,7 @@ class HkInputMethodService : InputMethodService() {
             is KeyboardView.KeyEvent.SwipeCode -> handleSwipeCode(event)
             KeyboardView.KeyEvent.SwipeDelete -> handleSwipeDelete()
             is KeyboardView.KeyEvent.MoveCursor -> Unit
-            is KeyboardView.KeyEvent.Number -> handleNumber(event.digit)
+            is KeyboardView.KeyEvent.Number -> handleNumber(event.digit, event.offerSymbolCandidates)
             is KeyboardView.KeyEvent.ShortcutPhrase -> handleShortcutPhrase(event.digit)
             is KeyboardView.KeyEvent.Symbol -> handleSymbol(event)
             is KeyboardView.KeyEvent.Emoji -> handleEmoji(event.emoji)
@@ -777,7 +777,7 @@ class HkInputMethodService : InputMethodService() {
         if (length > 0) ic.deleteSurroundingText(length, 0) else deleteOneGrapheme()
     }
 
-    private fun handleNumber(digit: Int) {
+    private fun handleNumber(digit: Int, offerSymbolCandidates: Boolean = false) {
         if (isEmailSuggestionsMode) {
             finishPendingPunctuationSpace()
             val digitStr = digit.toString()
@@ -804,7 +804,7 @@ class HkInputMethodService : InputMethodService() {
         spaceDeferredUntilNextLatin = false
         val text = digit.toString()
         commitText(text)
-        if (isSymbolMode) {
+        if (isSymbolMode || offerSymbolCandidates) {
             // Use the whole contiguous number, so 12 can offer Ⅻ while 13
             // does not incorrectly fall back to the alternatives for 3.
             val number = currentInputConnection?.getTextBeforeCursor(32, 0)?.toString()

@@ -37,6 +37,7 @@ object ThemeManager {
     private const val KEY_SWIPE_TYPING = "swipe_typing_enabled"
     private const val KEY_KEY_PREVIEW = "key_preview_enabled"
     private const val KEY_LATIN_SENTENCE_CASE = "latin_sentence_case"
+    private const val KEY_EXPANDED_NUMBER_ROW = "expanded_number_row_enabled"
 
     fun getLearnedPhrasesEnabled(context: Context): Boolean =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean("learned_phrases_enabled", true)
@@ -211,6 +212,13 @@ object ThemeManager {
         cachedKeyPreview = enabled
         getPrefs(context).edit().putBoolean(KEY_KEY_PREVIEW, enabled).apply()
     }
+
+    // Keep a separate number row above the letter keys while retaining the candidate bar.
+    fun getExpandedNumberRow(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_EXPANDED_NUMBER_ROW, false)
+
+    fun setExpandedNumberRow(context: Context, enabled: Boolean) =
+        getPrefs(context).edit().putBoolean(KEY_EXPANDED_NUMBER_ROW, enabled).apply()
 
     // Capitalize the first Latin letter of a line, and after sentence punctuation and a space.
     // Default off: typing stays lowercase unless shift or caps lock; key faces reflect that case.
