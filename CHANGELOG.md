@@ -1,5 +1,18 @@
 # HK IME changelog
 
+## 0.3.66 — 2026-10-08 (code 73)
+
+- Restore the original 123/ABC width on both keyboard layouts.
+- Keep comma beside full stop to the right of Space, narrowing both punctuation keys by 10% and giving their freed width to Space so it extends slightly further right.
+- Add … and ⋯ to both half-width and Chinese full-stop candidates, and append diagonal ⋱ to the existing ellipsis candidates.
+- Accepted on the Samsung phone with the original 123/ABC widths and the adjusted Space/comma/full-stop layout; 0.3.65 was an intermediate local test build.
+
+## 0.3.65 — test build, 2026-10-08 (code 72)
+
+- Move the comma immediately left of the full stop, placing both to the right of Space on QWERTY and symbol keyboards.
+- Narrow 123 and ABC equally to the Enter key's width and give the freed width to Space, keeping the bottom-row keys aligned across modes.
+- Add … and ⋯ to half-width and Chinese full-stop candidates, and append diagonal ⋱ to the existing ellipsis candidates.
+
 ## 0.3.64 — 2026-10-04 (code 71)
 
 - Add the optional Expanded keyboard setting under Other → Keyboard, keeping candidates above permanent numbers on QWERTY and above permanent tools on symbol page 1.

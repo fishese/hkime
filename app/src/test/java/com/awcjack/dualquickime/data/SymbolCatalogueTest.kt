@@ -81,6 +81,13 @@ class SymbolCatalogueTest {
     }
 
     @Test fun punctuationAndMathKeysOfferTheRequestedVariants() {
+        for (fullStop in listOf(".", "。")) {
+            val candidates = SymbolCatalogue.candidatesForSymbol(fullStop)
+            assertEquals(if (fullStop == ".") "。" else ".", candidates.first())
+            assertTrue(listOf("…", "⋯").all { it in candidates })
+        }
+        assertEquals(listOf("...", "省略號", "ellipsis", "⋯", "︙", "⋱"),
+            SymbolCatalogue.candidatesForSymbol("…"))
         assertEquals(listOf("❗", "❢", "❣", "！", "‼"),
             SymbolCatalogue.candidatesForSymbol("!").take(5))
         assertTrue(listOf("‡", "✙", "✚", "✛", "✜", "✞", "✟", "✠", "✢", "✣", "✥", "➕", "﹢", "＋")

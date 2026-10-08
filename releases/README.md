@@ -2,7 +2,13 @@
 
 Signed HK IME APKs are attached to [GitHub Releases](https://github.com/fishese/hkime/releases), not committed to the source tree. This keeps repository clones small. Existing APKs remain recoverable from older Git commits; removing them from history would require a separate history rewrite.
 
-## Current release: 0.3.64 / code 71
+## Current release: 0.3.66 / code 73
+
+The bottom-row reach and ellipsis changes were accepted on the Samsung SM-S9280 on 2026-10-08. Source tag: `v0.3.66`. The release uses the exact signed APK installed for that acceptance, named `HK-IME-0.3.66-universal-release.apk`. Its SHA-256 is `6287193b947f520ff7464c9c3ba50c268374aa004f48690fe542440bb9db6428`. The tested arm64 and universal APKs are identical, so only the universal asset is published. Version 0.3.65 was an intermediate test build; 0.3.66 restores the original 123/ABC widths and slightly narrows comma and full stop to extend Space to the right.
+
+Pre-merge validation: 262 unit/Robolectric tests passed with zero failures, errors or skips; release lint completed with zero errors and 177 warnings. The signed release build and signature verification passed before phone acceptance.
+
+## Previous release: 0.3.64 / code 71
 
 The expanded keyboard was accepted on the Samsung SM-S9280 on 2026-10-04. Source tag: `v0.3.64`. The release uses the exact signed APK installed for that acceptance, named `HK-IME-0.3.64-universal-release.apk`. Its SHA-256 is `a6938dfed7bcc3338454ae6e8d308433c9c724ec756deabe064dc7ce3c54a715`. The tested arm64 APK and universal APK are byte-for-byte identical, so only the universal asset is published. Versions 0.3.62 and 0.3.63 were intermediate local test builds; 0.3.64 contains the accepted layouts for QWERTY and all five symbol pages.
 

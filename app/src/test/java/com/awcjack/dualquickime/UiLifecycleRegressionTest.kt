@@ -27,6 +27,48 @@ import android.text.InputType
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w360dp-h640dp-mdpi")
 class UiLifecycleRegressionTest {
+    @Test fun bottomRowMakesSpaceEasierToReachAndStaysAlignedAcrossModes() {
+        val context = RuntimeEnvironment.getApplication()
+        fun bottomKeys(view: KeyboardView): List<TextView> {
+            val row = view.getChildAt(view.childCount - 1) as LinearLayout
+            return (0 until row.childCount).map { row.getChildAt(it) as TextView }
+        }
+        try {
+            for (expanded in listOf(false, true)) {
+                ThemeManager.setExpandedNumberRow(context, expanded)
+                for (width in listOf(320, 360, 411)) {
+                    val view = KeyboardView(context)
+                    fun measure() {
+                        view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST))
+                        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+                    }
+                    measure()
+                    val letterKeys = bottomKeys(view)
+                    assertEquals(listOf("⌄", "123", "space", "，", "。", "↵"),
+                        letterKeys.map { it.text.toString() })
+                    val rowWidth = (letterKeys.first().parent as View).width
+                    assertTrue(letterKeys[2].left.toFloat() in rowWidth * 0.21f..rowWidth * 0.23f)
+                    assertTrue(letterKeys[2].width > rowWidth * 0.45f)
+                    assertTrue(letterKeys[1].width.toFloat() in rowWidth * 0.15f..rowWidth * 0.17f)
+                    assertTrue(letterKeys[3].width < rowWidth * 0.1f)
+                    assertTrue(letterKeys[4].width < rowWidth * 0.1f)
+                    val positions = letterKeys.map { it.left to it.width }
+                    view.setSymbolMode()
+                    measure()
+                    assertEquals(listOf("⌄", "ABC", "space", ",", ".", "↵"),
+                        bottomKeys(view).map { it.text.toString() })
+                    assertEquals(positions, bottomKeys(view).map { it.left to it.width })
+                    view.setLetterMode()
+                    measure()
+                    assertEquals(positions, bottomKeys(view).map { it.left to it.width })
+                }
+            }
+        } finally {
+            ThemeManager.setExpandedNumberRow(context, false)
+        }
+    }
+
     @Test fun remainingSymbolPagesKeepNumbersBelowTheSharedToolsAndCandidateBar() {
         val context = RuntimeEnvironment.getApplication()
         try {

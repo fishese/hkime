@@ -1530,11 +1530,11 @@ class KeyboardView @JvmOverloads constructor(
             }
             addView(modeToggleKey)
 
-            addView(createSpecialKeyWithLongPress("，", ',', 1f))
-
             addView(createSpaceKey())
 
-            addView(createSpecialKeyWithLongPress("。", '.', 1f))
+            addView(createSpecialKeyWithLongPress("，", ',', 0.9f))
+
+            addView(createSpecialKeyWithLongPress("。", '.', 0.9f))
 
             addView(createEnterKey())
         }
@@ -1544,7 +1544,8 @@ class KeyboardView @JvmOverloads constructor(
     private fun createSpaceKey(): TextView {
         return TextView(context).apply {
             spaceKeyView = this
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 4f)
+            // Give Space the width freed by slightly narrowing comma and full stop.
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 4.2f)
             gravity = Gravity.CENTER
             text = "space"
             textSize = 14f
@@ -2087,11 +2088,11 @@ class KeyboardView @JvmOverloads constructor(
             // createSymbolUtilBar — so the bottom row is only mode-toggle and
             // punctuation/whitespace.
 
-            addView(createSpecialKeyWithLongPress(",", '，', 1f))
-
             addView(createSpaceKey())
 
-            addView(createSpecialKeyWithLongPress(".", '。', 1f))
+            addView(createSpecialKeyWithLongPress(",", '，', 0.9f))
+
+            addView(createSpecialKeyWithLongPress(".", '。', 0.9f))
 
             addView(createEnterKey())
         }

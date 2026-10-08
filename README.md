@@ -69,6 +69,8 @@ The **簡⇄繁** utility converts selected Chinese text, or the most recent sen
 - Email-domain suggestions after `@` in email fields, and in other fields when the text before `@` is an address.
 - Light, dark and system themes.
 - Adjustable key height, candidate text size and candidate spacing.
+- Comma sits immediately left of full stop, both to the right of Space. Slightly narrower punctuation keys give Space more room to the right; 123 and ABC retain their original matching widths across modes.
+- Full-stop candidates include … and ⋯; the ellipsis key also offers diagonal ⋱.
 - Optional Cangjie labels and radical-sequence preview.
 - Hold the spacebar and drag to move the caret. In multiline fields, vertical drags navigate wrapped lines with a less-sensitive threshold to reduce accidental line changes. Long drags repeat while held and stay within the active text field.
 - Caps Lock by double-tapping Shift.
