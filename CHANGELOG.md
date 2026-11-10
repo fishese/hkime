@@ -1,6 +1,6 @@
 # HK IME changelog
 
-## Unreleased
+## 0.3.67 — test build
 
 - Commit password characters directly, avoiding composing spans and replacement candidates in password editors including WebView payment fields. Backspace deletes committed input and the eye control remains available.
 
