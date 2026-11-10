@@ -1,5 +1,9 @@
 # HK IME changelog
 
+## Unreleased
+
+- Commit password characters directly, avoiding composing spans and replacement candidates in password editors including WebView payment fields. Backspace deletes committed input and the eye control remains available.
+
 ## 0.3.66 — 2026-10-08 (code 73)
 
 - Restore the original 123/ABC width on both keyboard layouts.

@@ -276,6 +276,7 @@ class HkInputMethodService : InputMethodService() {
                 isSymbolMode = symbolMode
             }
             setOnCandidateSelectedListener { candidate ->
+                if (isPasswordField) return@setOnCandidateSelectedListener
                 if (pendingSymbol != null) {
                     handleSymbolCandidateSelected(candidate)
                 } else if (isEmailSuggestionsMode) {
@@ -456,6 +457,7 @@ class HkInputMethodService : InputMethodService() {
         }
         when (event) {
             KeyboardView.KeyEvent.StartCursorDrag -> {
+                if (isPasswordField) clearComposition()
                 spaceCursorInputConnection = currentInputConnection
                 return
             }
@@ -466,6 +468,10 @@ class HkInputMethodService : InputMethodService() {
             else -> Unit
         }
         invalidateEditorAnchors()
+        if (isPasswordField && handlePasswordKey(event)) {
+            refreshLatinCase()
+            return
+        }
         if (pendingSymbol != null && event !is KeyboardView.KeyEvent.Symbol) {
             pendingSymbol = null
             keyboardView?.clearCandidates()
@@ -502,6 +508,47 @@ class HkInputMethodService : InputMethodService() {
             is KeyboardView.KeyEvent.ConvertChinese -> handleConvertChinese(event.direction)
         }
         refreshLatinCase()
+    }
+
+    /** Password editors may reject composing spans or hide the surrounding text. */
+    private fun handlePasswordKey(event: KeyboardView.KeyEvent): Boolean {
+        val text = when (event) {
+            is KeyboardView.KeyEvent.Letter -> event.char.toString()
+            is KeyboardView.KeyEvent.Number -> event.digit.toString()
+            is KeyboardView.KeyEvent.Symbol -> event.char.toString()
+            is KeyboardView.KeyEvent.Emoji -> event.emoji
+            is KeyboardView.KeyEvent.ClipboardPaste -> event.text
+            is KeyboardView.KeyEvent.ShortcutPhrase -> ShortcutPhraseManager.get(this, event.digit).ifEmpty { event.digit.toString() }
+            KeyboardView.KeyEvent.Space -> " "
+            KeyboardView.KeyEvent.Backspace, KeyboardView.KeyEvent.SwipeDelete -> {
+                val connection = currentInputConnection
+                val selected = connection?.getSelectedText(0)
+                if (!selected.isNullOrEmpty()) {
+                    if (connection.commitText("", 1)) clearComposition()
+                } else if (connection?.deleteSurroundingTextInCodePoints(1, 0) == true ||
+                    connection?.deleteSurroundingText(1, 0) == true) {
+                    val raw = composition.rawKeys
+                    if (raw.isNotEmpty()) {
+                        val end = raw.offsetByCodePoints(raw.length, -1)
+                        composition = composition.copy(rawKeys = raw.substring(0, end), candidates = emptyList())
+                        while (letterCases.size > end) letterCases.removeAt(letterCases.lastIndex)
+                    }
+                    updateCandidateView()
+                }
+                return true
+            }
+            is KeyboardView.KeyEvent.SwipeCode, is KeyboardView.KeyEvent.ConvertChinese,
+            is KeyboardView.KeyEvent.CalculatorInsert -> return true
+            else -> return false
+        }
+        val replacingSelection = !currentInputConnection?.getSelectedText(0).isNullOrEmpty()
+        if (currentInputConnection?.commitText(text, 1) == true) {
+            if (replacingSelection) clearComposition()
+            letterCases.addAll(text.map { it.isUpperCase() })
+            composition = composition.copy(rawKeys = composition.rawKeys + text, candidates = emptyList())
+            updateCandidateView()
+        }
+        return true
     }
 
     private fun refreshLatinCase() {
@@ -819,6 +866,7 @@ class HkInputMethodService : InputMethodService() {
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
             candidatesStart, candidatesEnd)
+        if (isPasswordField) return
         if (pendingPunctuationSpace && CompositionSelection.movedOutside(
                 newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
             finishPendingPunctuationSpace()
@@ -1141,7 +1189,7 @@ class HkInputMethodService : InputMethodService() {
             return
         }
 
-        inputConnection.finishComposingText()
+        if (!isPasswordField) inputConnection.finishComposingText()
         val action = info.imeOptions and EditorInfo.IME_MASK_ACTION
         val noEnterAction = info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
         val isText = info.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT
@@ -1218,6 +1266,7 @@ class HkInputMethodService : InputMethodService() {
      * The provisional separator stays in front of that string.
      */
     private fun finishEnglishComposition(): Boolean {
+        if (isPasswordField) return false
         if (pendingSwipeChoice) {
             confirmPendingSwipeChoice()
             return false
@@ -1704,7 +1753,7 @@ class HkInputMethodService : InputMethodService() {
             val isMasked = isPasswordField && isPasswordMaskEnabled
             // Full Cangjie codes have at most five keys; longer buffers are
             // usually English, where radical previews only crowd suggestions.
-            val radicals = if (isMasked || composition.rawKeys.length > 5) "" else composition.radicalDisplay
+            val radicals = if (isPasswordField || composition.rawKeys.length > 5) "" else composition.radicalDisplay
             val keys = if (isMasked) "*".repeat(composition.rawKeys.length) else getDisplayKeys()
             view.setComposition(radicals, keys)
             view.setMaskToggle(
@@ -1713,7 +1762,10 @@ class HkInputMethodService : InputMethodService() {
             )
 
             val symbol = pendingSymbol
-            if (symbol != null) {
+            if (isPasswordField) {
+                if (composition.rawKeys.isEmpty()) view.clearCandidates()
+                else view.clearCandidateSlotsOnly()
+            } else if (symbol != null) {
                 view.setCandidates(symbol.alternatives)
             } else if (composition.hasCandidates) {
                 view.setCandidates(composition.candidates)
