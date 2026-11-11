@@ -2,7 +2,13 @@
 
 Signed HK IME APKs are attached to [GitHub Releases](https://github.com/fishese/hkime/releases), not committed to the source tree. This keeps repository clones small. Existing APKs remain recoverable from older Git commits; removing them from history would require a separate history rewrite.
 
-## Current release: 0.3.66 / code 73
+## Current release: 0.3.67 / code 74
+
+Password fields now commit input directly without composing spans or replacement candidates. The signed universal APK was installed on the Samsung SM-S9280 and its version verified as 0.3.67 / code 74. The release uses that exact APK, `HK-IME-0.3.67-universal-release.apk`, SHA-256 `0c5e6ed1502165ab70b37f2bc555c765f433815718bc21128070fa045b86d49f`. The affected payment WebView was not independently reproduced during development.
+
+Validation: 40 focused password and normal-input regression tests passed. The signed release build, Android vital lint and signature verification passed.
+
+## Previous release: 0.3.66 / code 73
 
 The bottom-row reach and ellipsis changes were accepted on the Samsung SM-S9280 on 2026-10-08. Source tag: `v0.3.66`. The release uses the exact signed APK installed for that acceptance, named `HK-IME-0.3.66-universal-release.apk`. Its SHA-256 is `6287193b947f520ff7464c9c3ba50c268374aa004f48690fe542440bb9db6428`. The tested arm64 and universal APKs are identical, so only the universal asset is published. Version 0.3.65 was an intermediate test build; 0.3.66 restores the original 123/ABC widths and slightly narrows comma and full stop to extend Space to the right.
 
